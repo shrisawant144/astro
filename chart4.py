@@ -1014,22 +1014,32 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
 # ────────────────────────────────────────────────
 # Print Function
 # ────────────────────────────────────────────────
-def print_kundali(result):
-    print("\n" + "═" * 95)
-    print(" VEDIC KUNDALI – Whole Sign – Lahiri – D7 + D10 + Marriage Timing")
-    print("═" * 95)
-    print(f"Lagna : {result['lagna_sign']} {result['lagna_deg']}°")
-    print(f"Moon (Rasi) : {result['moon_sign']} – {result['moon_nakshatra']}")
-    print(f"7th Lord : {result['seventh_lord']}\n")
+def print_kundali(result, file=None):
+    from io import StringIO
+
+    output = StringIO()
+
+    def write(s):
+        if file:
+            output.write(s + "\n")
+        else:
+            print(s)
+
+    write("\n" + "═" * 95)
+    write(" VEDIC KUNDALI – Whole Sign – Lahiri – D7 + D10 + Marriage Timing")
+    write("═" * 95)
+    write(f"Lagna : {result['lagna_sign']} {result['lagna_deg']}°")
+    write(f"Moon (Rasi) : {result['moon_sign']} – {result['moon_nakshatra']}")
+    write(f"7th Lord : {result['seventh_lord']}\n")
     order = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]
-    print("Planets in Rasi (D1):")
-    print("-" * 85)
+    write("Planets in Rasi (D1):")
+    write("-" * 85)
     for pl in order:
         if pl in result["planets"]:
             d = result["planets"][pl]
             r = " R" if d["retro"] else ""
             dig = f" ({d['dignity']})" if d["dignity"] else ""
-            print(
+            write(
                 f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11} {d['nakshatra']:18}{dig}{r}"
             )
     for div, title in [
@@ -1037,39 +1047,39 @@ def print_kundali(result):
         ("d7", "Saptamsa (D7 – Children/Progeny)"),
         ("d10", "Dasamsa (D10 – Career/Profession)"),
     ]:
-        print(f"\n{title}:")
-        print("-" * 85)
+        write(f"\n{title}:")
+        write("-" * 85)
         for pl in order:
             if pl in result[div]:
                 d = result[div][pl]
-                print(f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11}")
-    print("\nHouses (Whole Sign):")
-    print("-" * 85)
+                write(f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11}")
+    write("\nHouses (Whole Sign):")
+    write("-" * 85)
     lagna_idx = zodiac_signs.index(result["lagna_sign"])
     for h in range(1, 13):
         sidx = (lagna_idx + h - 1) % 12
         sign = zodiac_signs[sidx]
         pls = sorted(result["houses"][h])
         content = " ".join(pls) if pls else "—"
-        print(f"House {h:2d} ({sign:11}): {content}")
-    print("\nAspects (Drishti):")
-    print("-" * 85)
+        write(f"House {h:2d} ({sign:11}): {content}")
+    write("\nAspects (Drishti):")
+    write("-" * 85)
     for h in range(1, 13):
         if result["aspects"][h]:
-            print(f"House {h:2d}: {', '.join(result['aspects'][h])}")
-    print("\nVimshottari Dasha:")
-    print("-" * 85)
+            write(f"House {h:2d}: {', '.join(result['aspects'][h])}")
+    write("\nVimshottari Dasha:")
+    write("-" * 85)
     vim = result["vimshottari"]
-    print(
+    write(
         f"Starting MD : {vim['starting_lord']} (balance {vim['balance_at_birth_years']} yrs)"
     )
     if vim["current_md"]:
-        print(f"Current : {vim['current_md']} → {vim['current_ad']}")
-    print("\nMarriage Timing Insights (Basic Parashari):")
-    print("-" * 85)
-    print(f"7th Lord : {result['seventh_lord']}")
-    print("Key Triggers : Venus MD/AD OR 7th-lord MD/AD")
-    print(
+        write(f"Current : {vim['current_md']} → {vim['current_ad']}")
+    write("\nMarriage Timing Insights (Basic Parashari):")
+    write("-" * 85)
+    write(f"7th Lord : {result['seventh_lord']}")
+    write("Key Triggers : Venus MD/AD OR 7th-lord MD/AD")
+    write(
         "Also favourable : Jupiter transit over 7th/2nd from Moon, strong D9 Venus/7th"
     )
     vm = vim["current_md"]
@@ -1080,48 +1090,50 @@ def print_kundali(result):
         or vm == result["seventh_lord"]
         or va == result["seventh_lord"]
     ):
-        print("*** CURRENT DASHA IS HIGHLY FAVOURABLE FOR MARRIAGE ***")
+        write("*** CURRENT DASHA IS HIGHLY FAVOURABLE FOR MARRIAGE ***")
     else:
-        print(
+        write(
             "Next favourable periods: Venus or 7th-lord Mahadasha/Antardasha (check full list)"
         )
-    print("\nCurrent Gochara (from Moon):")
-    print("-" * 85)
+    write("\nCurrent Gochara (from Moon):")
+    write("-" * 85)
     for pl, t in sorted(result["transits"].items()):
-        print(
+        write(
             f"{pl:>3}: {t['sign']:11} (house {t['house_from_moon']:2d}) – {t['effect']}"
         )
-    print("\n🔥 YOGAS WITH STRENGTH (1-10) & ACCURATE TIMINGS (2026–2046)")
-    print("-" * 95)
+    write("\n🔥 YOGAS WITH STRENGTH (1-10) & ACCURATE TIMINGS (2026–2046)")
+    write("-" * 95)
     for y in result.get("yogas", []):
-        print(f"• {y}")
-    print("\n📅 POSSIBLE FRUCTIFICATION PERIODS (Next 20 years)")
-    print("-" * 95)
+        write(f"• {y}")
+    write("\n📅 POSSIBLE FRUCTIFICATION PERIODS (Next 20 years)")
+    write("-" * 95)
     for event, periods in result.get("timings", {}).items():
-        print(f"\n{event}:")
+        write(f"\n{event}:")
         if periods:
             for p in periods:
-                print(p)
+                write(p)
         else:
-            print(" No major period in next 20 years")
-    print("\n⚠️ PROBLEMS/DOSHAS IN KUNDALI")
-    print("-" * 95)
+            write(" No major period in next 20 years")
+    write("\n⚠️ PROBLEMS/DOSHAS IN KUNDALI")
+    write("-" * 95)
     for prob in result.get("problems", []):
-        print(f"• {prob['summary']}")
-    print("\nDetailed Explanation of Doshas:")
-    print("-" * 95)
+        write(f"• {prob['summary']}")
+    write("\nDetailed Explanation of Doshas:")
+    write("-" * 95)
     for prob in result.get("problems", []):
         if prob["detail"]:
-            print(f"{prob['summary'].split(':')[0]}:")
-            print(prob["detail"])
-            print()
-    print("\n" + result.get("final_analysis", ""))
-    print("\nNote: Highest probability when dasha + transit + gochara align.")
-    print(
+            write(f"{prob['summary'].split(':')[0]}:")
+            write(prob["detail"])
+            write("")
+    write("\n" + result.get("final_analysis", ""))
+    write("\nNote: Highest probability when dasha + transit + gochara align.")
+    write(
         "For 1999-04-14 Mumbai chart (age 27 in 2026): timings calculated from birth JD."
     )
-    print("Doshas indicate challenges; remedies like mantras/gemstones can mitigate.")
-    print("\n" + "═" * 95)
+    write("Doshas indicate challenges; remedies like mantras/gemstones can mitigate.")
+    write("\n" + "═" * 95)
+    if file:
+        file.write(output.getvalue())
 
 
 # ────────────────────────────────────────────────
@@ -1130,16 +1142,24 @@ def print_kundali(result):
 def main():
     print("Vedic Kundali Generator – Full Version with D7, D10 & Marriage Timing")
     print("─────────────────────────────────────────────────────────────────────\n")
-    date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
-    time_str = input("Birth Time (HH:MM 24h) : ").strip()
-    place = input("Birth Place (City, Country) : ").strip()
-    try:
-        result = calculate_kundali(date_str, time_str, place)
-        print_kundali(result)
-    except Exception as e:
-        print(f"\nError: {e}")
-        print("Tips: Use place='Mumbai, Maharashtra, India'")
-        print(" Make sure Swiss Ephemeris .se1 files are in the same folder")
+    while True:
+        name = input("Enter Name : ").strip()
+        date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
+        time_str = input("Birth Time (HH:MM 24h) : ").strip()
+        place = input("Birth Place (City, Country) : ").strip()
+        try:
+            result = calculate_kundali(date_str, time_str, place)
+            filename = f"{name}_kundali_report.txt"
+            with open(filename, "w", encoding="utf-8") as f:
+                print_kundali(result, file=f)
+            print_kundali(result)
+            print(f"\nReport saved as '{filename}'")
+            break
+        except Exception as e:
+            print(f"\nError: {e}")
+            print("Tips: Use place='Mumbai, Maharashtra, India'")
+            print(" Make sure Swiss Ephemeris .se1 files are in the same folder")
+            print("Please re-enter the details.\n")
 
 
 if __name__ == "__main__":
