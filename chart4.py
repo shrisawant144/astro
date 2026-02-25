@@ -314,6 +314,11 @@ def datetime_to_jd(dt):
     return swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute / 60.0)
 
 
+def house_from_ref(ref_house, target_house):
+    """Helper: Get relative house of target from reference house."""
+    return ((target_house - ref_house + 12) % 12) + 1
+
+
 # ────────────────────────────────────────────────
 # Divisional Charts (Traditional Parashari)
 # ────────────────────────────────────────────────
@@ -438,8 +443,6 @@ def detect_problems(result):
     if "Ra" in planet_house and "Ke" in planet_house:
         ra_house = planet_house["Ra"]
         ke_house = planet_house["Ke"]
-        # Normalize houses: assume houses are 1-12
-        # Check if all other planets are between ra_house and ke_house (clockwise or anticlockwise)
         all_planets_between = True
         direction1 = (ke_house - ra_house + 12) % 12  # From Ra to Ke clockwise
         direction2 = (ra_house - ke_house + 12) % 12  # From Ke to Ra clockwise
@@ -493,7 +496,6 @@ def detect_problems(result):
         detail = f"- Reason: Pitru Dosha arises from Sun's affliction by malefics, indicating unresolved ancestral karma.\n- Direct Outcome: Paternal health problems, family disputes, or luck obstacles; remedies include Shradh rituals."
         problems.append({"summary": summary, "detail": detail})
     # 6. Graha Malika Yoga (Planets in consecutive houses – can be problematic if malefic heavy)
-    # Simplified: Check if 5+ planets in 5 consecutive houses
     consecutive_count = 1
     max_consec = 1
     for i in range(1, 13):
@@ -543,25 +545,23 @@ def generate_final_analysis(result):
         )
     else:
         analysis += "Delays in stability, confusion in decisions, family strains, and intense phases could manifest as career shifts or emotional highs/lows. "
-    analysis += f"Positive: High-strength yogas promise luxury/stability; timings show gains in {list(timings.keys())[0]} around 2027-2043.\n"
-    analysis += f"- Overall Trajectory: Hard early life builds resilience; post-2041 eases with wealth. In current {current_md} Dasha, intellect favors but tests via doshas—focus remedies."
+    analysis += f"Positive: High-strength yogas promise luxury/stability; timings show gains across life phases.\n"
+    analysis += f"- Overall Trajectory: Hard early life builds resilience; later dashas (especially Venus onward) bring ease, wealth, and fulfillment. In current {current_md} Dasha, intellect favors but tests via doshas—focus remedies."
     return analysis
 
 
 # ────────────────────────────────────────────────
-# Accurate Fructification Timings (2026-2046)
+# Accurate Fructification Timings (Entire Life)
 # ────────────────────────────────────────────────
 def generate_timings(result, birth_year, birth_jd):
-    """Generate accurate timing predictions for next 20 years"""
+    """Generate timing predictions for the entire life (from birth onward)"""
     dashas = result["vimshottari"]["mahadasas"]
-    current_year = 2026
 
     def lord_of(house_no):
         lagna_idx = zodiac_signs.index(result["lagna_sign"])
         sign = zodiac_signs[(lagna_idx + house_no - 1) % 12]
         return sign_lords[sign]
 
-    # Event → favorable lords (expanded list)
     seventh_lord = result["seventh_lord"]
     events = {
         "Marriage": [
@@ -599,33 +599,28 @@ def generate_timings(result, birth_year, birth_jd):
             md_start_age = (md["start_jd"] - birth_jd) / 365.25
             md_start_y = int(birth_year + md_start_age)
             md_end_y = int(birth_year + (md["end_jd"] - birth_jd) / 365.25)
-            # Skip if MD is completely outside our window
-            if md_end_y < current_year or md_start_y > current_year + 20:
-                continue
-            # Include if MD lord is favorable
+            # Include if MD lord is favorable (no year window restriction)
             if md_lord in fav_lords:
                 periods.append(f"• {md_lord} Mahadasha ({md_start_y}-{md_end_y})")
-            # Check antardashas within the 2026-2046 window
+            # Include favorable Antardashas
             for ad in md.get("antardashas", []):
                 if ad["lord"] in fav_lords:
                     ad_start_age = (ad["start_jd"] - birth_jd) / 365.25
                     ad_end_age = (ad["end_jd"] - birth_jd) / 365.25
                     ad_start_y = int(birth_year + ad_start_age)
                     ad_end_y = int(birth_year + ad_end_age)
-                    # Include if AD starts or overlaps within 2026-2046
-                    if ad_start_y <= current_year + 20 and ad_end_y >= current_year:
-                        periods.append(
-                            f" └─ {md_lord}/{ad['lord']} Antardasha ({ad_start_y}-{ad_end_y})"
-                        )
-        output[event] = periods[:10] if periods else []
+                    periods.append(
+                        f"  └─ {md_lord}/{ad['lord']} Antardasha ({ad_start_y}-{ad_end_y})"
+                    )
+        output[event] = periods[:10] if periods else []  # Limit to top 10 most relevant
     return output
 
 
 # ────────────────────────────────────────────────
-# Detect Yogas with Strength
+# Detect Yogas with Strength (Strict Parashari Fixes)
 # ────────────────────────────────────────────────
 def detect_yogas(result):
-    """Detect major yogas and calculate their strength (1-10)"""
+    """Detect major yogas and calculate their strength (1-10) - Strict Parashari rules."""
     yogas = []
     p = result["planets"]
     h = result["houses"]
@@ -642,63 +637,139 @@ def detect_yogas(result):
         sign_idx = (lagna_idx + house_no - 1) % 12
         return sign_lords[zodiac_signs[sign_idx]]
 
-    # 1. Gajakesari Yoga (Jupiter-Moon)
-    if "Ju" in planet_house and "Mo" in planet_house:
-        stren = get_yoga_strength(["Ju", "Mo"], result)
-        yogas.append(f"Gajakesari Yoga (Strength {stren}/10) → Fame, wisdom, wealth")
-    # 2. Raja Yogas (Kendra-Trikona lords)
+    # Simplified aspects dict: From each house, houses aspected (all 7th; specials added)
+    aspects = {
+        1: [7],
+        2: [8],
+        3: [9],
+        4: [10],
+        5: [11],
+        6: [12],
+        7: [1],
+        8: [2],
+        9: [3],
+        10: [4],
+        11: [5],
+        12: [6],
+    }
+    # Add specials: Mars +4/8 from its house, Ju +5/9, Sa +3/10
+    for pl_house in range(1, 13):
+        if "Ma" in [pl for pl in planet_house if planet_house.get(pl) == pl_house]:
+            aspects[pl_house] += [
+                ((pl_house - 1 + 4) % 12) + 1,
+                ((pl_house - 1 + 8) % 12) + 1,
+            ]
+        if "Ju" in [pl for pl in planet_house if planet_house.get(pl) == pl_house]:
+            aspects[pl_house] += [
+                ((pl_house - 1 + 5) % 12) + 1,
+                ((pl_house - 1 + 9) % 12) + 1,
+            ]
+        if "Sa" in [pl for pl in planet_house if planet_house.get(pl) == pl_house]:
+            aspects[pl_house] += [
+                ((pl_house - 1 + 3) % 12) + 1,
+                ((pl_house - 1 + 10) % 12) + 1,
+            ]
+    for key in aspects:
+        aspects[key] = list(set(aspects[key]))  # Dedup
+
+    # 1. Gajakesari Yoga: Ju in kendra FROM Moon (BPHS Ch. 69)
+    if "Mo" in planet_house and "Ju" in planet_house:
+        moon_h = planet_house["Mo"]
+        ju_h_from_moon = house_from_ref(moon_h, planet_house["Ju"])
+        if ju_h_from_moon in [1, 4, 7, 10]:
+            stren = get_yoga_strength(["Ju", "Mo"], result)
+            yogas.append(
+                f"Gajakesari Yoga (Strength {stren}/10) → Fame, wisdom, wealth"
+            )
+
+    # 2. Raja Yogas: Kendra-Trikona lords conjunct or aspect (BPHS Ch. 40; avoid self)
+    seen_rajas = set()  # Avoid dups
     for k in [1, 4, 7, 10]:
         for t in [1, 5, 9]:
             kl = lord_of(k)
             tl = lord_of(t)
+            if kl == tl or (kl, tl) in seen_rajas or (tl, kl) in seen_rajas:
+                continue
             if kl in planet_house and tl in planet_house:
-                if kl == tl or abs(planet_house[kl] - planet_house[tl]) % 12 in (0, 6):
+                kl_h, tl_h = planet_house[kl], planet_house[tl]
+                # Conjunct or aspect (bidirectional)
+                if (
+                    kl_h == tl_h
+                    or tl_h in aspects.get(kl_h, [])
+                    or kl_h in aspects.get(tl_h, [])
+                ):
                     s = get_yoga_strength([kl, tl], result)
-                    yogas.append(
+                    yoga_name = (
                         f"Raja Yoga ({kl}-{tl}) (Strength {s}/10) → Power & status"
                     )
-    # 3. Strong Venus Yoga
+                    yogas.append(yoga_name)
+                    seen_rajas.add((kl, tl))
+                    seen_rajas.add((tl, kl))
+
+    # 3. Strong Venus Yoga: Venus in own/exalt AND in kendra (partial if trikona)
     if "Ve" in planet_house:
         ve_h = planet_house["Ve"]
-        if ve_h in [1, 4, 7, 10] or p["Ve"]["dignity"] in ["Own", "Exalt"]:
+        ve_dig = p["Ve"]["dignity"]
+        if ve_dig in ["Own", "Exalt"] and ve_h in [1, 4, 7, 10]:
             s = get_yoga_strength(["Ve"], result)
             yogas.append(
                 f"Strong Venus Yoga (Strength {s}/10) → Beautiful spouse, luxury"
             )
-    # 4. Strong 7th Lord
+        elif ve_dig in ["Own", "Exalt"]:  # Partial note
+            s = get_yoga_strength(["Ve"], result) - 1  # Slight penalty
+            yogas.append(
+                f"Partial Venus Strength (Strength {s}/10) → Luxuries via creativity"
+            )
+
+    # 4. Strong 7th Lord: In kendra/trikona AND unafflicted (simplified)
     seventh_lord = result["seventh_lord"]
-    if seventh_lord in planet_house and planet_house[seventh_lord] in [
-        1,
-        4,
-        7,
-        10,
-        5,
-        9,
-    ]:
-        s = get_yoga_strength([seventh_lord], result)
-        yogas.append(
-            f"Strong 7th Lord ({seventh_lord}) (Strength {s}/10) → Stable marriage"
-        )
-    # 5. Jupiter in 5th house
+    if seventh_lord in planet_house:
+        sl_h = planet_house[seventh_lord]
+        if sl_h in [1, 4, 5, 7, 9, 10]:
+            # Check no malefic aspect (basic)
+            malefics = ["Ma", "Sa", "Ra", "Ke"]
+            afflicted = any(
+                m in planet_house
+                and planet_house.get(m) == sl_h in aspects.get(sl_h, [])
+                for m in malefics
+            )
+            if not afflicted:
+                s = get_yoga_strength([seventh_lord], result)
+                yogas.append(
+                    f"Strong 7th Lord ({seventh_lord}) (Strength {s}/10) → Stable marriage"
+                )
+
+    # 5. Jupiter in 5th house: Direct check
     if "Ju" in planet_house and planet_house["Ju"] == 5:
         s = get_yoga_strength(["Ju"], result)
         yogas.append(
             f"Jupiter in 5th (Strength {s}/10) → Excellent progeny, intelligent children"
         )
-    # 6. Strong 10th Lord
+
+    # 6. Strong 10th Lord: In kendra
     tenth_lord = lord_of(10)
     if tenth_lord in planet_house and planet_house[tenth_lord] in [1, 4, 7, 10]:
         s = get_yoga_strength([tenth_lord], result)
         yogas.append(
             f"Strong 10th Lord ({tenth_lord}) (Strength {s}/10) → High career success"
         )
-    # 7. Dhana Yoga (2nd + 11th lords)
+
+    # 7. Dhana Yoga: 2nd + 11th lords conjunct/aspect
     d2 = lord_of(2)
     d11 = lord_of(11)
-    if d2 in planet_house and d11 in planet_house:
-        s = get_yoga_strength([d2, d11], result)
-        yogas.append(f"Dhana Yoga (2nd+11th) (Strength {s}/10) → Wealth through effort")
-    # 8. Pancha Mahapurusha Yogas
+    if d2 != d11 and d2 in planet_house and d11 in planet_house:
+        d2_h, d11_h = planet_house[d2], planet_house[d11]
+        if (
+            d2_h == d11_h
+            or d11_h in aspects.get(d2_h, [])
+            or d2_h in aspects.get(d11_h, [])
+        ):
+            s = get_yoga_strength([d2, d11], result)
+            yogas.append(
+                f"Dhana Yoga (2nd+11th) (Strength {s}/10) → Wealth through effort"
+            )
+
+    # 8. Pancha Mahapurusha Yogas: Strict kendra + own/exalt signs
     pmp = {
         "Ruchaka (Mars)": ("Ma", ["Aries", "Scorpio", "Capricorn"]),
         "Bhadra (Mercury)": ("Me", ["Gemini", "Virgo"]),
@@ -707,9 +778,15 @@ def detect_yogas(result):
         "Sasa (Saturn)": ("Sa", ["Libra", "Capricorn", "Aquarius"]),
     }
     for name, (pl, signs) in pmp.items():
-        if pl in p and p[pl]["sign"] in signs and planet_house.get(pl) in [1, 4, 7, 10]:
+        if (
+            pl in p
+            and p[pl]["sign"] in signs
+            and planet_house.get(pl, 0) in [1, 4, 7, 10]
+            and p[pl]["dignity"] in ["Own", "Exalt"]
+        ):
             s = get_yoga_strength([pl], result)
             yogas.append(f"{name} Yoga (Strength {s}/10) → Great personality & success")
+
     return yogas if yogas else ["No major classical yogas formed"]
 
 
@@ -1014,32 +1091,22 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
 # ────────────────────────────────────────────────
 # Print Function
 # ────────────────────────────────────────────────
-def print_kundali(result, file=None):
-    from io import StringIO
-
-    output = StringIO()
-
-    def write(s):
-        if file:
-            output.write(s + "\n")
-        else:
-            print(s)
-
-    write("\n" + "═" * 95)
-    write(" VEDIC KUNDALI – Whole Sign – Lahiri – D7 + D10 + Marriage Timing")
-    write("═" * 95)
-    write(f"Lagna : {result['lagna_sign']} {result['lagna_deg']}°")
-    write(f"Moon (Rasi) : {result['moon_sign']} – {result['moon_nakshatra']}")
-    write(f"7th Lord : {result['seventh_lord']}\n")
+def print_kundali(result):
+    print("\n" + "═" * 95)
+    print(" VEDIC KUNDALI – Whole Sign – Lahiri – D7 + D10 + Marriage Timing")
+    print("═" * 95)
+    print(f"Lagna : {result['lagna_sign']} {result['lagna_deg']}°")
+    print(f"Moon (Rasi) : {result['moon_sign']} – {result['moon_nakshatra']}")
+    print(f"7th Lord : {result['seventh_lord']}\n")
     order = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]
-    write("Planets in Rasi (D1):")
-    write("-" * 85)
+    print("Planets in Rasi (D1):")
+    print("-" * 85)
     for pl in order:
         if pl in result["planets"]:
             d = result["planets"][pl]
             r = " R" if d["retro"] else ""
             dig = f" ({d['dignity']})" if d["dignity"] else ""
-            write(
+            print(
                 f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11} {d['nakshatra']:18}{dig}{r}"
             )
     for div, title in [
@@ -1047,39 +1114,39 @@ def print_kundali(result, file=None):
         ("d7", "Saptamsa (D7 – Children/Progeny)"),
         ("d10", "Dasamsa (D10 – Career/Profession)"),
     ]:
-        write(f"\n{title}:")
-        write("-" * 85)
+        print(f"\n{title}:")
+        print("-" * 85)
         for pl in order:
             if pl in result[div]:
                 d = result[div][pl]
-                write(f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11}")
-    write("\nHouses (Whole Sign):")
-    write("-" * 85)
+                print(f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11}")
+    print("\nHouses (Whole Sign):")
+    print("-" * 85)
     lagna_idx = zodiac_signs.index(result["lagna_sign"])
     for h in range(1, 13):
         sidx = (lagna_idx + h - 1) % 12
         sign = zodiac_signs[sidx]
         pls = sorted(result["houses"][h])
         content = " ".join(pls) if pls else "—"
-        write(f"House {h:2d} ({sign:11}): {content}")
-    write("\nAspects (Drishti):")
-    write("-" * 85)
+        print(f"House {h:2d} ({sign:11}): {content}")
+    print("\nAspects (Drishti):")
+    print("-" * 85)
     for h in range(1, 13):
         if result["aspects"][h]:
-            write(f"House {h:2d}: {', '.join(result['aspects'][h])}")
-    write("\nVimshottari Dasha:")
-    write("-" * 85)
+            print(f"House {h:2d}: {', '.join(result['aspects'][h])}")
+    print("\nVimshottari Dasha:")
+    print("-" * 85)
     vim = result["vimshottari"]
-    write(
+    print(
         f"Starting MD : {vim['starting_lord']} (balance {vim['balance_at_birth_years']} yrs)"
     )
     if vim["current_md"]:
-        write(f"Current : {vim['current_md']} → {vim['current_ad']}")
-    write("\nMarriage Timing Insights (Basic Parashari):")
-    write("-" * 85)
-    write(f"7th Lord : {result['seventh_lord']}")
-    write("Key Triggers : Venus MD/AD OR 7th-lord MD/AD")
-    write(
+        print(f"Current : {vim['current_md']} → {vim['current_ad']}")
+    print("\nMarriage Timing Insights (Basic Parashari):")
+    print("-" * 85)
+    print(f"7th Lord : {result['seventh_lord']}")
+    print("Key Triggers : Venus MD/AD OR 7th-lord MD/AD")
+    print(
         "Also favourable : Jupiter transit over 7th/2nd from Moon, strong D9 Venus/7th"
     )
     vm = vim["current_md"]
@@ -1090,50 +1157,48 @@ def print_kundali(result, file=None):
         or vm == result["seventh_lord"]
         or va == result["seventh_lord"]
     ):
-        write("*** CURRENT DASHA IS HIGHLY FAVOURABLE FOR MARRIAGE ***")
+        print("*** CURRENT DASHA IS HIGHLY FAVOURABLE FOR MARRIAGE ***")
     else:
-        write(
+        print(
             "Next favourable periods: Venus or 7th-lord Mahadasha/Antardasha (check full list)"
         )
-    write("\nCurrent Gochara (from Moon):")
-    write("-" * 85)
+    print("\nCurrent Gochara (from Moon):")
+    print("-" * 85)
     for pl, t in sorted(result["transits"].items()):
-        write(
+        print(
             f"{pl:>3}: {t['sign']:11} (house {t['house_from_moon']:2d}) – {t['effect']}"
         )
-    write("\n🔥 YOGAS WITH STRENGTH (1-10) & ACCURATE TIMINGS (2026–2046)")
-    write("-" * 95)
+    print("\n🔥 YOGAS WITH STRENGTH (1-10) & ACCURATE TIMINGS (ENTIRE LIFE)")
+    print("-" * 95)
     for y in result.get("yogas", []):
-        write(f"• {y}")
-    write("\n📅 POSSIBLE FRUCTIFICATION PERIODS (Next 20 years)")
-    write("-" * 95)
+        print(f"• {y}")
+    print("\n📅 POSSIBLE FRUCTIFICATION PERIODS (Entire Life)")
+    print("-" * 95)
     for event, periods in result.get("timings", {}).items():
-        write(f"\n{event}:")
+        print(f"\n{event}:")
         if periods:
             for p in periods:
-                write(p)
+                print(p)
         else:
-            write(" No major period in next 20 years")
-    write("\n⚠️ PROBLEMS/DOSHAS IN KUNDALI")
-    write("-" * 95)
+            print("   No major favorable period detected for this event")
+    print("\n⚠️ PROBLEMS/DOSHAS IN KUNDALI")
+    print("-" * 95)
     for prob in result.get("problems", []):
-        write(f"• {prob['summary']}")
-    write("\nDetailed Explanation of Doshas:")
-    write("-" * 95)
+        print(f"• {prob['summary']}")
+    print("\nDetailed Explanation of Doshas:")
+    print("-" * 95)
     for prob in result.get("problems", []):
         if prob["detail"]:
-            write(f"{prob['summary'].split(':')[0]}:")
-            write(prob["detail"])
-            write("")
-    write("\n" + result.get("final_analysis", ""))
-    write("\nNote: Highest probability when dasha + transit + gochara align.")
-    write(
-        "For 1999-04-14 Mumbai chart (age 27 in 2026): timings calculated from birth JD."
+            print(f"{prob['summary'].split(':')[0]}:")
+            print(prob["detail"])
+            print()
+    print("\n" + result.get("final_analysis", ""))
+    print(
+        "\nNote: Highest probability when dasha + transit + gochara align. Predictions span full life (approx. up to 120 years)."
     )
-    write("Doshas indicate challenges; remedies like mantras/gemstones can mitigate.")
-    write("\n" + "═" * 95)
-    if file:
-        file.write(output.getvalue())
+    print("For your chart: timings calculated from birth JD.")
+    print("Doshas indicate challenges; remedies like mantras/gemstones can mitigate.")
+    print("\n" + "═" * 95)
 
 
 # ────────────────────────────────────────────────
@@ -1142,24 +1207,16 @@ def print_kundali(result, file=None):
 def main():
     print("Vedic Kundali Generator – Full Version with D7, D10 & Marriage Timing")
     print("─────────────────────────────────────────────────────────────────────\n")
-    while True:
-        name = input("Enter Name : ").strip()
-        date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
-        time_str = input("Birth Time (HH:MM 24h) : ").strip()
-        place = input("Birth Place (City, Country) : ").strip()
-        try:
-            result = calculate_kundali(date_str, time_str, place)
-            filename = f"{name}_kundali_report.txt"
-            with open(filename, "w", encoding="utf-8") as f:
-                print_kundali(result, file=f)
-            print_kundali(result)
-            print(f"\nReport saved as '{filename}'")
-            break
-        except Exception as e:
-            print(f"\nError: {e}")
-            print("Tips: Use place='Mumbai, Maharashtra, India'")
-            print(" Make sure Swiss Ephemeris .se1 files are in the same folder")
-            print("Please re-enter the details.\n")
+    date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
+    time_str = input("Birth Time (HH:MM 24h) : ").strip()
+    place = input("Birth Place (City, Country) : ").strip()
+    try:
+        result = calculate_kundali(date_str, time_str, place)
+        print_kundali(result)
+    except Exception as e:
+        print(f"\nError: {e}")
+        print("Tips: Use place='Mumbai, Maharashtra, India'")
+        print("      Make sure Swiss Ephemeris .se1 files are in the same folder")
 
 
 if __name__ == "__main__":
