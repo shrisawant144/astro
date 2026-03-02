@@ -952,23 +952,85 @@ def detect_problems(result):
                 summary = "Kaal Sarp Yoga: All planets hemmed between Rahu-Ketu – Life obstacles, but potential for sudden rise"
                 detail = f"- Reason: Kaal Sarp forms when all planets are trapped between Rahu and Ketu's axis, creating karmic restrictions.\n- Direct Outcome: Life struggles, delays in success, but potential breakthroughs after mid-life; remedies include Naga puja."
                 problems.append({"summary": summary, "detail": detail})
-    # 4. Debilitated Planets
+    # 4. Debilitated Planets (check for Neecha Bhanga cancellation)
     deb_planets = [pl for pl, data in p.items() if data["dignity"] == "Debilitated"]
-    if deb_planets:
-        full_names = [short_to_full.get(pl, pl) for pl in deb_planets]
+    # Separate those with Neecha Bhanga from truly debilitated
+    truly_deb = [pl for pl in deb_planets if not p[pl].get("neecha_bhanga", False)]
+    nb_planets = [pl for pl in deb_planets if p[pl].get("neecha_bhanga", False)]
+    
+    if truly_deb:
+        full_names = [short_to_full.get(pl, pl) for pl in truly_deb]
         deb_details = []
-        for pl in deb_planets:
+        for pl in truly_deb:
             sign = p[pl]["sign"]
             if pl == "Me":
                 deb_details.append(
-                    f"Mercury in {sign}: Scattered thinking, communication delays."
+                    f"Mercury in {sign}: Intuitive but scattered thinking; communication requires structure."
                 )
             elif pl == "Sa":
                 deb_details.append(
-                    f"Saturn in {sign}: Lack of stability, chronic delays."
+                    f"Saturn in {sign}: Initial instability, but builds strength through discipline."
                 )
-        summary = f"Debilitated Planets ({', '.join(full_names)}): Weakened vitality/effects in respective areas"
-        detail = f"- Reason: A planet is debilitated when in a sign opposing its nature, e.g., Mercury in Pisces clashes with its analytical energy, Saturn in Aries conflicts with its patience.\n- Direct Outcome: {'; '.join(deb_details)} Possible health or career issues; remedies like gemstones (emerald for Mercury, blue sapphire for Saturn)."
+            elif pl == "Ju":
+                deb_details.append(
+                    f"Jupiter in {sign}: Wisdom through practical experience; unconventional growth path."
+                )
+            elif pl == "Ve":
+                deb_details.append(
+                    f"Venus in {sign}: Refined tastes developed through effort; love matures with time."
+                )
+            elif pl == "Ma":
+                deb_details.append(
+                    f"Mars in {sign}: Energy channeled through emotional intelligence; strategic action."
+                )
+            elif pl == "Su":
+                deb_details.append(
+                    f"Sun in {sign}: Ego refined through service; leadership through diplomacy."
+                )
+            elif pl == "Mo":
+                deb_details.append(
+                    f"Moon in {sign}: Emotional depth and transformation; intuitive power."
+                )
+        summary = f"Debilitated Planets ({', '.join(full_names)}): Areas requiring conscious development"
+        detail = f"- Reason: A debilitated planet operates differently from its natural expression, requiring adaptation and conscious effort.\n- Direct Outcome: {'; '.join(deb_details)} These placements often produce specialists who master their challenges through sustained effort."
+        problems.append({"summary": summary, "detail": detail})
+    
+    # Neecha Bhanga planets - different, more positive treatment
+    if nb_planets:
+        nb_full_names = [short_to_full.get(pl, pl) for pl in nb_planets]
+        nb_details = []
+        for pl in nb_planets:
+            sign = p[pl]["sign"]
+            if pl == "Sa":
+                nb_details.append(
+                    f"Saturn in {sign} (NB): Delayed but powerful after maturity (28-30+); builds exceptional resilience and authority."
+                )
+            elif pl == "Me":
+                nb_details.append(
+                    f"Mercury in {sign} (NB): Intuitive intelligence; creative communication style gains recognition over time."
+                )
+            elif pl == "Ju":
+                nb_details.append(
+                    f"Jupiter in {sign} (NB): Practical wisdom that proves itself; unconventional dharma path with eventual success."
+                )
+            elif pl == "Ve":
+                nb_details.append(
+                    f"Venus in {sign} (NB): Analytical approach to love/art eventually creates refined elegance."
+                )
+            elif pl == "Ma":
+                nb_details.append(
+                    f"Mars in {sign} (NB): Strategic courage; emotional intelligence becomes a strength."
+                )
+            elif pl == "Su":
+                nb_details.append(
+                    f"Sun in {sign} (NB): Humility transforms into respected leadership; diplomatic authority."
+                )
+            elif pl == "Mo":
+                nb_details.append(
+                    f"Moon in {sign} (NB): Deep emotional wisdom; transformative intuition."
+                )
+        summary = f"Neecha Bhanga Planets ({', '.join(nb_full_names)}): Debilitation cancelled – delayed but powerful"
+        detail = f"- Reason: Neecha Bhanga (cancelled debilitation) occurs when supportive factors neutralize the weakness. These planets often give BETTER results than normal planets after initial delays.\n- Direct Outcome: {'; '.join(nb_details)} Key: Results manifest after planet's maturity age; patience and discipline unlock the potential."
         problems.append({"summary": summary, "detail": detail})
     # 5. Pitru Dosha (Sun afflicted by Saturn/Rahu, or Sun in 12th)
     # Affliction = same house (conjunction) OR 7 houses away (mutual opposition/aspect)
@@ -2325,7 +2387,11 @@ def interpret_aspects(result):
             elif dig == "Own":
                 strength_note = "Own sign – strong"
             elif dig == "Debilitated":
-                strength_note = "Debilitated – weakened"
+                # Check for Neecha Bhanga - if cancelled, use different wording
+                if pl_data and pl_data.get("neecha_bhanga", False):
+                    strength_note = "Debilitated (NB) – delayed but powerful after maturity"
+                else:
+                    strength_note = "Debilitated – requires conscious development"
             elif combust:
                 strength_note = "Combust – weakened by Sun"
             elif retro:
@@ -2366,11 +2432,13 @@ def interpret_aspects(result):
             )
         elif total_score >= -3:
             out.append(
-                f"  ~ Net: Challenging influences – {h_area} requires conscious effort; dasha of benefics helps."
+                f"  ~ Net: Multiple planetary influences – {h_area} has strong but complex energy; "
+                f"conscious direction during benefic dashas brings best results."
             )
         else:
             out.append(
-                f"  ⚠ Net: Significant challenges in {h_area}; focused remedies and benefic dashas recommended."
+                f"  ~ Net: Concentrated planetary energy in {h_area}; active management and benefic "
+                f"dashas recommended for optimal outcomes."
             )
 
     return out
@@ -2410,8 +2478,19 @@ def interpret_navamsa(result):
         out.append(f"  {pl_full:9} in {nav_sign:12} {d['deg']:5.2f}°{dig_note}")
         out.append(f"    → {planet_d9_meanings[pl]}")
         if nav_dig == "Debilitated":
-            out.append(f"    ⚠ Debilitated in D9: {pl_full}'s marriage/dharma significations are weakened; "
-                       f"planet must be strengthened in D1 or by remedies to give good results.")
+            # Softer, more nuanced language for D9 debilitation
+            if pl == "Ju":
+                out.append(f"    ⚠ Debilitated in D9: Jupiter's marriage/dharma significations require "
+                           f"spiritual growth and conscious effort; wisdom develops through challenges.")
+            elif pl == "Ve":
+                out.append(f"    ⚠ Debilitated in D9: Venus's marriage significations require refinement; "
+                           f"love matures through service and practical effort.")
+            elif pl == "Mo":
+                out.append(f"    ⚠ Debilitated in D9: Emotional fulfillment in marriage requires "
+                           f"transformation; deep bonding develops over time.")
+            else:
+                out.append(f"    ⚠ Debilitated in D9: {pl_full}'s marriage/dharma significations require "
+                           f"conscious development; strengthen through D1 placement or remedies.")
         elif nav_dig in ("Exalt", "Own"):
             out.append(f"    ✓ {nav_dig} in D9: {pl_full}'s significations are powerfully reliable "
                        f"in marriage and dharmic areas.")
