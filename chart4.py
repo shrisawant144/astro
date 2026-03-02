@@ -94,8 +94,11 @@ dignity_table = {
     "Ju": {"own": ["Sagittarius", "Pisces"], "exalt": "Cancer", "deb": "Capricorn"},
     "Ve": {"own": ["Taurus", "Libra"], "exalt": "Pisces", "deb": "Virgo"},
     "Sa": {"own": ["Capricorn", "Aquarius"], "exalt": "Libra", "deb": "Aries"},
-    "Ra": {"exalt": "Taurus/Gemini", "deb": "Scorpio/Sagittarius"},
-    "Ke": {"exalt": "Scorpio/Sagittarius", "deb": "Taurus/Gemini"},
+    # Rahu/Ketu: No classical consensus on exaltation/debilitation exists.
+    # Some traditions use Taurus/Scorpio, others Gemini/Sagittarius, others Virgo/Pisces.
+    # We omit dignity labels for nodes to avoid implying false certainty.
+    "Ra": {},
+    "Ke": {},
 }
 gochara_effects = {
     "Su": {
@@ -285,20 +288,38 @@ NEECHA_BHANGA_INFO = {
 # ────────────────────────────────────────────────
 # Functional Benefics / Malefics by Lagna
 # Source: Parashari rules (kendra/trikona lords)
+# Categories:
+#   ben    = Functional benefics (trikona lords, lagna lord)
+#   mal    = Functional malefics (6/8/12 lords, or dusthana-heavy)
+#   maraka = Maraka (2nd/7th lords – can cause death/harm in their dashas)
+#   mixed  = Mixed nature (owns one good + one bad house)
+#   yk     = Yogakaraka (owns both kendra + trikona)
 # ────────────────────────────────────────────────
 FUNCTIONAL_QUALITY = {
-    "Aries":       {"ben": ["Su", "Ju", "Ma"], "mal": ["Me", "Ve", "Sa"], "yk": None},
-    "Taurus":      {"ben": ["Sa", "Ve", "Me"], "mal": ["Ju", "Mo", "Ma"], "yk": "Sa"},
-    "Gemini":      {"ben": ["Ve", "Sa", "Me"], "mal": ["Ju", "Su", "Ma"], "yk": "Ve"},
-    "Cancer":      {"ben": ["Ma", "Ju", "Mo"], "mal": ["Me", "Ve", "Sa"], "yk": "Ma"},
-    "Leo":         {"ben": ["Su", "Ma", "Ju"], "mal": ["Me", "Ve", "Sa"], "yk": None},
-    "Virgo":       {"ben": ["Ve", "Me", "Sa"], "mal": ["Ma", "Ju", "Mo"], "yk": "Ve"},
-    "Libra":       {"ben": ["Sa", "Ve", "Me"], "mal": ["Ju", "Su", "Ma"], "yk": "Sa"},
-    "Scorpio":     {"ben": ["Ju", "Mo", "Su"], "mal": ["Me", "Ve", "Sa"], "yk": "Mo"},
-    "Sagittarius": {"ben": ["Su", "Ma", "Ju"], "mal": ["Ve", "Me", "Sa"], "yk": None},
-    "Capricorn":   {"ben": ["Ve", "Me", "Sa"], "mal": ["Ju", "Ma", "Mo"], "yk": "Ve"},
-    "Aquarius":    {"ben": ["Ve", "Sa", "Me"], "mal": ["Ju", "Mo", "Ma"], "yk": "Ve"},
-    "Pisces":      {"ben": ["Ju", "Mo", "Ma"], "mal": ["Sa", "Ve", "Me"], "yk": None},
+    # Aries: Su(5), Ju(9,12), Ma(1,8) | Me(3,6), Ve(2,7), Sa(10,11)
+    "Aries":       {"ben": ["Su", "Ju"], "mal": ["Me", "Sa"], "maraka": ["Ve"], "mixed": ["Ma"], "yk": None},
+    # Taurus: Ve(1,6), Me(2,5), Sa(9,10) | Ju(8,11), Mo(3), Ma(7,12)
+    "Taurus":      {"ben": ["Me", "Sa"], "mal": ["Ju"], "maraka": ["Ma"], "mixed": ["Ve", "Mo"], "yk": "Sa"},
+    # Gemini: Ve(5,12), Me(1,4), Sa(8,9) | Ju(7,10), Su(3), Ma(6,11)
+    "Gemini":      {"ben": ["Me"], "mal": ["Ma"], "maraka": ["Ju"], "mixed": ["Ve", "Sa", "Su"], "yk": None},
+    # Cancer: Ma(5,10), Ju(6,9), Mo(1) | Me(3,12), Ve(4,11), Sa(7,8)
+    "Cancer":      {"ben": ["Mo", "Ma", "Ju"], "mal": ["Me", "Ve"], "maraka": ["Sa"], "mixed": [], "yk": "Ma"},
+    # Leo: Su(1), Ma(4,9), Ju(5,8) | Me(2,11), Ve(3,10), Sa(6,7)
+    "Leo":         {"ben": ["Su", "Ma"], "mal": ["Sa"], "maraka": ["Me"], "mixed": ["Ju", "Ve"], "yk": "Ma"},
+    # Virgo: Ve(2,9), Me(1,10), Sa(5,6) | Ma(3,8), Ju(4,7), Mo(11)
+    "Virgo":       {"ben": ["Ve", "Me"], "mal": ["Ma"], "maraka": ["Ju"], "mixed": ["Sa", "Mo"], "yk": None},
+    # Libra: Sa(4,5), Ve(1,8), Me(9,12) | Ju(3,6), Su(11), Ma(2,7)
+    "Libra":       {"ben": ["Sa", "Me"], "mal": ["Ju", "Su"], "maraka": ["Ma"], "mixed": ["Ve"], "yk": "Sa"},
+    # Scorpio: Ju(2,5), Mo(9), Su(10) | Me(8,11), Ve(7,12), Sa(3,4)
+    "Scorpio":     {"ben": ["Mo", "Su", "Ju"], "mal": ["Me"], "maraka": ["Ve"], "mixed": ["Sa"], "yk": "Mo"},
+    # Sagittarius: Su(9), Ma(5,12), Ju(1,4) | Ve(6,11), Me(7,10), Sa(2,3)
+    "Sagittarius": {"ben": ["Su", "Ju"], "mal": ["Ve"], "maraka": ["Me", "Sa"], "mixed": ["Ma"], "yk": None},
+    # Capricorn: Ve(5,10), Me(6,9), Sa(1,2) | Ju(3,12), Ma(4,11), Mo(7)
+    "Capricorn":   {"ben": ["Ve", "Sa"], "mal": ["Ju"], "maraka": ["Mo"], "mixed": ["Me", "Ma"], "yk": "Ve"},
+    # Aquarius: Ve(4,9), Sa(1,12), Me(5,8) | Ju(2,11), Mo(6), Ma(3,10)
+    "Aquarius":    {"ben": ["Ve"], "mal": ["Mo"], "maraka": ["Ju"], "mixed": ["Sa", "Me", "Ma"], "yk": "Ve"},
+    # Pisces: Ju(1,10), Mo(5), Ma(2,9) | Sa(11,12), Ve(3,8), Me(4,7)
+    "Pisces":      {"ben": ["Ju", "Mo", "Ma"], "mal": ["Sa", "Ve"], "maraka": ["Me"], "mixed": [], "yk": None},
 }
 
 # ────────────────────────────────────────────────
@@ -783,14 +804,118 @@ def detect_problems(result):
         for pl in pls:
             if pl != "Asc":
                 planet_house[pl] = house
-    # 1. Mangal Dosha (Mars in 1,2,4,7,8,12 from Lagna)
+    
+    # 1. Mangal Dosha (Mars in 1,2,4,7,8,12 from Lagna) with CANCELLATION CHECKS
     if "Ma" in planet_house and planet_house["Ma"] in [1, 2, 4, 7, 8, 12]:
         house_num = planet_house["Ma"]
-        summary = (
-            f"Mangal Dosha (Mars in {house_num}H): Potential delays/discord in marriage"
+        mars_sign = p.get("Ma", {}).get("sign", "")
+        mars_dignity = p.get("Ma", {}).get("dignity", "")
+        moon_dignity = p.get("Mo", {}).get("dignity", "")
+        
+        # Calculate cancellation factors
+        cancellation_factors = []
+        severity_reduction = 0
+        
+        # Factor 1: Jupiter aspects 7th house (check Jupiter's 5th aspect)
+        ju_house = planet_house.get("Ju", 0)
+        if ju_house:
+            ju_5th_aspect = ((ju_house - 1 + 4) % 12) + 1  # 5th aspect
+            ju_7th_aspect = ((ju_house - 1 + 6) % 12) + 1  # 7th aspect
+            ju_9th_aspect = ((ju_house - 1 + 8) % 12) + 1  # 9th aspect
+            if 7 in [ju_5th_aspect, ju_7th_aspect, ju_9th_aspect]:
+                cancellation_factors.append("Jupiter aspects 7th house")
+                severity_reduction += 3
+        
+        # Factor 2: Jupiter aspects Mars directly
+        if ju_house and "Ma" in planet_house:
+            mars_h = planet_house["Ma"]
+            if mars_h in [ju_5th_aspect, ju_7th_aspect, ju_9th_aspect]:
+                cancellation_factors.append("Jupiter aspects Mars")
+                severity_reduction += 2
+        
+        # Factor 3: Mars in own sign (Aries/Scorpio) or exalted (Capricorn)
+        if mars_dignity in ["Own", "Exalted"]:
+            cancellation_factors.append(f"Mars {mars_dignity.lower()} in {mars_sign}")
+            severity_reduction += 2
+        
+        # Factor 4: Mars in Leo or Aquarius (cancellation in some traditions)
+        if mars_sign in ["Leo", "Aquarius"]:
+            cancellation_factors.append(f"Mars in {mars_sign} (mitigating sign)")
+            severity_reduction += 1
+        
+        # Factor 5: Strong Moon (exalted/own sign) provides emotional stability
+        if moon_dignity in ["Exalted", "Own"]:
+            cancellation_factors.append(f"Moon {moon_dignity.lower()} (emotional stability)")
+            severity_reduction += 2
+        
+        # Factor 6: Check D9 Venus dignity from result (if available)
+        d9_data = result.get("d9", {})
+        d9_venus_info = d9_data.get("Ve", {})
+        d9_venus_dignity = d9_venus_info.get("dignity", "")
+        if d9_venus_dignity in ["Exalted", "Own"]:
+            cancellation_factors.append(f"D9 Venus {d9_venus_dignity.lower()}")
+            severity_reduction += 2
+        
+        # Factor 7: Check D9 Mars dignity
+        d9_mars_info = d9_data.get("Ma", {})
+        d9_mars_dignity = d9_mars_info.get("dignity", "")
+        if d9_mars_dignity in ["Exalted", "Own"]:
+            cancellation_factors.append(f"D9 Mars {d9_mars_dignity.lower()}")
+            severity_reduction += 1
+        
+        # Calculate severity: base 10, reduce by factors
+        base_severity = 10
+        # House-specific severity: 7th and 8th are traditionally more impactful
+        if house_num in [7, 8]:
+            base_severity = 8
+        elif house_num in [1, 4]:
+            base_severity = 6
+        else:  # 2, 12
+            base_severity = 5
+        
+        final_severity = max(1, base_severity - severity_reduction)
+        
+        # Determine severity label
+        if final_severity <= 3:
+            severity_label = "Mild"
+            outcome = "Minor adjustments in marriage; generally manageable with awareness"
+        elif final_severity <= 5:
+            severity_label = "Moderate"
+            outcome = "Some delays or disagreements possible; remedies helpful but not urgent"
+        elif final_severity <= 7:
+            severity_label = "Significant"
+            outcome = "Potential delays/discord in marriage; remedies recommended"
+        else:
+            severity_label = "Severe"
+            outcome = "Possible marital discord, delays in marriage, or heated arguments; remedies like Kumbh Vivah advised"
+        
+        # Build summary and detail
+        cancel_text = ""
+        if cancellation_factors:
+            cancel_text = f" MITIGATING FACTORS: {', '.join(cancellation_factors)}."
+        
+        summary = f"Mangal Dosha – {severity_label} (Mars in {house_num}H, score {final_severity}/10): {outcome}"
+        
+        detail = (
+            f"- Reason: Mangal Dosha occurs when Mars is in houses 1,2,4,7,8,12 from Lagna. "
+            f"Mars in {house_num}H in {mars_sign} creates assertive energy in marriage house themes.\n"
+            f"- Severity Assessment: Base severity {base_severity}/10 "
+            f"(house {house_num}), reduced by {severity_reduction} points due to mitigating factors.\n"
+            f"- Direct Outcome: {outcome}.{cancel_text}"
         )
-        detail = f"- Reason: In Vedic astrology, Mangal Dosha occurs when Mars is placed in certain houses from the Lagna, energizing aggression or conflict in marital areas.\n- Direct Outcome: Possible marital discord, delays in marriage, or heated arguments; remedies like Kumbh Vivah can mitigate."
-        problems.append({"summary": summary, "detail": detail})
+        
+        # Only add to problems if severity is above mild threshold, or add with reduced emphasis
+        if final_severity > 3:
+            problems.append({"summary": summary, "detail": detail})
+        else:
+            # Still note it, but with "largely cancelled" language
+            summary = f"Mangal Dosha – Largely Cancelled (Mars in {house_num}H): {', '.join(cancellation_factors)}"
+            detail = (
+                f"- Reason: Mars in {house_num}H technically creates Mangal Dosha, but multiple mitigating factors "
+                f"({', '.join(cancellation_factors)}) effectively neutralise it.\n"
+                f"- Direct Outcome: Marriage is protected; no significant delays or discord expected from this placement."
+            )
+            problems.append({"summary": summary, "detail": detail})
     # 2. Kemdrum Yoga (Moon with no planets in 2nd/12th from it, and alone in its house)
     if "Mo" in planet_house:
         moon_house = planet_house["Mo"]
@@ -894,11 +1019,21 @@ def detect_problems(result):
         return problems
     # ── Attach targeted remedies to each problem ──
     REMEDIES = {
-        "Mangal": [
+        "Mangal_Severe": [
             "Recite Hanuman Chalisa daily, especially on Tuesdays.",
             "Donate red lentils (masoor dal) and red cloth on Tuesdays.",
             "Wear red coral (Moonga) in gold/copper ring on right ring finger (after jyotishi consultation).",
             "For marriage: Kumbh Vivah ritual (marrying a Peepal tree) before wedding.",
+        ],
+        "Mangal_Moderate": [
+            "Recite Hanuman Chalisa on Tuesdays (optional).",
+            "Donate red lentils (masoor dal) on Tuesdays.",
+            "No Kumbh Vivah required – mitigating factors protect marriage.",
+        ],
+        "Mangal_Mild": [
+            "General Mars balance: Light physical exercise and avoid aggression.",
+            "Optional: Recite Hanuman Chalisa on Tuesdays if desired.",
+            "No specific remedies required – dosha is largely cancelled.",
         ],
         "Kemdrum": [
             "Chant 'Om Som Somaya Namah' or 'Om Chandraya Namah' 108× on Mondays.",
@@ -968,7 +1103,13 @@ def detect_problems(result):
         summary = prob["summary"]
         rems = []
         if "Mangal" in summary:
-            rems = REMEDIES["Mangal"]
+            # Check severity level in summary to assign appropriate remedies
+            if "Severe" in summary or "Significant" in summary:
+                rems = REMEDIES["Mangal_Severe"]
+            elif "Moderate" in summary:
+                rems = REMEDIES["Mangal_Moderate"]
+            else:  # Mild or Largely Cancelled
+                rems = REMEDIES["Mangal_Mild"]
         elif "Kemdrum" in summary:
             rems = REMEDIES["Kemdrum"]
         elif "Kaal Sarp" in summary:
@@ -1094,12 +1235,12 @@ def generate_final_analysis(result):
     md_quality = md_qualities.get(current_md_full, "the dasha lord's significations are active")
 
     # --- Build analysis ---
-    analysis = "### Final Analysis: Overall Chart Balance, Why These Doshas, and Direct Life Outcomes\n"
-    analysis += f"Your Kundali ({lagna} Lagna, {moon_sign} Moon in {moon_nak}) shows a karmically loaded setup: "
+    analysis = "### Final Analysis: Overall Chart Balance, Active Doshas, and Direct Life Outcomes\n"
+    analysis += f"Your Kundali ({lagna} Lagna, {moon_sign} Moon in {moon_nak}) shows a distinctive planetary configuration: "
     analysis += yoga_summary + "\n"
     analysis += (
-        f"However, doshas arise from karmic imbalances—debilitations reflect unresolved issues, "
-        f"ancestral debts, and concentrated planetary energy.\n"
+        f"Doshas indicate areas of concentrated planetary energy that require attention, "
+        f"not fixed negative fate. They reflect learning opportunities and growth areas.\n"
     )
     analysis += "- Why Present? Natal positions place malefics in sensitive houses/signs, creating lessons in "
     if active_doshas:
@@ -1133,10 +1274,309 @@ def generate_final_analysis(result):
 
 
 # ────────────────────────────────────────────────
+# Marriage Probability Scoring
+# ────────────────────────────────────────────────
+def calculate_marriage_score(result, md_lord, ad_lord=None):
+    """Calculate marriage probability score (0-10) for a dasha period.
+    
+    Comprehensive scoring for ALL lagnas:
+    
+    PRIMARY FACTORS (high weight):
+    1. 7th lord involvement (+3) - Direct marriage significator
+    2. Venus involvement (+2 base) - Natural marriage karaka
+       - Yogakaraka bonus (+2)
+       - D1 dignity bonus (+1)
+    3. 2nd lord involvement (+2) - Family/kutumb
+    
+    SECONDARY FACTORS (medium weight):
+    4. 5th lord involvement (+1.5) - Romance, love
+    5. 11th lord involvement (+1) - Fulfillment of desires
+    6. 4th lord involvement (+1) - Domestic happiness
+    7. Jupiter involvement (+1) - Natural benefic, dharma
+    8. 12th lord involvement (+0.5) - Bed pleasures (minor)
+    
+    D9 FACTORS (marriage-specific):
+    9. D9 Venus exalt (+2) / own (+1)
+    10. D9 7th lord strong (+1)
+    11. D9 dasha lord strong (+1)
+    12. D9 lagna lord strong (+0.5)
+    
+    PLACEMENT & DIGNITY FACTORS:
+    13. Dasha lord in house 1/2/5/7/11 (+1)
+    14. Dasha lord aspects 7th house (+1)
+    15. Dasha lord D1 dignity own/exalt (+1)
+    
+    LAGNA-SPECIFIC FACTORS:
+    16. Yogakaraka dasha lord (+2)
+    17. Functional benefic (+1)
+    
+    SYNERGY BONUS:
+    18. Both MD and AD marriage-related (+1)
+    
+    RAHU/KETU HANDLING:
+    19. Rahu in 7th or with 7th lord (+1) - unconventional marriage
+    20. Ketu special - can delay but also give spiritual spouse
+    """
+    score = 0.0
+    lagna_sign = result["lagna_sign"]
+    lagna_idx = zodiac_signs.index(lagna_sign)
+    
+    def lord_of(house_no):
+        sign_idx = (lagna_idx + house_no - 1) % 12
+        return sign_lords[zodiac_signs[sign_idx]]
+    
+    def house_of(planet):
+        """Get house number where planet is placed"""
+        for h, plist in result.get("houses", {}).items():
+            if planet in plist:
+                return h
+        return 0
+    
+    def planet_aspects_house(planet, target_house):
+        """Check if planet aspects a specific house"""
+        pl_house = house_of(planet)
+        if pl_house == 0:
+            return False
+        # 7th aspect (all planets)
+        if ((pl_house - 1 + 6) % 12) + 1 == target_house:
+            return True
+        # Special aspects
+        if planet == "Ma":  # Mars: 4th and 8th
+            if ((pl_house - 1 + 3) % 12) + 1 == target_house:
+                return True
+            if ((pl_house - 1 + 7) % 12) + 1 == target_house:
+                return True
+        elif planet == "Ju":  # Jupiter: 5th and 9th
+            if ((pl_house - 1 + 4) % 12) + 1 == target_house:
+                return True
+            if ((pl_house - 1 + 8) % 12) + 1 == target_house:
+                return True
+        elif planet == "Sa":  # Saturn: 3rd and 10th
+            if ((pl_house - 1 + 2) % 12) + 1 == target_house:
+                return True
+            if ((pl_house - 1 + 9) % 12) + 1 == target_house:
+                return True
+        return False
+    
+    # Get house lords
+    seventh_lord = result.get("seventh_lord", lord_of(7))
+    second_lord = lord_of(2)
+    fifth_lord = lord_of(5)
+    fourth_lord = lord_of(4)
+    eleventh_lord = lord_of(11)
+    twelfth_lord = lord_of(12)
+    first_lord = lord_of(1)  # Lagna lord
+    
+    # Get functional quality for this lagna
+    fq = FUNCTIONAL_QUALITY.get(lagna_sign, {})
+    func_benefics = fq.get("ben", [])
+    func_malefics = fq.get("mal", [])
+    yogakaraka = fq.get("yoga", None)
+    
+    # Convert to short form for comparison
+    md_short = next((k for k, v in short_to_full.items() if v == md_lord), md_lord)
+    ad_short = next((k for k, v in short_to_full.items() if v == ad_lord), ad_lord) if ad_lord else None
+    
+    planets_involved = [md_short]
+    if ad_short:
+        planets_involved.append(ad_short)
+    
+    # Track what marriage factors are activated for synergy bonus
+    marriage_factors_hit = 0
+    
+    # ═══════════════════════════════════════════════════════════════
+    # PRIMARY FACTORS
+    # ═══════════════════════════════════════════════════════════════
+    
+    # 1. 7th lord involvement (+3)
+    if seventh_lord in planets_involved:
+        score += 3
+        marriage_factors_hit += 1
+    
+    # 2. Venus involvement (+2 base)
+    if "Ve" in planets_involved:
+        score += 2
+        marriage_factors_hit += 1
+        # Yogakaraka bonus (+2)
+        if yogakaraka == "Ve":
+            score += 2
+        # D1 dignity bonus (+1)
+        ve_d1_dig = result.get("planets", {}).get("Ve", {}).get("dignity", "")
+        if ve_d1_dig in ("Own", "Exalted"):
+            score += 1
+    
+    # 3. 2nd lord involvement (+2)
+    if second_lord in planets_involved:
+        score += 2
+        marriage_factors_hit += 1
+    
+    # ═══════════════════════════════════════════════════════════════
+    # SECONDARY FACTORS
+    # ═══════════════════════════════════════════════════════════════
+    
+    # 4. 5th lord involvement (+1.5) - romance
+    if fifth_lord in planets_involved:
+        score += 1.5
+        marriage_factors_hit += 1
+    
+    # 5. 11th lord involvement (+1) - fulfillment of desires
+    if eleventh_lord in planets_involved:
+        score += 1
+    
+    # 6. 4th lord involvement (+1) - domestic happiness
+    if fourth_lord in planets_involved:
+        score += 1
+    
+    # 7. Jupiter involvement (+1) - natural benefic
+    if "Ju" in planets_involved:
+        score += 1
+        # Extra if Jupiter is Yogakaraka
+        if yogakaraka == "Ju":
+            score += 1
+    
+    # 8. 12th lord involvement (+0.5) - bed pleasures
+    if twelfth_lord in planets_involved:
+        score += 0.5
+    
+    # ═══════════════════════════════════════════════════════════════
+    # D9 (NAVAMSA) FACTORS - Critical for marriage
+    # ═══════════════════════════════════════════════════════════════
+    navamsa = result.get("navamsa", {})
+    
+    # 9. D9 Venus strength
+    if "Ve" in navamsa:
+        ve_d9_sign = navamsa["Ve"].get("sign", "")
+        ve_d9_dig = get_dignity("Ve", ve_d9_sign)
+        if ve_d9_dig == "Exalt":
+            score += 2
+        elif ve_d9_dig == "Own":
+            score += 1
+    
+    # 10. D9 7th lord strength
+    if seventh_lord in navamsa:
+        sl_d9_sign = navamsa[seventh_lord].get("sign", "")
+        sl_d9_dig = get_dignity(seventh_lord, sl_d9_sign)
+        if sl_d9_dig in ("Exalt", "Own"):
+            score += 1
+    
+    # 11. D9 dasha lord strength
+    for pl in planets_involved:
+        if pl in navamsa and pl not in ["Ra", "Ke"]:
+            pl_d9_sign = navamsa[pl].get("sign", "")
+            pl_d9_dig = get_dignity(pl, pl_d9_sign)
+            if pl_d9_dig in ("Exalt", "Own"):
+                score += 1
+                break  # Count once
+    
+    # 12. D9 lagna lord strength (+0.5)
+    if first_lord in navamsa:
+        fl_d9_sign = navamsa[first_lord].get("sign", "")
+        fl_d9_dig = get_dignity(first_lord, fl_d9_sign)
+        if fl_d9_dig in ("Exalt", "Own"):
+            score += 0.5
+    
+    # ═══════════════════════════════════════════════════════════════
+    # PLACEMENT & DIGNITY FACTORS
+    # ═══════════════════════════════════════════════════════════════
+    
+    # 13. Dasha lord in marriage-relevant houses (1, 2, 5, 7, 11)
+    for pl in planets_involved:
+        pl_house = house_of(pl)
+        if pl_house in [1, 2, 5, 7, 11]:
+            score += 1
+            break
+    
+    # 14. Dasha lord aspects 7th house (+1)
+    for pl in planets_involved:
+        if planet_aspects_house(pl, 7):
+            score += 1
+            break
+    
+    # 15. Dasha lord D1 dignity bonus (+1)
+    for pl in planets_involved:
+        if pl in result.get("planets", {}):
+            pl_dig = result["planets"][pl].get("dignity", "")
+            if pl_dig in ("Own", "Exalted"):
+                score += 1
+                break
+    
+    # ═══════════════════════════════════════════════════════════════
+    # LAGNA-SPECIFIC FACTORS
+    # ═══════════════════════════════════════════════════════════════
+    
+    # 16. Yogakaraka dasha lord (+2) - already handled above for Ve/Ju
+    for pl in planets_involved:
+        if pl == yogakaraka and pl not in ["Ve", "Ju"]:  # Avoid double counting
+            score += 2
+            break
+    
+    # 17. Functional benefic (+1)
+    for pl in planets_involved:
+        if pl in func_benefics:
+            score += 1
+            break
+    
+    # Penalty for functional malefic mahadasha lord (-0.5)
+    if md_short in func_malefics:
+        score -= 0.5
+    
+    # ═══════════════════════════════════════════════════════════════
+    # SYNERGY BONUS
+    # ═══════════════════════════════════════════════════════════════
+    
+    # 18. Both MD and AD are marriage-related (+1)
+    if marriage_factors_hit >= 2 and ad_short:
+        score += 1
+    
+    # ═══════════════════════════════════════════════════════════════
+    # RAHU/KETU SPECIAL HANDLING
+    # ═══════════════════════════════════════════════════════════════
+    
+    # 19. Rahu in 7th or aspecting 7th - unconventional but can give marriage
+    if "Ra" in planets_involved:
+        ra_house = house_of("Ra")
+        if ra_house == 7:
+            score += 1.5  # Strong indicator of marriage (unconventional)
+        elif ra_house == 5:  # Rahu in 5th aspects 11th (desires)
+            score += 0.5
+        # Rahu with 7th lord
+        seventh_lord_house = house_of(seventh_lord)
+        if ra_house == seventh_lord_house:
+            score += 1
+    
+    # 20. Ketu special handling
+    if "Ke" in planets_involved:
+        ke_house = house_of("Ke")
+        if ke_house == 7:
+            score += 0.5  # Can give marriage but spiritual/karmic spouse
+        # Ketu in 12th - moksha but also bed pleasures
+        if ke_house == 12:
+            score += 0.5
+    
+    # ═══════════════════════════════════════════════════════════════
+    # MOON FACTOR (for males especially, Moon = wife's mind)
+    # ═══════════════════════════════════════════════════════════════
+    if "Mo" in planets_involved:
+        score += 0.5
+        # Moon as 7th lord already counted above
+        # Moon in good dignity
+        mo_dig = result.get("planets", {}).get("Mo", {}).get("dignity", "")
+        if mo_dig in ("Exalted", "Own"):
+            score += 0.5
+    
+    # ═══════════════════════════════════════════════════════════════
+    # FINAL ADJUSTMENTS
+    # ═══════════════════════════════════════════════════════════════
+    
+    # Ensure score stays in 0-10 range
+    return min(10, max(0, int(round(score))))
+
+
+# ────────────────────────────────────────────────
 # Accurate Fructification Timings (2026-2046)
 # ────────────────────────────────────────────────
 def generate_timings(result, birth_year, birth_jd):
-    """Generate accurate timing predictions for next 20 years"""
+    """Generate accurate timing predictions for next 20 years with probability scores"""
     dashas = result["vimshottari"]["mahadasas"]
     current_year = 2026
 
@@ -1147,12 +1587,14 @@ def generate_timings(result, birth_year, birth_jd):
 
     # Event → favorable lords (expanded list)
     seventh_lord = result["seventh_lord"]
+    second_lord = lord_of(2)
     events = {
         "Marriage": [
             short_to_full["Ve"],
             short_to_full[seventh_lord],
             short_to_full["Ju"],
             short_to_full["Mo"],
+            short_to_full[second_lord],  # 2nd lord for family/marriage
         ],
         "Career Rise / Fame": [
             short_to_full["Sa"],
@@ -1198,9 +1640,17 @@ def generate_timings(result, birth_year, birth_jd):
                     ad_end_y = int(birth_year + ad_end_age)
                     # Include if AD starts or overlaps within 2026-2046
                     if ad_start_y <= current_year + 20 and ad_end_y >= current_year:
-                        periods.append(
-                            f" └─ {md_lord}/{ad['lord']} Antardasha ({ad_start_y}-{ad_end_y})"
-                        )
+                        # For marriage, add probability score
+                        if event == "Marriage":
+                            score = calculate_marriage_score(result, md_lord, ad["lord"])
+                            prob_label = "★★★" if score >= 7 else "★★" if score >= 4 else "★"
+                            periods.append(
+                                f" └─ {md_lord}/{ad['lord']} ({ad_start_y}-{ad_end_y}) {prob_label} [{score}/10]"
+                            )
+                        else:
+                            periods.append(
+                                f" └─ {md_lord}/{ad['lord']} Antardasha ({ad_start_y}-{ad_end_y})"
+                            )
         output[event] = periods[:10] if periods else []
     return output
 
@@ -1739,6 +2189,56 @@ HOUSE_SIGNIFICATIONS = {
 NATURAL_BENEFICS = {"Ju", "Ve", "Mo"}
 NATURAL_MALEFICS = {"Sa", "Ma", "Su", "Ra", "Ke"}
 
+
+def get_aspect_quality_score(planet, lagna_sign, dignity, is_combust=False, is_retro=False):
+    """Calculate aspect quality score for a planet.
+    Returns: (score, nature_label)
+      score > 0 = beneficial influence
+      score < 0 = challenging influence
+      score = 0 = neutral
+    nature_label describes the functional classification.
+    """
+    fq = FUNCTIONAL_QUALITY.get(lagna_sign, {})
+    
+    # Base score from functional nature
+    if planet in fq.get("ben", []):
+        base = 2
+        nature_label = "func. benefic"
+    elif planet == fq.get("yk"):
+        base = 3
+        nature_label = "Yogakaraka"
+    elif planet in fq.get("mal", []):
+        base = -2
+        nature_label = "func. malefic"
+    elif planet in fq.get("maraka", []):
+        base = -1
+        nature_label = "Maraka"
+    elif planet in fq.get("mixed", []):
+        base = 0
+        nature_label = "mixed"
+    else:
+        # Default to natural classification
+        if planet in NATURAL_BENEFICS:
+            base = 1
+            nature_label = "nat. benefic"
+        else:
+            base = -1
+            nature_label = "nat. malefic"
+    
+    # Dignity modifier (strength override)
+    if dignity == "Exalt":
+        base += 2  # Exaltation significantly improves results
+    elif dignity == "Own":
+        base += 1  # Own sign is stable and positive
+    elif dignity == "Debilitated":
+        base -= 1  # Debilitation weakens (but doesn't fully negate functional nature)
+    
+    # Combustion weakens significantly
+    if is_combust:
+        base -= 1
+    
+    return base, nature_label
+
 PLANET_ASPECT_THEMES = {
     "Su": {
         "7th": "Sun casts its authority and ego here – leadership potential; father-figures and government influence; pride may cause friction.",
@@ -1779,9 +2279,11 @@ PLANET_ASPECT_THEMES = {
 
 
 def interpret_aspects(result):
-    """Full Drishti analysis per house with strength, nature, and life outcomes"""
+    """Full Drishti analysis per house with strength, nature, and life outcomes.
+    Uses functional nature + dignity for balanced assessment instead of just natural benefic/malefic."""
     aspects = result["aspects"]
-    lagna_idx = zodiac_signs.index(result["lagna_sign"])
+    lagna_sign = result["lagna_sign"]
+    lagna_idx = zodiac_signs.index(lagna_sign)
     planets_data = result["planets"]
     out = []
 
@@ -1804,8 +2306,8 @@ def interpret_aspects(result):
         out.append(f"\nHouse {h:2d} ({house_sign}) – {signif.split(',')[0]}:")
         out.append(f"  Significations: {signif}")
 
-        mal_count = 0
-        ben_count = 0
+        total_score = 0
+        aspect_details = []
 
         for asp in aspects[h]:
             parts = asp.split("-")
@@ -1815,19 +2317,27 @@ def interpret_aspects(result):
             pl_data = planets_data.get(pl, {})
             dig = pl_data.get("dignity", "") if pl_data else ""
             retro = pl_data.get("retro", False) if pl_data else False
+            combust = pl_data.get("combust", False) if pl_data else False
+            
+            # Strength description
             if dig == "Exalt":
                 strength_note = "Exalted – very strong"
             elif dig == "Own":
                 strength_note = "Own sign – strong"
             elif dig == "Debilitated":
                 strength_note = "Debilitated – weakened"
+            elif combust:
+                strength_note = "Combust – weakened by Sun"
             elif retro:
-                strength_note = "Retrograde – intensified but erratic"
+                strength_note = "Retrograde – intensified"
             else:
                 strength_note = "Normal strength"
 
+            # Get functional nature score
+            score, nature_label = get_aspect_quality_score(pl, lagna_sign, dig, combust, retro)
+            total_score += score
+            
             asp_pct = strength_labels.get(asp_type, "100%")
-            nature = "benefic" if pl in NATURAL_BENEFICS else "malefic"
             pl_full = short_to_full.get(pl, pl)
 
             theme = PLANET_ASPECT_THEMES.get(pl, {}).get(
@@ -1836,32 +2346,31 @@ def interpret_aspects(result):
             )
 
             out.append(
-                f"  • {pl_full:8} ({asp_type} aspect, {asp_pct}, {nature}, {strength_note})"
+                f"  • {pl_full:8} ({asp_type} aspect, {asp_pct}, {nature_label}, {strength_note})"
             )
             out.append(f"    → {theme}")
 
-            if pl in NATURAL_BENEFICS:
-                ben_count += 1
-            else:
-                mal_count += 1
-
-        # Net summary
+        # Net summary based on total score
         h_area = signif.split(",")[0]
-        if mal_count > 0 and ben_count == 0:
+        if total_score >= 3:
             out.append(
-                f"  ⚠ Net: ONLY malefic aspects – challenges in {h_area}; targeted remedies strongly advised."
+                f"  ✓ Net: Strongly positive influences – {h_area} is well-supported; results come naturally."
             )
-        elif ben_count > 0 and mal_count == 0:
+        elif total_score >= 1:
             out.append(
-                f"  ✓ Net: ONLY benefic aspects – protection and growth in {h_area}; leverage these energies."
+                f"  ✓ Net: Positive overall – {h_area} benefits from supportive planetary energy."
             )
-        elif ben_count >= mal_count:
+        elif total_score >= -1:
             out.append(
-                f"  ~ Net: Benefics outweigh malefics – generally favourable {h_area} with manageable challenges."
+                f"  ~ Net: Mixed influences – {h_area} has balanced energies; results depend on dasha periods."
+            )
+        elif total_score >= -3:
+            out.append(
+                f"  ~ Net: Challenging influences – {h_area} requires conscious effort; dasha of benefics helps."
             )
         else:
             out.append(
-                f"  ~ Net: Malefics outweigh benefics – karmic challenges in {h_area}; benefic periods in dasha can mitigate."
+                f"  ⚠ Net: Significant challenges in {h_area}; focused remedies and benefic dashas recommended."
             )
 
     return out
@@ -1873,17 +2382,18 @@ def interpret_navamsa(result):
     planets_data = result["planets"]
     out = []
     out.append("(D9 reveals spouse character, marriage quality, dharmic path, and "
-               "the soul's evolutionary direction. Exalted/Own planets here amplify "
-               "natal promise; debilitated ones weaken it regardless of D1 strength.)")
+               "the soul's evolutionary direction. D1 shows the promise; D9 confirms or modifies it. "
+               "Strong D1 + strong D9 = highly reliable results; strong D1 + weak D9 = fluctuating results; "
+               "weak D1 + strong D9 = gradual improvement over time.)")
 
     planet_d9_meanings = {
         "Su": "Soul authority: spouse may have Sun-like qualities (leadership, pride). Dharma path involves service, governance, or father-like responsibility.",
         "Mo": "Emotional soul: deep emotional bond with spouse; marriage is nurturing. Inner self driven by security, mother, and public approval.",
         "Ma": "Passionate soul: spouse is energetic, ambitious, possibly athletic or bold. Marriage has intense passion; conflicts must be managed consciously.",
         "Me": "Intellectual soul: spouse is communicative, witty, analytical. Marriage thrives on mental connection; dharma through teaching or trade.",
-        "Ju": "Wisdom soul: spouse is wise, spiritual, generous. Highly auspicious D9 placement – dharma path blessed; marriage brings growth and fortune.",
-        "Ve": "Artistic soul: spouse is beautiful, artistic, loving, comfort-seeking. Venus strong in D9 is the best placement for a happy harmonious marriage.",
-        "Sa": "Karmic soul: spouse may be older, serious, disciplined, or from a different social background. Marriage has karmic weight; deep loyalty over time.",
+        "Ju": "Wisdom soul: spouse is wise, spiritual, generous. Jupiter's D9 dignity determines dharmic blessings; strong = growth, weak = obstacles.",
+        "Ve": "Artistic soul: spouse is beautiful, artistic, loving, comfort-seeking. Venus's D9 dignity is crucial for marital harmony and satisfaction.",
+        "Sa": "Karmic soul: spouse may be older, serious, disciplined, or from a different background. Marriage has karmic weight; deep loyalty over time.",
         "Ra": "Unconventional soul: spouse may be foreign, unconventional, or connected by past-life karma. Marriage outside norms; obsessive at times.",
         "Ke": "Spiritual soul: previous-life karmic bond with spouse; partner may be deeply spiritual, detached, or intuitive. Marriage is meaningful but impersonal.",
     }
@@ -1929,15 +2439,15 @@ def interpret_navamsa(result):
     if exalt_d9:
         out.append(f"  ✓ Exalted in D9: {', '.join(exalt_d9)} – Marriage/dharma blessings are magnified.")
     if deb_d9:
-        out.append(f"  ⚠ Debilitated in D9: {', '.join(deb_d9)} – These areas need conscious effort and remedies.")
+        out.append(f"  ⚠ Debilitated in D9: {', '.join(deb_d9)} – D1 promise may fluctuate; conscious effort helps stabilise results.")
     # Venus in D9 is the single most important marriage indicator
     if "Ve" in navamsa:
         ve_d9_sign = navamsa["Ve"]["sign"]
         ve_d9_dig = get_dignity("Ve", ve_d9_sign)
         if ve_d9_dig in ("Exalt", "Own"):
-            ve_note = "Excellent – beauty, love, and harmony are a core feature of marriage."
+            ve_note = "Excellent – beauty, love, and harmony are core features of marriage."
         elif ve_d9_dig == "Debilitated":
-            ve_note = "Debilitated – marital dissatisfaction possible; Venus remedies strongly advised."
+            ve_note = "Debilitated – marital satisfaction may require extra effort; Venus remedies can help."
         else:
             ve_note = "Moderate – marriage has affection but may need conscious nurturing."
         dig_tag = f", {ve_d9_dig}" if ve_d9_dig else ""
@@ -2151,13 +2661,17 @@ def print_kundali(result, file=None):
     if fq:
         ben_names = [short_to_full.get(p, p) for p in fq.get("ben", [])]
         mal_names = [short_to_full.get(p, p) for p in fq.get("mal", [])]
+        maraka_names = [short_to_full.get(p, p) for p in fq.get("maraka", [])]
+        mixed_names = [short_to_full.get(p, p) for p in fq.get("mixed", [])]
         yk = fq.get("yk")
-        write(f"  Functional Benefics  : {', '.join(ben_names)}")
-        write(f"  Functional Malefics  : {', '.join(mal_names)}")
+        write(f"  Functional Benefics  : {', '.join(ben_names) if ben_names else '—'}")
+        write(f"  Functional Malefics  : {', '.join(mal_names) if mal_names else '—'}")
+        write(f"  Marakas (2nd/7th)    : {', '.join(maraka_names) if maraka_names else '—'}")
+        write(f"  Mixed Nature         : {', '.join(mixed_names) if mixed_names else '—'}")
         if yk:
             write(f"  Yogakaraka           : {short_to_full.get(yk, yk)} "
                   f"(owns both kendra + trikona for this lagna – most powerful single planet)")
-        write("  Note: Prioritise strengthening functional benefics and mitigating functional malefics.")
+        write("  Note: Strengthen benefics and Yogakaraka; be cautious during Maraka dashas.")
 
     # House Lord Placements
     write("\nHouse Lord Placements:")
@@ -2195,13 +2709,31 @@ def print_kundali(result, file=None):
             write(f"Current (MD/AD/PD) : {vim['current_md']} / {vim['current_ad']} / {current_pd} (PD until ~{pd_end_yr})")
         else:
             write(f"Current (MD/AD) : {vim['current_md']} / {vim['current_ad']}")
-    write("\nMarriage Timing Insights (Basic Parashari):")
+    write("\nMarriage Timing Insights (Enhanced Parashari):")
     write("-" * 85)
-    write(f"7th Lord : {result['seventh_lord']}")
-    write("Key Triggers : Venus MD/AD OR 7th-lord MD/AD")
-    write(
-        "Also favourable : Jupiter transit over 7th/2nd from Moon, strong D9 Venus/7th"
-    )
+    # Calculate key factors
+    lagna_idx = zodiac_signs.index(result["lagna_sign"])
+    def lord_of_h(h):
+        return sign_lords[zodiac_signs[(lagna_idx + h - 1) % 12]]
+    seventh_lord = result["seventh_lord"]
+    second_lord = lord_of_h(2)
+    
+    write(f"  7th Lord (spouse)    : {short_to_full.get(seventh_lord, seventh_lord)}")
+    write(f"  2nd Lord (family)    : {short_to_full.get(second_lord, second_lord)}")
+    write(f"  Venus (natural karak): {result['planets'].get('Ve', {}).get('sign', '?')}")
+    
+    # D9 Venus status
+    ve_d9 = result.get("navamsa", {}).get("Ve", {})
+    if ve_d9:
+        ve_d9_dig = get_dignity("Ve", ve_d9.get("sign", ""))
+        d9_status = f"{ve_d9.get('sign', '?')}"
+        if ve_d9_dig:
+            d9_status += f" ({ve_d9_dig})"
+        write(f"  D9 Venus             : {d9_status}")
+    
+    write("\n  Probability factors scored: 7th lord (+3), Venus (+3), 2nd lord (+2),")
+    write("  Jupiter (+1), D9 Venus dignity (+1), D9 7th lord (+1), house placement (+1)")
+    write("  Score legend: ★★★ (7-10) High | ★★ (4-6) Moderate | ★ (1-3) Lower")
     vm = vim["current_md"]
     va = vim["current_ad"]
     if (
