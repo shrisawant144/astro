@@ -265,6 +265,24 @@ COMBUSTION_ORBS = {
 }  # Ra/Ke/Su not affected
 
 # ────────────────────────────────────────────────
+# Neecha Bhanga (Cancelled Debilitation) Data
+# Rules (Parashari):
+#   A – Lord of debilitation sign in kendra from Lagna or Moon
+#   B – Planet exalted in debilitation sign is in kendra from Lagna or Moon
+#   C – Debilitated planet itself is in kendra from Lagna or Moon
+# ────────────────────────────────────────────────
+NEECHA_BHANGA_INFO = {
+    # planet: (deb_sign_lord, planet_exalted_in_deb_sign)
+    "Su": ("Ve", "Sa"),   # Sun deb Libra; Libra lord=Ve; Saturn exalts in Libra
+    "Mo": ("Ma", None),   # Moon deb Scorpio; Scorpio lord=Ma; no classical exalt in Scorpio
+    "Ma": ("Mo", "Ju"),   # Mars deb Cancer; Cancer lord=Mo; Jupiter exalts in Cancer
+    "Me": ("Ju", "Ve"),   # Mercury deb Pisces; Pisces lord=Ju; Venus exalts in Pisces
+    "Ju": ("Sa", "Ma"),   # Jupiter deb Capricorn; Capricorn lord=Sa; Mars exalts in Capricorn
+    "Ve": ("Me", "Me"),   # Venus deb Virgo; Virgo lord=Me; Mercury exalts in Virgo
+    "Sa": ("Ma", "Su"),   # Saturn deb Aries; Aries lord=Ma; Sun exalts in Aries
+}
+
+# ────────────────────────────────────────────────
 # Functional Benefics / Malefics by Lagna
 # Source: Parashari rules (kendra/trikona lords)
 # ────────────────────────────────────────────────
@@ -543,6 +561,78 @@ def check_combustion(planet_code, planet_full_lon, sun_full_lon, is_retro):
     return diff <= orb
 
 
+def _houses_are_consecutive(house_set):
+    """Return True if the given set of house numbers (1-12) form a
+    gapless consecutive sequence, accounting for zodiac wrap-around.
+    E.g. {10,11,12,1} is consecutive; {2,3,5} is not.
+    """
+    houses = sorted(house_set)
+    n = len(houses)
+    if n < 2:
+        return True
+    for start_i in range(n):
+        ok = True
+        for j in range(1, n):
+            diff = (houses[(start_i + j) % n] - houses[(start_i + j - 1) % n]) % 12
+            if diff != 1:
+                ok = False
+                break
+        if ok:
+            return True
+    return False
+
+
+def check_neecha_bhanga(planet_code, planet_data, house_planets, lagna_idx, moon_house):
+    """Return True if the debilitated planet's debilitation is cancelled
+    (Neecha Bhanga Raja Yoga).
+    Three Parashari rules are checked:
+      A – The lord of the debilitation sign is in a kendra from Lagna or Moon.
+      B – The planet that is exalted in the debilitation sign is in a kendra
+          from Lagna or Moon.
+      C – The debilitated planet itself is in a kendra from Lagna or Moon.
+    Any one rule being satisfied cancels the debilitation.
+    """
+    if planet_code not in NEECHA_BHANGA_INFO:
+        return False
+    if planet_code not in planet_data:
+        return False
+    if planet_data[planet_code]["dignity"] != "Debilitated":
+        return False  # not debilitated, no cancellation needed
+
+    kendra_from_lagna = {1, 4, 7, 10}
+    # Kendras from Moon (houses 1,4,7,10 counted from Moon's house)
+    if moon_house is not None:
+        kendra_from_moon = {((moon_house - 1 + offset) % 12) + 1 for offset in (0, 3, 6, 9)}
+    else:
+        kendra_from_moon = set()
+
+    def planet_in_kendra(pl_code):
+        """Return True if pl_code is found in a kendra from Lagna or Moon."""
+        for h, plist in house_planets.items():
+            if pl_code in plist:
+                return h in kendra_from_lagna or h in kendra_from_moon
+        return False
+
+    def self_in_kendra(pl_code):
+        """Return True if pl_code itself is in a kendra from Lagna or Moon."""
+        for h, plist in house_planets.items():
+            if pl_code in plist:
+                return h in kendra_from_lagna or h in kendra_from_moon
+        return False
+
+    deb_lord, exalt_planet = NEECHA_BHANGA_INFO[planet_code]
+    # Rule A
+    if deb_lord and planet_in_kendra(deb_lord):
+        return True
+    # Rule B
+    if exalt_planet and exalt_planet != deb_lord and planet_in_kendra(exalt_planet):
+        return True
+    # Rule C
+    if self_in_kendra(planet_code):
+        return True
+    return False
+
+
 def get_panchanga(birth_jd, sun_lon, moon_lon):
     """Return birth Panchanga: Tithi, Vara, Yoga, Karana."""
     # Tithi
@@ -640,19 +730,26 @@ def get_d10_sign_and_deg(full_lon):
 # Yoga Strength Calculation (1-10)
 # ────────────────────────────────────────────────
 def get_yoga_strength(pl_list, result):
-    """Calculate yoga strength from 1-10 based on dignity, house, retro, etc."""
+    """Calculate yoga strength from 1-10 based on dignity, house, retro,
+    combustion, and Neecha Bhanga status."""
     score = 5  # baseline
     for pl in pl_list:
         if pl not in result["planets"]:
             continue
         d = result["planets"][pl]
-        # Dignity bonus/penalty
+        # Dignity bonus/penalty (Neecha Bhanga softens debilitation from -3 to -1)
         if d["dignity"] == "Exalt":
             score += 3
         elif d["dignity"] == "Own":
             score += 2
         elif d["dignity"] == "Debilitated":
-            score -= 3
+            if d.get("neecha_bhanga", False):
+                score -= 1  # debilitation cancelled; minor residual only
+            else:
+                score -= 3
+        # Combust penalty (combustion severely weakens a planet)
+        if d.get("combust", False):
+            score -= 2
         # Direct motion bonus
         if not d["retro"]:
             score += 1
@@ -766,23 +863,25 @@ def detect_problems(result):
         summary = f"Pitru Dosha (Sun afflicted by {', '.join(afflictions)}): Ancestral issues, father-related challenges"
         detail = f"- Reason: Pitru Dosha arises from Sun's affliction by malefics, indicating unresolved ancestral karma.\n- Direct Outcome: Paternal health problems, family disputes, or luck obstacles; remedies include Shradh rituals."
         problems.append({"summary": summary, "detail": detail})
-    # 6. Graha Malika Yoga (Planets in consecutive houses – can be problematic if malefic heavy)
-    # Check if 5+ consecutive houses are each occupied (handles zodiac wrap-around)
-    occupied = [1 if len(h[i]) > 0 else 0 for i in range(1, 13)]
-    doubled = occupied * 2  # duplicate to handle 12→1 wraparound
-    cur_run = 0
-    max_consec = 0
-    for v in doubled:
-        if v:
-            cur_run += 1
-            if cur_run > max_consec:
-                max_consec = cur_run
-        else:
-            cur_run = 0
-    max_consec = min(max_consec, 12)
-    if max_consec >= 5:
-        summary = "Graha Malika (5+ planets consecutive): Intense life phases, potential imbalances"
-        detail = f"- Reason: Planets in sequential houses concentrate energy, turning intense if malefic-heavy.\n- Direct Outcome: Extreme highs/lows in focused areas, e.g., success followed by instability; balances with yogas."
+    # 6. Graha Malika Yoga – All 7 classical planets confined to consecutive houses with
+    #    no gap.  Using only classical planets (Su Mo Ma Me Ju Ve Sa) avoids false positives
+    #    caused by Rahu/Ketu or the Ascendant marker occupying a house.
+    _classical = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]
+    _c_house_set = set()
+    for _pl in _classical:
+        for _hnum, _plist in h.items():
+            if _pl in _plist:
+                _c_house_set.add(_hnum)
+                break
+    _n_classical_houses = len(_c_house_set)
+    if _n_classical_houses >= 6 and _houses_are_consecutive(_c_house_set):
+        summary = (f"Graha Malika ({_n_classical_houses} classical planets in consecutive houses): "
+                   f"Intense, focused life phases, potential imbalances")
+        detail = ("- Reason: Classical planets in sequential houses concentrate all life energy "
+                  "into a tight arc – intense achievement in those house themes.\n"
+                  "- Direct Outcome: Extreme highs/lows in the activated house arc; "
+                  "strong focus but risk of neglecting opposite-house themes; "
+                  "balances with simultaneous yogas.")
         problems.append({"summary": summary, "detail": detail})
     if not problems:
         problems.append(
@@ -816,14 +915,17 @@ def detect_problems(result):
         "Debilitated_Me": [
             "Donate green cloth, green moong dal, or books on Wednesdays.",
             "Chant 'Om Bum Buddhaya Namah' 108× on Wednesdays.",
-            "Wear emerald (Panna) in gold ring on right little finger (after consultation).",
+            "Wear emerald (Panna) in gold ring on right little finger – "
+            "ONLY if Mercury is your functional benefic and not combust (consult jyotishi).",
             "Feed green grass to cows and read/give away books.",
         ],
         "Debilitated_Sa": [
             "Recite Shani Stotra and 'Om Sham Shanicharaya Namah' on Saturdays.",
             "Donate black sesame seeds, mustard oil, and black cloth on Saturdays.",
             "Light sesame oil lamp under Peepal tree on Saturdays.",
-            "Wear blue sapphire only after thorough jyotishi trial (powerful and risky).",
+            # Gemstone only recommended if Saturn is functional benefic AND not combust
+            "Wear blue sapphire only after thorough jyotishi trial (powerful and risky) – "
+            "ONLY if Saturn is your functional benefic and not combust.",
         ],
         "Debilitated_Su": [
             "Offer water (Arghya) to the rising Sun daily with mantra.",
@@ -881,6 +983,47 @@ def detect_problems(result):
                                    ("Moon","Mo"),("Mars","Ma"),("Jupiter","Ju"),("Venus","Ve")]:
                 if pl_short in summary:
                     rems += REMEDIES.get(f"Debilitated_{key}", [])
+        # ── Gemstone filter: warn/skip if planet is a functional malefic or combust ──
+        # Applied AFTER rems is filled so the full list is available for filtering.
+        if "Debilitated" in summary and rems:
+            lagna_sign_r = result.get("lagna_sign", "")
+            fq_r = FUNCTIONAL_QUALITY.get(lagna_sign_r, {})
+            func_malefics = fq_r.get("mal", [])
+            # Map each remedy line to the planet it belongs to by tracking which
+            # planet's remedy block we are in (remedies appear in the same order
+            # as the debilitated planets listed in the summary).
+            _deb_order = []
+            for ps, pk in [("Mercury","Me"),("Saturn","Sa"),("Sun","Su"),
+                            ("Moon","Mo"),("Mars","Ma"),("Jupiter","Ju"),("Venus","Ve")]:
+                if ps in summary:
+                    _deb_order.append(pk)
+            # Each planet's REMEDIES block has the same length → partition rems
+            _block_size = {}
+            for pk in _deb_order:
+                _block_size[pk] = len(REMEDIES.get(f"Debilitated_{pk}", []))
+            filtered = []
+            _rem_idx = 0
+            for pk in _deb_order:
+                _planet_rems = rems[_rem_idx: _rem_idx + _block_size[pk]]
+                _rem_idx += _block_size[pk]
+                is_malefic = pk in func_malefics
+                is_combust = result.get("planets", {}).get(pk, {}).get("combust", False)
+                for rem_line in _planet_rems:
+                    is_gem_line = any(g in rem_line for g in ["sapphire", "emerald",
+                                                               "pearl", "coral", "ruby",
+                                                               "diamond", "moonstone",
+                                                               "gemstone"])
+                    if is_gem_line and is_malefic:
+                        filtered.append(
+                            f"{rem_line} [⚠ SKIP – {pk} is a functional malefic for "
+                            f"{lagna_sign_r} lagna; wearing this gem will amplify harm]")
+                    elif is_gem_line and is_combust:
+                        filtered.append(
+                            f"{rem_line} [⚠ CAUTION – {pk} is currently combust; "
+                            f"wait for combustion to clear before using this gemstone]")
+                    else:
+                        filtered.append(rem_line)
+            rems = filtered
         prob["remedies"] = rems
     return problems
 
@@ -1084,9 +1227,14 @@ def detect_yogas(result):
         return sign_lords[zodiac_signs[sign_idx]]
 
     # 1. Gajakesari Yoga (Jupiter-Moon)
+    # Traditional rule: Jupiter must occupy a kendra (1st/4th/7th/10th) from the Moon
     if "Ju" in planet_house and "Mo" in planet_house:
-        stren = get_yoga_strength(["Ju", "Mo"], result)
-        yogas.append(f"Gajakesari Yoga (Strength {stren}/10) → Fame, wisdom, wealth")
+        mo_h = planet_house["Mo"]
+        ju_h = planet_house["Ju"]
+        houses_from_moon = (ju_h - mo_h) % 12  # 0=1st, 3=4th, 6=7th, 9=10th
+        if houses_from_moon in (0, 3, 6, 9):   # Jupiter in kendra from Moon
+            stren = get_yoga_strength(["Ju", "Mo"], result)
+            yogas.append(f"Gajakesari Yoga (Strength {stren}/10) → Fame, wisdom, wealth")
     # 2. Raja Yogas (Kendra-Trikona lords)
     # A Yogakaraka is a single planet that lords both a kendra and a trikona.
     # Two different planets form a Raja Yoga by conjunction (same house) or
@@ -1400,6 +1548,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
             "dignity": dignity,
             "retro": retro,
             "combust": False,  # filled after Sun lon is known
+            "neecha_bhanga": False,  # filled after all planets are placed
             "navamsa_sign": None,
             "navamsa_deg": None,
             "d7_sign": None,
@@ -1424,6 +1573,18 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
                 sun_full_lon,
                 planet_data[code]["retro"],
             )
+    # Neecha Bhanga (after combustion is set, before Ke is added)
+    moon_house_nb = None
+    for _h, _plist in house_planets.items():
+        if "Mo" in _plist:
+            moon_house_nb = _h
+            break
+    for code in list(planet_data.keys()):
+        if code in ("Su", "Ra", "Ke"):
+            continue  # Sun never debilitated; Ra/Ke handled separately
+        planet_data[code]["neecha_bhanga"] = check_neecha_bhanga(
+            code, planet_data, house_planets, lagna_idx, moon_house_nb
+        )
     # Ketu + Ra lon for later
     ra_lon = swe.calc_ut(birth_jd, swe.MEAN_NODE, swe.FLG_SIDEREAL)[0][0]
     ke_lon = (ra_lon + 180) % 360
@@ -1437,6 +1598,8 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
         "nakshatra": ke_nak,
         "dignity": ke_dignity,
         "retro": True,
+        "combust": False,
+        "neecha_bhanga": False,  # nodes not subject to neecha bhanga
         "navamsa_sign": None,
         "navamsa_deg": None,
         "d7_sign": None,
@@ -1938,11 +2101,15 @@ def print_kundali(result, file=None):
                 flags += " R"
             if d.get("combust"):
                 flags += " C"
-            dig = f" ({d['dignity']})" if d["dignity"] else ""
+            # Dignity label — append NB when neecha bhanga cancels debilitation
+            dig_label = d["dignity"]
+            if dig_label == "Debilitated" and d.get("neecha_bhanga", False):
+                dig_label = "Debilitated (NB)"
+            dig = f" ({dig_label})" if dig_label else ""
             write(
                 f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11} {d['nakshatra']:18}{dig}{flags}"
             )
-    write("  (R = Retrograde, C = Combust/Astangata – weakened by closeness to Sun)")
+    write("  (R = Retrograde, C = Combust/Astangata – weakened by closeness to Sun, NB = Neecha Bhanga – debilitation cancelled)")
     for div, title, interp_fn in [
         ("navamsa", "Navamsa (D9 – Marriage/Spouse/Dharma)", interpret_navamsa),
         ("d7", "Saptamsa (D7 – Children/Progeny)", interpret_d7),
