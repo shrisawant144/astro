@@ -1,3 +1,4 @@
+import re
 import swisseph as swe
 import datetime
 from geopy.geocoders import Nominatim
@@ -250,6 +251,80 @@ short_to_full = {
     "Ke": "Ketu",
 }
 
+# ────────────────────────────────────────────────
+# Combustion Orbs (degrees from Sun for combustion)
+# Source: Brihat Parashara Hora Shastra
+# ────────────────────────────────────────────────
+COMBUSTION_ORBS = {
+    "Mo": (12, 12),   # (direct, retrograde) — Moon is never retrograde but uniform
+    "Ma": (17, 17),
+    "Me": (14, 12),
+    "Ju": (11, 11),
+    "Ve": (10, 8),
+    "Sa": (15, 15),
+}  # Ra/Ke/Su not affected
+
+# ────────────────────────────────────────────────
+# Functional Benefics / Malefics by Lagna
+# Source: Parashari rules (kendra/trikona lords)
+# ────────────────────────────────────────────────
+FUNCTIONAL_QUALITY = {
+    "Aries":       {"ben": ["Su", "Ju", "Ma"], "mal": ["Me", "Ve", "Sa"], "yk": None},
+    "Taurus":      {"ben": ["Sa", "Ve", "Me"], "mal": ["Ju", "Mo", "Ma"], "yk": "Sa"},
+    "Gemini":      {"ben": ["Ve", "Sa", "Me"], "mal": ["Ju", "Su", "Ma"], "yk": "Ve"},
+    "Cancer":      {"ben": ["Ma", "Ju", "Mo"], "mal": ["Me", "Ve", "Sa"], "yk": "Ma"},
+    "Leo":         {"ben": ["Su", "Ma", "Ju"], "mal": ["Me", "Ve", "Sa"], "yk": None},
+    "Virgo":       {"ben": ["Ve", "Me", "Sa"], "mal": ["Ma", "Ju", "Mo"], "yk": "Ve"},
+    "Libra":       {"ben": ["Sa", "Ve", "Me"], "mal": ["Ju", "Su", "Ma"], "yk": "Sa"},
+    "Scorpio":     {"ben": ["Ju", "Mo", "Su"], "mal": ["Me", "Ve", "Sa"], "yk": "Mo"},
+    "Sagittarius": {"ben": ["Su", "Ma", "Ju"], "mal": ["Ve", "Me", "Sa"], "yk": None},
+    "Capricorn":   {"ben": ["Ve", "Me", "Sa"], "mal": ["Ju", "Ma", "Mo"], "yk": "Ve"},
+    "Aquarius":    {"ben": ["Ve", "Sa", "Me"], "mal": ["Ju", "Mo", "Ma"], "yk": "Ve"},
+    "Pisces":      {"ben": ["Ju", "Mo", "Ma"], "mal": ["Sa", "Ve", "Me"], "yk": None},
+}
+
+# ────────────────────────────────────────────────
+# Panchanga Names
+# ────────────────────────────────────────────────
+TITHI_NAMES = [
+    "Shukla Pratipada", "Shukla Dwitiya", "Shukla Tritiya", "Shukla Chaturthi",
+    "Shukla Panchami", "Shukla Shashthi", "Shukla Saptami", "Shukla Ashtami",
+    "Shukla Navami", "Shukla Dashami", "Shukla Ekadashi", "Shukla Dwadashi",
+    "Shukla Trayodashi", "Shukla Chaturdashi", "Purnima",
+    "Krishna Pratipada", "Krishna Dwitiya", "Krishna Tritiya", "Krishna Chaturthi",
+    "Krishna Panchami", "Krishna Shashthi", "Krishna Saptami", "Krishna Ashtami",
+    "Krishna Navami", "Krishna Dashami", "Krishna Ekadashi", "Krishna Dwadashi",
+    "Krishna Trayodashi", "Krishna Chaturdashi", "Amavasya",
+]
+YOGA_NAMES = [
+    "Vishkamba", "Priti", "Ayushman", "Saubhagya", "Shobhana",
+    "Atiganda", "Sukarma", "Dhriti", "Shula", "Ganda",
+    "Vriddhi", "Dhruva", "Vyaghata", "Harshana", "Vajra",
+    "Siddhi", "Vyatipata", "Variyana", "Parigha", "Shiva",
+    "Siddha", "Sadhya", "Shubha", "Shukla", "Brahma",
+    "Mahendra", "Vaidhriti",
+]
+KARANA_REPEATING = ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti"]
+VARA_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+# House lord → placement meaning (lord of house A placed in house B)
+HOUSE_LORD_IN_HOUSE = {
+    (1, 1): "Lagna lord in Lagna: strong personality, self-reliant, independent, vitality emphasized.",
+    (1, 2): "Lagna lord in 2H: wealth and family define the personality; skilled speaker; face is fortunate asset.",
+    (1, 3): "Lagna lord in 3H: courageous, communicative, travels define life; siblings influential.",
+    (1, 4): "Lagna lord in 4H: deeply rooted in home and mother; domestic comfort is life priority.",
+    (1, 5): "Lagna lord in 5H: creative, intelligent, child-oriented life; fame through wisdom/arts.",
+    (1, 6): "Lagna lord in 6H: life centred on service/health/enemies; competitive; health demands attention.",
+    (1, 7): "Lagna lord in 7H: partnerships are central to identity; marriage-oriented, may live abroad.",
+    (1, 8): "Lagna lord in 8H: transformation, occult, longevity challenges; hidden strengths emerge.",
+    (1, 9): "Lagna lord in 9H: highly fortunate; life guided by dharma, luck, and father's blessings.",
+    (1, 10): "Lagna lord in 10H: career and authority are expressed strongly; public recognition likely.",
+    (1, 11): "Lagna lord in 11H: gains and social networks prosper; fulfillment of desires.",
+    (1, 12): "Lagna lord in 12H: spiritual seekers or life abroad; expenditure-prone; hidden life.",
+}
+# Generic fallback template used for all 144 (A,B) combos not in the above dict:
+# "Lord of house A in house B: A's themes channelled through B's environment."
+
 
 # ────────────────────────────────────────────────
 # Helper Functions
@@ -314,9 +389,61 @@ def datetime_to_jd(dt):
     return swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute / 60.0)
 
 
-def house_from_ref(ref_house, target_house):
-    """Helper: Get relative house of target from reference house."""
-    return ((target_house - ref_house + 12) % 12) + 1
+def check_combustion(planet_code, planet_full_lon, sun_full_lon, is_retro):
+    """Return True if planet is combust (within orb of Sun)."""
+    if planet_code not in COMBUSTION_ORBS:
+        return False
+    orb_direct, orb_retro = COMBUSTION_ORBS[planet_code]
+    orb = orb_retro if is_retro else orb_direct
+    diff = abs((planet_full_lon - sun_full_lon + 360) % 360)
+    if diff > 180:
+        diff = 360 - diff
+    return diff <= orb
+
+
+def get_panchanga(birth_jd, sun_lon, moon_lon):
+    """Return birth Panchanga: Tithi, Vara, Yoga, Karana."""
+    # Tithi
+    tithi_num = int((moon_lon - sun_lon) % 360 / 12)  # 0-29
+    tithi = TITHI_NAMES[tithi_num]
+    # Vara (day of week)
+    vara_idx = int(birth_jd + 1.5) % 7  # 0=Sun,1=Mon,...,6=Sat
+    vara = VARA_NAMES[vara_idx]
+    # Yoga (27 Nithya Yogas)
+    yoga_idx = int((sun_lon + moon_lon) % 360 / (360 / 27)) % 27
+    yoga = YOGA_NAMES[yoga_idx]
+    # Karana (half-tithi)
+    half_idx = int((moon_lon - sun_lon) % 360 / 6)  # 0-59
+    if half_idx == 0:
+        karana = "Kimstughna"
+    elif half_idx <= 56:
+        karana = KARANA_REPEATING[(half_idx - 1) % 7]
+    elif half_idx == 57:
+        karana = "Shakuni"
+    elif half_idx == 58:
+        karana = "Chatushpada"
+    else:
+        karana = "Naga"
+    return {"tithi": tithi, "vara": vara, "yoga": yoga, "karana": karana}
+
+
+def get_sade_sati_status(natal_moon_sign, current_sa_sign):
+    """Return Sade Sati / Dhaiya status from natal Moon and transiting Saturn sign."""
+    moon_idx = zodiac_signs.index(natal_moon_sign)
+    sa_idx = zodiac_signs.index(current_sa_sign)
+    diff = (sa_idx - moon_idx + 12) % 12
+    if diff == 11:
+        return "Sade Sati – Rising Phase (Saturn in 12th from Moon): increased expenses, inner unrest, foreign journeys"
+    elif diff == 0:
+        return "Sade Sati – Peak Phase (Saturn on Moon sign): maximum pressure on mind, health, and finances"
+    elif diff == 1:
+        return "Sade Sati – Setting Phase (Saturn in 2nd from Moon): family friction, financial stress, speech issues"
+    elif diff == 3:
+        return "Kantaka Shani / Dhaiya (Saturn in 4th from Moon): troubles at home, property, vehicles, mother's health"
+    elif diff == 7:
+        return "Ashtama Shani / Dhaiya (Saturn in 8th from Moon): health challenges, obstacles, financial losses; intense karmic period"
+    else:
+        return None  # No special Saturn transit now
 
 
 # ────────────────────────────────────────────────
@@ -443,6 +570,8 @@ def detect_problems(result):
     if "Ra" in planet_house and "Ke" in planet_house:
         ra_house = planet_house["Ra"]
         ke_house = planet_house["Ke"]
+        # Normalize houses: assume houses are 1-12
+        # Check if all other planets are between ra_house and ke_house (clockwise or anticlockwise)
         all_planets_between = True
         direction1 = (ke_house - ra_house + 12) % 12  # From Ra to Ke clockwise
         direction2 = (ra_house - ke_house + 12) % 12  # From Ke to Ra clockwise
@@ -478,17 +607,17 @@ def detect_problems(result):
         detail = f"- Reason: A planet is debilitated when in a sign opposing its nature, e.g., Mercury in Pisces clashes with its analytical energy, Saturn in Aries conflicts with its patience.\n- Direct Outcome: {'; '.join(deb_details)} Possible health or career issues; remedies like gemstones (emerald for Mercury, blue sapphire for Saturn)."
         problems.append({"summary": summary, "detail": detail})
     # 5. Pitru Dosha (Sun afflicted by Saturn/Rahu, or Sun in 12th)
+    # Affliction = same house (conjunction) OR 7 houses away (mutual opposition/aspect)
     sun_house = planet_house.get("Su", None)
     afflictions = []
-    if "Sa" in planet_house and abs(planet_house["Sa"] - sun_house) in [
-        0,
-        1,
-        6,
-        7,
-    ]:  # Conjunction or opposition
-        afflictions.append("Saturn")
-    if "Ra" in planet_house and abs(planet_house["Ra"] - sun_house) in [0, 1, 6, 7]:
-        afflictions.append("Rahu")
+    if "Sa" in planet_house and sun_house is not None:
+        h_diff = (planet_house["Sa"] - sun_house + 12) % 12
+        if h_diff in (0, 6):  # conjunction or direct opposition
+            afflictions.append("Saturn")
+    if "Ra" in planet_house and sun_house is not None:
+        h_diff = (planet_house["Ra"] - sun_house + 12) % 12
+        if h_diff in (0, 6):
+            afflictions.append("Rahu")
     if sun_house == 12:
         afflictions.append("in 12H")
     if afflictions:
@@ -496,14 +625,19 @@ def detect_problems(result):
         detail = f"- Reason: Pitru Dosha arises from Sun's affliction by malefics, indicating unresolved ancestral karma.\n- Direct Outcome: Paternal health problems, family disputes, or luck obstacles; remedies include Shradh rituals."
         problems.append({"summary": summary, "detail": detail})
     # 6. Graha Malika Yoga (Planets in consecutive houses – can be problematic if malefic heavy)
-    consecutive_count = 1
-    max_consec = 1
-    for i in range(1, 13):
-        if len(h[i]) > 0:
-            consecutive_count += 1
-            max_consec = max(max_consec, consecutive_count)
+    # Check if 5+ consecutive houses are each occupied (handles zodiac wrap-around)
+    occupied = [1 if len(h[i]) > 0 else 0 for i in range(1, 13)]
+    doubled = occupied * 2  # duplicate to handle 12→1 wraparound
+    cur_run = 0
+    max_consec = 0
+    for v in doubled:
+        if v:
+            cur_run += 1
+            if cur_run > max_consec:
+                max_consec = cur_run
         else:
-            consecutive_count = 0
+            cur_run = 0
+    max_consec = min(max_consec, 12)
     if max_consec >= 5:
         summary = "Graha Malika (5+ planets consecutive): Intense life phases, potential imbalances"
         detail = f"- Reason: Planets in sequential houses concentrate energy, turning intense if malefic-heavy.\n- Direct Outcome: Extreme highs/lows in focused areas, e.g., success followed by instability; balances with yogas."
@@ -513,8 +647,99 @@ def detect_problems(result):
             {
                 "summary": "No major doshas/problems detected – Generally favorable chart",
                 "detail": "",
+                "remedies": [],
             }
         )
+        return problems
+    # ── Attach targeted remedies to each problem ──
+    REMEDIES = {
+        "Mangal": [
+            "Recite Hanuman Chalisa daily, especially on Tuesdays.",
+            "Donate red lentils (masoor dal) and red cloth on Tuesdays.",
+            "Wear red coral (Moonga) in gold/copper ring on right ring finger (after jyotishi consultation).",
+            "For marriage: Kumbh Vivah ritual (marrying a Peepal tree) before wedding.",
+        ],
+        "Kemdrum": [
+            "Chant 'Om Som Somaya Namah' or 'Om Chandraya Namah' 108× on Mondays.",
+            "Offer white flowers and milk to Shiva on Mondays.",
+            "Wear moonstone or pearl in silver ring on right little finger.",
+            "Avoid major decisions during waning Moon (Krishna Paksha).",
+        ],
+        "Kaal Sarp": [
+            "Perform Kaal Sarp Dosh puja at Trimbakeshwar (Nasik) or Ujjain.",
+            "Recite Maha Mrityunjaya Mantra 108× daily.",
+            "Donate silver snake idol at Naga temple on Naga Panchami.",
+            "Wear Navagraha or Kaal Sarp yantra after proper energisation.",
+        ],
+        "Debilitated_Me": [
+            "Donate green cloth, green moong dal, or books on Wednesdays.",
+            "Chant 'Om Bum Buddhaya Namah' 108× on Wednesdays.",
+            "Wear emerald (Panna) in gold ring on right little finger (after consultation).",
+            "Feed green grass to cows and read/give away books.",
+        ],
+        "Debilitated_Sa": [
+            "Recite Shani Stotra and 'Om Sham Shanicharaya Namah' on Saturdays.",
+            "Donate black sesame seeds, mustard oil, and black cloth on Saturdays.",
+            "Light sesame oil lamp under Peepal tree on Saturdays.",
+            "Wear blue sapphire only after thorough jyotishi trial (powerful and risky).",
+        ],
+        "Debilitated_Su": [
+            "Offer water (Arghya) to the rising Sun daily with mantra.",
+            "Donate wheat, jaggery, or copper items on Sundays.",
+            "Chant 'Om Suryaya Namah' 108× mornings.",
+        ],
+        "Debilitated_Mo": [
+            "Fast on Mondays or eat only once.",
+            "Offer raw milk/white rice in flowing water on Mondays.",
+            "Wear pearl or moonstone in silver on right little finger.",
+        ],
+        "Debilitated_Ma": [
+            "Donate red lentils and copper items on Tuesdays.",
+            "Chant 'Om Ang Angarakaya Namah' 108× on Tuesdays.",
+            "Physical exercise and discipline reduce Mars's turbulent energy.",
+        ],
+        "Debilitated_Ju": [
+            "Donate yellow cloth, chickpeas, turmeric on Thursdays.",
+            "Chant 'Om Brim Brihaspataye Namah' 108× on Thursdays.",
+            "Seek blessings of guru/elders; avoid disrespecting knowledge or teachers.",
+        ],
+        "Debilitated_Ve": [
+            "Donate white sweets, white cloth, perfume on Fridays.",
+            "Chant 'Om Shum Shukraya Namah' 108× on Fridays.",
+            "Wear diamond or white sapphire (after consultation) on right index finger.",
+        ],
+        "Pitru": [
+            "Perform Pitru Tarpan (water libation to ancestors) on every Amavasya.",
+            "Observe Shradh rituals for 16 days (Pitru Paksha) annually.",
+            "Donate cooked food (kheer/rice) to Brahmins or the needy.",
+            "Plant a Peepal tree; feed crows on Saturdays.",
+        ],
+        "Graha Malika": [
+            "Worship all nine Navagraha together on Saturdays.",
+            "Recite Navagraha Stotra regularly.",
+            "Balance planetary energies through colour therapy and gemstone consultation.",
+        ],
+    }
+    for prob in problems:
+        summary = prob["summary"]
+        rems = []
+        if "Mangal" in summary:
+            rems = REMEDIES["Mangal"]
+        elif "Kemdrum" in summary:
+            rems = REMEDIES["Kemdrum"]
+        elif "Kaal Sarp" in summary:
+            rems = REMEDIES["Kaal Sarp"]
+        elif "Graha Malika" in summary:
+            rems = REMEDIES["Graha Malika"]
+        elif "Pitru" in summary:
+            rems = REMEDIES["Pitru"]
+        elif "Debilitated" in summary:
+            # Find which planets are debilitated and add their specific remedies
+            for pl_short, key in [("Mercury","Me"),("Saturn","Sa"),("Sun","Su"),
+                                   ("Moon","Mo"),("Mars","Ma"),("Jupiter","Ju"),("Venus","Ve")]:
+                if pl_short in summary:
+                    rems += REMEDIES.get(f"Debilitated_{key}", [])
+        prob["remedies"] = rems
     return problems
 
 
@@ -528,40 +753,114 @@ def generate_final_analysis(result):
     lagna = result["lagna_sign"]
     moon_sign = result["moon_sign"]
     moon_nak = result["moon_nakshatra"]
-    current_md = result["vimshottari"]["current_md"]
+    vim = result["vimshottari"]
+    current_md = vim["current_md"]
+    current_ad = vim["current_ad"]
+    birth_year = result["birth_year"]
+    birth_jd = result["birth_jd"]
 
-    analysis = f"### Final Analysis: Overall Chart Balance, Why These Doshas, and Direct Life Outcomes\n"
-    analysis += f"Your Kundali ({lagna} Lagna, {moon_sign} Moon in {moon_nak}) shows a karmically loaded setup: "
+    # --- Dynamic: find when current Mahadasha ends ---
+    md_end_year = None
+    for md in vim["mahadasas"]:
+        if md["lord"] == current_md:
+            md_end_year = int(birth_year + (md["end_jd"] - birth_jd) / 365.25)
+            break
+
+    # --- Dynamic: first yoga name ---
     if yogas and yogas != ["No major classical yogas formed"]:
-        analysis += f"Strong benefics create yogas like {yogas[0].split(' (')[0]} indicating potential for success in wisdom-driven fields. "
-    else:
-        analysis += "Limited yogas, focusing on steady growth. "
-    analysis += f"However, doshas arise from karmic imbalances—debilitations reflect past-life unresolved issues, ancestral debts, and energy concentration.\n"
-    analysis += f"- Why Present? Natal positions align malefics with key planets/houses, emphasizing lessons in patience, clarity, and harmony.\n"
-    analysis += f"- Direct Outcomes: "
-    if problems[0]["summary"].startswith("No major"):
-        analysis += (
-            "Balanced chart with minimal challenges; focus on positive transits. "
+        first_yoga_name = yogas[0].split(" (")[0]
+        yoga_summary = (
+            f"Strong benefics create yogas like {first_yoga_name}, indicating potential "
+            f"for success in wisdom- and Jupiter/Venus-driven fields."
         )
     else:
-        analysis += "Delays in stability, confusion in decisions, family strains, and intense phases could manifest as career shifts or emotional highs/lows. "
-    analysis += f"Positive: High-strength yogas promise luxury/stability; timings show gains across life phases.\n"
-    analysis += f"- Overall Trajectory: Hard early life builds resilience; later dashas (especially Venus onward) bring ease, wealth, and fulfillment. In current {current_md} Dasha, intellect favors but tests via doshas—focus remedies."
+        yoga_summary = "Limited classical yogas; growth through steady effort."
+
+    # --- Dynamic: primary doshas ---
+    active_doshas = [p["summary"].split(":")[0] for p in problems if p["detail"]]
+
+    # --- Dynamic: first timing period ---
+    first_event = list(timings.keys())[0]
+    first_range = "upcoming years"
+    for _event, _periods in timings.items():
+        if _periods:
+            first_event = _event
+            _m = re.search(r'\((\d{4}-\d{4})\)', _periods[0])
+            first_range = _m.group(1) if _m else "upcoming years"
+            break
+
+    # --- Dynamic: current dasha description ---
+    current_md_full = short_to_full.get(current_md, current_md) if current_md else "Unknown"
+    current_ad_full = short_to_full.get(current_ad, current_ad) if current_ad else "Unknown"
+    dasha_desc = f"{current_md_full}/{current_ad_full} Antardasha"
+
+    # --- Dynamic: planet qualities for current MD ---
+    md_qualities = {
+        "Mercury": "analytical thinking and communication are heightened",
+        "Jupiter": "wisdom, expansion, and spiritual growth dominate",
+        "Venus": "relationships, beauty, and material comforts take center stage",
+        "Saturn": "discipline, hard work, and karmic dues come to the fore",
+        "Mars": "energy, ambition, and assertiveness are activated",
+        "Sun": "leadership, fame, and self-expression are in focus",
+        "Moon": "emotions, family, and mental sensitivity are heightened",
+        "Rahu": "ambition, foreign exposure, and unconventional paths open",
+        "Ketu": "detachment, spirituality, and past-karma resolution dominate",
+    }
+    md_quality = md_qualities.get(current_md_full, "the dasha lord's significations are active")
+
+    # --- Build analysis ---
+    analysis = "### Final Analysis: Overall Chart Balance, Why These Doshas, and Direct Life Outcomes\n"
+    analysis += f"Your Kundali ({lagna} Lagna, {moon_sign} Moon in {moon_nak}) shows a karmically loaded setup: "
+    analysis += yoga_summary + "\n"
+    analysis += (
+        f"However, doshas arise from karmic imbalances—debilitations reflect unresolved issues, "
+        f"ancestral debts, and concentrated planetary energy.\n"
+    )
+    analysis += "- Why Present? Natal positions place malefics in sensitive houses/signs, creating lessons in "
+    if active_doshas:
+        analysis += f"areas ruled by {', '.join(d.split('(')[0].strip() for d in active_doshas)}.\n"
+    else:
+        analysis += "patience, clarity, and harmony.\n"
+    analysis += "- Direct Outcomes: "
+    if not active_doshas:
+        analysis += "Balanced chart with minimal challenges; leverage positive transits actively. "
+    else:
+        analysis += (
+            "Potential delays in stability and clarity in decisions; intense life phases may bring "
+            "career shifts and emotional highs/lows as karmic debts resolve. "
+        )
+    analysis += (
+        f"Positive: High-strength yogas promise material gains and wisdom; "
+        f"key fructification window for {first_event} is around {first_range}.\n"
+    )
+    if md_end_year:
+        analysis += (
+            f"- Overall Trajectory: In the current {dasha_desc}, {md_quality}. "
+            f"This Mahadasha runs until ~{md_end_year}, after which the next dasha brings a shift in life theme. "
+            f"Focus remedies now to mitigate active doshas and capitalise on strong yoga periods."
+        )
+    else:
+        analysis += (
+            f"- Overall Trajectory: In the current {dasha_desc}, {md_quality}. "
+            f"Focus remedies to mitigate active doshas and capitalise on strong yoga periods."
+        )
     return analysis
 
 
 # ────────────────────────────────────────────────
-# Accurate Fructification Timings (Entire Life)
+# Accurate Fructification Timings (2026-2046)
 # ────────────────────────────────────────────────
 def generate_timings(result, birth_year, birth_jd):
-    """Generate timing predictions for the entire life (from birth onward)"""
+    """Generate accurate timing predictions for next 20 years"""
     dashas = result["vimshottari"]["mahadasas"]
+    current_year = 2026
 
     def lord_of(house_no):
         lagna_idx = zodiac_signs.index(result["lagna_sign"])
         sign = zodiac_signs[(lagna_idx + house_no - 1) % 12]
         return sign_lords[sign]
 
+    # Event → favorable lords (expanded list)
     seventh_lord = result["seventh_lord"]
     events = {
         "Marriage": [
@@ -599,28 +898,33 @@ def generate_timings(result, birth_year, birth_jd):
             md_start_age = (md["start_jd"] - birth_jd) / 365.25
             md_start_y = int(birth_year + md_start_age)
             md_end_y = int(birth_year + (md["end_jd"] - birth_jd) / 365.25)
-            # Include if MD lord is favorable (no year window restriction)
+            # Skip if MD is completely outside our window
+            if md_end_y < current_year or md_start_y > current_year + 20:
+                continue
+            # Include if MD lord is favorable
             if md_lord in fav_lords:
                 periods.append(f"• {md_lord} Mahadasha ({md_start_y}-{md_end_y})")
-            # Include favorable Antardashas
+            # Check antardashas within the 2026-2046 window
             for ad in md.get("antardashas", []):
                 if ad["lord"] in fav_lords:
                     ad_start_age = (ad["start_jd"] - birth_jd) / 365.25
                     ad_end_age = (ad["end_jd"] - birth_jd) / 365.25
                     ad_start_y = int(birth_year + ad_start_age)
                     ad_end_y = int(birth_year + ad_end_age)
-                    periods.append(
-                        f"  └─ {md_lord}/{ad['lord']} Antardasha ({ad_start_y}-{ad_end_y})"
-                    )
-        output[event] = periods[:10] if periods else []  # Limit to top 10 most relevant
+                    # Include if AD starts or overlaps within 2026-2046
+                    if ad_start_y <= current_year + 20 and ad_end_y >= current_year:
+                        periods.append(
+                            f" └─ {md_lord}/{ad['lord']} Antardasha ({ad_start_y}-{ad_end_y})"
+                        )
+        output[event] = periods[:10] if periods else []
     return output
 
 
 # ────────────────────────────────────────────────
-# Detect Yogas with Strength (Strict Parashari Fixes)
+# Detect Yogas with Strength
 # ────────────────────────────────────────────────
 def detect_yogas(result):
-    """Detect major yogas and calculate their strength (1-10) - Strict Parashari rules."""
+    """Detect major yogas and calculate their strength (1-10)"""
     yogas = []
     p = result["planets"]
     h = result["houses"]
@@ -637,139 +941,86 @@ def detect_yogas(result):
         sign_idx = (lagna_idx + house_no - 1) % 12
         return sign_lords[zodiac_signs[sign_idx]]
 
-    # Simplified aspects dict: From each house, houses aspected (all 7th; specials added)
-    aspects = {
-        1: [7],
-        2: [8],
-        3: [9],
-        4: [10],
-        5: [11],
-        6: [12],
-        7: [1],
-        8: [2],
-        9: [3],
-        10: [4],
-        11: [5],
-        12: [6],
-    }
-    # Add specials: Mars +4/8 from its house, Ju +5/9, Sa +3/10
-    for pl_house in range(1, 13):
-        if "Ma" in [pl for pl in planet_house if planet_house.get(pl) == pl_house]:
-            aspects[pl_house] += [
-                ((pl_house - 1 + 4) % 12) + 1,
-                ((pl_house - 1 + 8) % 12) + 1,
-            ]
-        if "Ju" in [pl for pl in planet_house if planet_house.get(pl) == pl_house]:
-            aspects[pl_house] += [
-                ((pl_house - 1 + 5) % 12) + 1,
-                ((pl_house - 1 + 9) % 12) + 1,
-            ]
-        if "Sa" in [pl for pl in planet_house if planet_house.get(pl) == pl_house]:
-            aspects[pl_house] += [
-                ((pl_house - 1 + 3) % 12) + 1,
-                ((pl_house - 1 + 10) % 12) + 1,
-            ]
-    for key in aspects:
-        aspects[key] = list(set(aspects[key]))  # Dedup
-
-    # 1. Gajakesari Yoga: Ju in kendra FROM Moon (BPHS Ch. 69)
-    if "Mo" in planet_house and "Ju" in planet_house:
-        moon_h = planet_house["Mo"]
-        ju_h_from_moon = house_from_ref(moon_h, planet_house["Ju"])
-        if ju_h_from_moon in [1, 4, 7, 10]:
-            stren = get_yoga_strength(["Ju", "Mo"], result)
-            yogas.append(
-                f"Gajakesari Yoga (Strength {stren}/10) → Fame, wisdom, wealth"
-            )
-
-    # 2. Raja Yogas: Kendra-Trikona lords conjunct or aspect (BPHS Ch. 40; avoid self)
-    seen_rajas = set()  # Avoid dups
+    # 1. Gajakesari Yoga (Jupiter-Moon)
+    if "Ju" in planet_house and "Mo" in planet_house:
+        stren = get_yoga_strength(["Ju", "Mo"], result)
+        yogas.append(f"Gajakesari Yoga (Strength {stren}/10) → Fame, wisdom, wealth")
+    # 2. Raja Yogas (Kendra-Trikona lords)
+    # A Yogakaraka is a single planet that lords both a kendra and a trikona.
+    # Two different planets form a Raja Yoga by conjunction (same house) or
+    # mutual 7th-house aspect (house difference = 6).
+    seen_raja = set()
+    yogakarakas_seen = set()
     for k in [1, 4, 7, 10]:
         for t in [1, 5, 9]:
+            if k == t:
+                continue  # same house — don't check against itself
             kl = lord_of(k)
             tl = lord_of(t)
-            if kl == tl or (kl, tl) in seen_rajas or (tl, kl) in seen_rajas:
+            if kl not in planet_house or tl not in planet_house:
                 continue
-            if kl in planet_house and tl in planet_house:
-                kl_h, tl_h = planet_house[kl], planet_house[tl]
-                # Conjunct or aspect (bidirectional)
-                if (
-                    kl_h == tl_h
-                    or tl_h in aspects.get(kl_h, [])
-                    or kl_h in aspects.get(tl_h, [])
-                ):
+            if kl == tl:
+                # Same planet lords both a kendra and a trikona → Yogakaraka
+                if kl not in yogakarakas_seen:
+                    yogakarakas_seen.add(kl)
+                    s = get_yoga_strength([kl], result)
+                    yogas.append(
+                        f"Yogakaraka {short_to_full.get(kl, kl)} (Strength {s}/10) → "
+                        f"Most powerful planet for this Lagna; grants both power & grace"
+                    )
+            else:
+                pair = tuple(sorted([kl, tl]))
+                if pair in seen_raja:
+                    continue
+                house_diff = (planet_house[kl] - planet_house[tl] + 12) % 12
+                if house_diff in (0, 6):  # conjunction or mutual 7th aspect
+                    seen_raja.add(pair)
                     s = get_yoga_strength([kl, tl], result)
-                    yoga_name = (
+                    yogas.append(
                         f"Raja Yoga ({kl}-{tl}) (Strength {s}/10) → Power & status"
                     )
-                    yogas.append(yoga_name)
-                    seen_rajas.add((kl, tl))
-                    seen_rajas.add((tl, kl))
-
-    # 3. Strong Venus Yoga: Venus in own/exalt AND in kendra (partial if trikona)
+    # 3. Strong Venus Yoga
     if "Ve" in planet_house:
         ve_h = planet_house["Ve"]
-        ve_dig = p["Ve"]["dignity"]
-        if ve_dig in ["Own", "Exalt"] and ve_h in [1, 4, 7, 10]:
+        if ve_h in [1, 4, 7, 10] or p["Ve"]["dignity"] in ["Own", "Exalt"]:
             s = get_yoga_strength(["Ve"], result)
             yogas.append(
                 f"Strong Venus Yoga (Strength {s}/10) → Beautiful spouse, luxury"
             )
-        elif ve_dig in ["Own", "Exalt"]:  # Partial note
-            s = get_yoga_strength(["Ve"], result) - 1  # Slight penalty
-            yogas.append(
-                f"Partial Venus Strength (Strength {s}/10) → Luxuries via creativity"
-            )
-
-    # 4. Strong 7th Lord: In kendra/trikona AND unafflicted (simplified)
+    # 4. Strong 7th Lord
     seventh_lord = result["seventh_lord"]
-    if seventh_lord in planet_house:
-        sl_h = planet_house[seventh_lord]
-        if sl_h in [1, 4, 5, 7, 9, 10]:
-            # Check no malefic aspect (basic)
-            malefics = ["Ma", "Sa", "Ra", "Ke"]
-            afflicted = any(
-                m in planet_house
-                and planet_house.get(m) == sl_h in aspects.get(sl_h, [])
-                for m in malefics
-            )
-            if not afflicted:
-                s = get_yoga_strength([seventh_lord], result)
-                yogas.append(
-                    f"Strong 7th Lord ({seventh_lord}) (Strength {s}/10) → Stable marriage"
-                )
-
-    # 5. Jupiter in 5th house: Direct check
+    if seventh_lord in planet_house and planet_house[seventh_lord] in [
+        1,
+        4,
+        7,
+        10,
+        5,
+        9,
+    ]:
+        s = get_yoga_strength([seventh_lord], result)
+        yogas.append(
+            f"Strong 7th Lord ({seventh_lord}) (Strength {s}/10) → Stable marriage"
+        )
+    # 5. Jupiter in 5th house
     if "Ju" in planet_house and planet_house["Ju"] == 5:
         s = get_yoga_strength(["Ju"], result)
         yogas.append(
             f"Jupiter in 5th (Strength {s}/10) → Excellent progeny, intelligent children"
         )
-
-    # 6. Strong 10th Lord: In kendra
+    # 6. Strong 10th Lord
     tenth_lord = lord_of(10)
     if tenth_lord in planet_house and planet_house[tenth_lord] in [1, 4, 7, 10]:
         s = get_yoga_strength([tenth_lord], result)
         yogas.append(
             f"Strong 10th Lord ({tenth_lord}) (Strength {s}/10) → High career success"
         )
-
-    # 7. Dhana Yoga: 2nd + 11th lords conjunct/aspect
+    # 7. Dhana Yoga (2nd + 11th lords)
     d2 = lord_of(2)
     d11 = lord_of(11)
-    if d2 != d11 and d2 in planet_house and d11 in planet_house:
-        d2_h, d11_h = planet_house[d2], planet_house[d11]
-        if (
-            d2_h == d11_h
-            or d11_h in aspects.get(d2_h, [])
-            or d2_h in aspects.get(d11_h, [])
-        ):
-            s = get_yoga_strength([d2, d11], result)
-            yogas.append(
-                f"Dhana Yoga (2nd+11th) (Strength {s}/10) → Wealth through effort"
-            )
-
-    # 8. Pancha Mahapurusha Yogas: Strict kendra + own/exalt signs
+    if d2 in planet_house and d11 in planet_house:
+        s = get_yoga_strength([d2, d11], result)
+        yogas.append(f"Dhana Yoga (2nd+11th) (Strength {s}/10) → Wealth through effort")
+    # 8. Pancha Mahapurusha Yogas
     pmp = {
         "Ruchaka (Mars)": ("Ma", ["Aries", "Scorpio", "Capricorn"]),
         "Bhadra (Mercury)": ("Me", ["Gemini", "Virgo"]),
@@ -778,15 +1029,9 @@ def detect_yogas(result):
         "Sasa (Saturn)": ("Sa", ["Libra", "Capricorn", "Aquarius"]),
     }
     for name, (pl, signs) in pmp.items():
-        if (
-            pl in p
-            and p[pl]["sign"] in signs
-            and planet_house.get(pl, 0) in [1, 4, 7, 10]
-            and p[pl]["dignity"] in ["Own", "Exalt"]
-        ):
+        if pl in p and p[pl]["sign"] in signs and planet_house.get(pl) in [1, 4, 7, 10]:
             s = get_yoga_strength([pl], result)
             yogas.append(f"{name} Yoga (Strength {s}/10) → Great personality & success")
-
     return yogas if yogas else ["No major classical yogas formed"]
 
 
@@ -880,6 +1125,36 @@ def find_current_dasha(birth_jd, current_jd, dashas):
     return None, None
 
 
+def get_current_pratyantar(birth_jd, current_jd, current_md, current_ad, dashas):
+    """Compute and return the current Pratyantar Dasha (3rd level) lord."""
+    years_since = (current_jd - birth_jd) / 365.25
+    for md in dashas:
+        if md["lord"] != current_md:
+            continue
+        for ad in md["antardashas"]:
+            if ad["lord"] != current_ad:
+                continue
+            # Compute pratyantars for this AD on the fly
+            ad_days = ad["end_jd"] - ad["start_jd"]
+            ad_years = ad_days / 365.25
+            current_pd_jd = ad["start_jd"]
+            ad_idx = dasha_lords.index(current_ad)
+            for i in range(9):
+                pd_idx = (ad_idx + i) % 9
+                pd_lord = dasha_lords[pd_idx]
+                pd_years = ad_years * (dasha_periods[pd_lord] / 120.0)
+                pd_end_jd = current_pd_jd + pd_years * 365.25
+                pd_start_y = (current_pd_jd - birth_jd) / 365.25
+                pd_end_y = (pd_end_jd - birth_jd) / 365.25
+                if pd_start_y <= years_since < pd_end_y:
+                    pd_start_date = datetime.datetime(1, 1, 1) + datetime.timedelta(
+                        days=int(current_pd_jd - swe.julday(1, 1, 1, 12.0))
+                    ) if False else None  # date formatting done elsewhere
+                    return pd_lord, current_pd_jd, pd_end_jd
+                current_pd_jd = pd_end_jd
+    return None, None, None
+
+
 # ────────────────────────────────────────────────
 # Aspects & Transits
 # ────────────────────────────────────────────────
@@ -963,6 +1238,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
     planet_data = {}
     moon_sign = None
     moon_nakshatra = None
+    sun_full_lon = None
     for code, pid in planets.items():
         pos_speed = swe.calc_ut(birth_jd, pid, swe.FLG_SIDEREAL)[0]
         lon = pos_speed[0]
@@ -972,12 +1248,16 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
         nak = get_nakshatra(lon)
         dignity = get_dignity(code, sign)
         retro = is_retrograde(speed)
+        if code == "Su":
+            sun_full_lon = lon
         planet_data[code] = {
             "deg": deg_in_sign,
+            "full_lon": round(lon, 4),
             "sign": sign,
             "nakshatra": nak,
             "dignity": dignity,
             "retro": retro,
+            "combust": False,  # filled after Sun lon is known
             "navamsa_sign": None,
             "navamsa_deg": None,
             "d7_sign": None,
@@ -991,6 +1271,17 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
         p_idx = zodiac_signs.index(sign)
         house = get_house_from_sign(lagna_idx, p_idx)
         house_planets[house].append(code)
+    # Combustion check (requires Sun longitude computed first)
+    if sun_full_lon is not None:
+        for code in planet_data:
+            if code == "Su":
+                continue
+            planet_data[code]["combust"] = check_combustion(
+                code,
+                planet_data[code]["full_lon"],
+                sun_full_lon,
+                planet_data[code]["retro"],
+            )
     # Ketu + Ra lon for later
     ra_lon = swe.calc_ut(birth_jd, swe.MEAN_NODE, swe.FLG_SIDEREAL)[0][0]
     ke_lon = (ra_lon + 180) % 360
@@ -1015,10 +1306,29 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
     ke_house = get_house_from_sign(lagna_idx, ke_idx)
     house_planets[ke_house].append("Ke")
     house_planets[1].append("Asc")  # Ascendant in 1st house
+    # Add Ketu full_lon and combust
+    planet_data["Ke"]["full_lon"] = round(ke_lon, 4)
+    planet_data["Ke"]["combust"] = False  # Ke not affected by combustion
     # 7th Lord
     seventh_idx = (lagna_idx + 6) % 12
     seventh_sign = zodiac_signs[seventh_idx]
     seventh_lord = sign_lords[seventh_sign]
+    # House Lord Placements
+    house_lord_map = {}  # house_num → (lord_code, lord_in_house)
+    for h_num in range(1, 13):
+        h_sign = zodiac_signs[(lagna_idx + h_num - 1) % 12]
+        h_lord = sign_lords[h_sign]
+        # Find which house the lord is placed in
+        lord_in_house = None
+        for ph, plist in house_planets.items():
+            if h_lord in plist:
+                lord_in_house = ph
+                break
+        house_lord_map[h_num] = {"lord": h_lord, "placed_in": lord_in_house}
+    # Birth Panchanga
+    sun_lon_birth = planet_data["Su"]["full_lon"]
+    moon_lon_birth = swe.calc_ut(birth_jd, swe.MOON, swe.FLG_SIDEREAL)[0][0]
+    panchanga = get_panchanga(birth_jd, sun_lon_birth, moon_lon_birth)
     # Divisional Charts
     for code in planet_data:
         if code == "Ra":
@@ -1046,8 +1356,14 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
     now_utc = datetime.datetime.now(pytz.utc)
     current_jd = datetime_to_jd(now_utc)
     current_md, current_ad = find_current_dasha(birth_jd, current_jd, dashas)
+    current_pd, pd_start_jd, pd_end_jd = get_current_pratyantar(
+        birth_jd, current_jd, current_md, current_ad, dashas
+    )
     aspects = calculate_aspects(house_planets)
     transits = calculate_transits(moon_sign, current_jd)
+    # Sade Sati / Dhaiya
+    sa_transit_sign = transits.get("Sa", {}).get("sign", None)
+    sade_sati_status = get_sade_sati_status(moon_sign, sa_transit_sign) if sa_transit_sign else None
     result = {
         "lagna_deg": round(lagna_deg, 2),
         "lagna_sign": lagna_sign,
@@ -1079,6 +1395,14 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
         "transits": transits,
         "birth_year": y,
         "birth_jd": birth_jd,
+        "panchanga": panchanga,
+        "house_lords": house_lord_map,
+        "sade_sati": sade_sati_status,
+        "vimshottari_pd": {
+            "current_pd": current_pd,
+            "pd_start_jd": pd_start_jd,
+            "pd_end_jd": pd_end_jd,
+        },
     }
     # Add yogas, timings, and problems
     result["yogas"] = detect_yogas(result)
@@ -1089,64 +1413,484 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
 
 
 # ────────────────────────────────────────────────
+# Interpretation Functions
+# ────────────────────────────────────────────────
+
+HOUSE_SIGNIFICATIONS = {
+    1: "Self, personality, health, constitution, appearance, early life",
+    2: "Wealth, family, speech, food, accumulated assets, face",
+    3: "Courage, siblings, communication, short travels, initiative, hands",
+    4: "Home, mother, property, emotional happiness, vehicles, education",
+    5: "Children, creativity, intelligence, romance, past karma, speculation",
+    6: "Enemies, debts, disease, service, daily routines, maternal relatives",
+    7: "Marriage, partnerships, business partners, open enemies, desires",
+    8: "Longevity, transformation, occult, inheritance, sudden events, research",
+    9: "Luck, dharma, father, guru, long travels, higher philosophy, fortune",
+    10: "Career, fame, authority, status, public image, father, government",
+    11: "Gains, income, friends, elder siblings, aspirations, social network",
+    12: "Losses, isolation, foreign lands, moksha, hidden enemies, expenses",
+}
+
+NATURAL_BENEFICS = {"Ju", "Ve", "Mo"}
+NATURAL_MALEFICS = {"Sa", "Ma", "Su", "Ra", "Ke"}
+
+PLANET_ASPECT_THEMES = {
+    "Su": {
+        "7th": "Sun casts its authority and ego here – leadership potential; father-figures and government influence; pride may cause friction.",
+    },
+    "Mo": {
+        "7th": "Moon's reflective, nurturing energy touches this house – strong emotional sensitivity; fluctuating results; public and maternal influence.",
+    },
+    "Ma": {
+        "7th": "Mars fires this house with energy, ambition, and aggression – disputes possible but also bold initiative and protection.",
+        "4": "Mars' 4th aspect energises home/property themes – real estate gains possible; family arguments; drive in educational pursuits.",
+        "8": "Mars' full 8th aspect (75%) activates transformation and risk – sudden events, occult interest, accidents; surgery or research fields.",
+    },
+    "Me": {
+        "7th": "Mercury brings intellect and communication to this house – business acumen, analytical energy, youthful and witty expression.",
+    },
+    "Ju": {
+        "7th": "Jupiter's powerful full aspect (100%) blesses and expands this house – wisdom, prosperity, dharmic protection, and divine grace.",
+        "5": "Jupiter's 5th aspect (75%) is deeply auspicious – wisdom, children, creativity, intelligence, and past-karma resolution richly blessed.",
+        "9": "Jupiter's 9th aspect (75%) bestows dharma, luck, and spiritual blessings – father, guru, and long-distance good fortune.",
+    },
+    "Ve": {
+        "7th": "Venus pours beauty, harmony, love, and material comforts into this house – artistic gifts, refined partnerships.",
+    },
+    "Sa": {
+        "7th": "Saturn's disciplining aspect (100%) creates karmic tests and delays here – slow but lasting results; serious, dutiful outcomes.",
+        "3": "Saturn's 3rd aspect (25%) adds persistent caution to communication and courage – methodical, hard-working energy; slow siblings/journeys.",
+        "10": "Saturn's powerful 10th aspect (75%) enforces discipline in career and authority – delays early but eventual recognition and structured success.",
+    },
+    "Ra": {
+        "7th": "Rahu amplifies desires and brings unconventional, foreign influences to this house – obsession, illusion, sudden twists.",
+        "5/9": "Rahu's 5th/9th axis activates karmic obsessions – unusual circumstances in children, creativity, luck, and dharma themes.",
+    },
+    "Ke": {
+        "7th": "Ketu brings detachment, past-karma, and spiritual insights to this house – dissolution of illusions; mystical or karmic events.",
+        "5/9": "Ketu's 5th/9th axis awakens past-life karma – spiritual lessons in children, creativity, luck, dharma, and higher learning.",
+    },
+}
+
+
+def interpret_aspects(result):
+    """Full Drishti analysis per house with strength, nature, and life outcomes"""
+    aspects = result["aspects"]
+    lagna_idx = zodiac_signs.index(result["lagna_sign"])
+    planets_data = result["planets"]
+    out = []
+
+    strength_labels = {
+        "7th": "100%",
+        "4": "50%",
+        "8": "75%",
+        "5": "75%",
+        "9": "75%",
+        "3": "25%",
+        "10": "75%",
+        "5/9": "75%",
+    }
+
+    for h in range(1, 13):
+        if not aspects[h]:
+            continue
+        house_sign = zodiac_signs[(lagna_idx + h - 1) % 12]
+        signif = HOUSE_SIGNIFICATIONS[h]
+        out.append(f"\nHouse {h:2d} ({house_sign}) – {signif.split(',')[0]}:")
+        out.append(f"  Significations: {signif}")
+
+        mal_count = 0
+        ben_count = 0
+
+        for asp in aspects[h]:
+            parts = asp.split("-")
+            pl = parts[0]
+            asp_type = parts[1] if len(parts) > 1 else "7th"
+
+            pl_data = planets_data.get(pl, {})
+            dig = pl_data.get("dignity", "") if pl_data else ""
+            retro = pl_data.get("retro", False) if pl_data else False
+            if dig == "Exalt":
+                strength_note = "Exalted – very strong"
+            elif dig == "Own":
+                strength_note = "Own sign – strong"
+            elif dig == "Debilitated":
+                strength_note = "Debilitated – weakened"
+            elif retro:
+                strength_note = "Retrograde – intensified but erratic"
+            else:
+                strength_note = "Normal strength"
+
+            asp_pct = strength_labels.get(asp_type, "100%")
+            nature = "benefic" if pl in NATURAL_BENEFICS else "malefic"
+            pl_full = short_to_full.get(pl, pl)
+
+            theme = PLANET_ASPECT_THEMES.get(pl, {}).get(
+                asp_type,
+                f"{pl_full} brings its significations into this house.",
+            )
+
+            out.append(
+                f"  • {pl_full:8} ({asp_type} aspect, {asp_pct}, {nature}, {strength_note})"
+            )
+            out.append(f"    → {theme}")
+
+            if pl in NATURAL_BENEFICS:
+                ben_count += 1
+            else:
+                mal_count += 1
+
+        # Net summary
+        h_area = signif.split(",")[0]
+        if mal_count > 0 and ben_count == 0:
+            out.append(
+                f"  ⚠ Net: ONLY malefic aspects – challenges in {h_area}; targeted remedies strongly advised."
+            )
+        elif ben_count > 0 and mal_count == 0:
+            out.append(
+                f"  ✓ Net: ONLY benefic aspects – protection and growth in {h_area}; leverage these energies."
+            )
+        elif ben_count >= mal_count:
+            out.append(
+                f"  ~ Net: Benefics outweigh malefics – generally favourable {h_area} with manageable challenges."
+            )
+        else:
+            out.append(
+                f"  ~ Net: Malefics outweigh benefics – karmic challenges in {h_area}; benefic periods in dasha can mitigate."
+            )
+
+    return out
+
+
+def interpret_navamsa(result):
+    """Full D9 Navamsa analysis – marriage, spouse, dharma, inner soul"""
+    navamsa = result["navamsa"]
+    planets_data = result["planets"]
+    out = []
+    out.append("(D9 reveals spouse character, marriage quality, dharmic path, and "
+               "the soul's evolutionary direction. Exalted/Own planets here amplify "
+               "natal promise; debilitated ones weaken it regardless of D1 strength.)")
+
+    planet_d9_meanings = {
+        "Su": "Soul authority: spouse may have Sun-like qualities (leadership, pride). Dharma path involves service, governance, or father-like responsibility.",
+        "Mo": "Emotional soul: deep emotional bond with spouse; marriage is nurturing. Inner self driven by security, mother, and public approval.",
+        "Ma": "Passionate soul: spouse is energetic, ambitious, possibly athletic or bold. Marriage has intense passion; conflicts must be managed consciously.",
+        "Me": "Intellectual soul: spouse is communicative, witty, analytical. Marriage thrives on mental connection; dharma through teaching or trade.",
+        "Ju": "Wisdom soul: spouse is wise, spiritual, generous. Highly auspicious D9 placement – dharma path blessed; marriage brings growth and fortune.",
+        "Ve": "Artistic soul: spouse is beautiful, artistic, loving, comfort-seeking. Venus strong in D9 is the best placement for a happy harmonious marriage.",
+        "Sa": "Karmic soul: spouse may be older, serious, disciplined, or from a different social background. Marriage has karmic weight; deep loyalty over time.",
+        "Ra": "Unconventional soul: spouse may be foreign, unconventional, or connected by past-life karma. Marriage outside norms; obsessive at times.",
+        "Ke": "Spiritual soul: previous-life karmic bond with spouse; partner may be deeply spiritual, detached, or intuitive. Marriage is meaningful but impersonal.",
+    }
+
+    order = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]
+    for pl in order:
+        if pl not in navamsa:
+            continue
+        d = navamsa[pl]
+        nav_sign = d["sign"]
+        nav_dig = get_dignity(pl, nav_sign)
+        dig_note = f" [{nav_dig}]" if nav_dig else ""
+        pl_full = short_to_full.get(pl, pl)
+        out.append(f"  {pl_full:9} in {nav_sign:12} {d['deg']:5.2f}°{dig_note}")
+        out.append(f"    → {planet_d9_meanings[pl]}")
+        if nav_dig == "Debilitated":
+            out.append(f"    ⚠ Debilitated in D9: {pl_full}'s marriage/dharma significations are weakened; "
+                       f"planet must be strengthened in D1 or by remedies to give good results.")
+        elif nav_dig in ("Exalt", "Own"):
+            out.append(f"    ✓ {nav_dig} in D9: {pl_full}'s significations are powerfully reliable "
+                       f"in marriage and dharmic areas.")
+
+    # Vargottama check
+    vargottama = [
+        short_to_full.get(pl, pl)
+        for pl in order
+        if pl in planets_data
+        and pl in navamsa
+        and planets_data[pl]["sign"] == navamsa[pl]["sign"]
+    ]
+    out.append("\n  Vargottama (same sign in D1 and D9 – doubled strength):")
+    if vargottama:
+        out.append(f"  → {', '.join(vargottama)}: These planets are extremely stable and reliable "
+                   f"in their results; their placement in D1 is fully confirmed by D9.")
+    else:
+        out.append("  → No Vargottama planets.")
+
+    # Best and worst D9 placements
+    exalt_d9 = [short_to_full.get(pl, pl) for pl in order
+                if pl in navamsa and get_dignity(pl, navamsa[pl]["sign"]) == "Exalt"]
+    deb_d9 = [short_to_full.get(pl, pl) for pl in order
+              if pl in navamsa and get_dignity(pl, navamsa[pl]["sign"]) == "Debilitated"]
+    if exalt_d9:
+        out.append(f"  ✓ Exalted in D9: {', '.join(exalt_d9)} – Marriage/dharma blessings are magnified.")
+    if deb_d9:
+        out.append(f"  ⚠ Debilitated in D9: {', '.join(deb_d9)} – These areas need conscious effort and remedies.")
+    # Venus in D9 is the single most important marriage indicator
+    if "Ve" in navamsa:
+        ve_d9_sign = navamsa["Ve"]["sign"]
+        ve_d9_dig = get_dignity("Ve", ve_d9_sign)
+        if ve_d9_dig in ("Exalt", "Own"):
+            ve_note = "Excellent – beauty, love, and harmony are a core feature of marriage."
+        elif ve_d9_dig == "Debilitated":
+            ve_note = "Debilitated – marital dissatisfaction possible; Venus remedies strongly advised."
+        else:
+            ve_note = "Moderate – marriage has affection but may need conscious nurturing."
+        dig_tag = f", {ve_d9_dig}" if ve_d9_dig else ""
+        out.append(f"\n  Venus in D9 ({ve_d9_sign}{dig_tag}): {ve_note}")
+    return out
+
+
+def interpret_d7(result):
+    """Full D7 Saptamsa analysis – children, progeny, generative energy"""
+    d7 = result["d7"]
+    lagna_idx = zodiac_signs.index(result["lagna_sign"])
+    fifth_sign = zodiac_signs[(lagna_idx + 4) % 12]
+    fifth_lord = sign_lords[fifth_sign]
+    out = []
+    out.append("(D7 reveals potential for children, timing of progeny, their "
+               "nature and quality. Jupiter and 5th lord are the primary karakas.)")
+
+    planet_d7_meanings = {
+        "Su": "Progeny will have leadership, pride, and authority – strongly willed, possibly in government or power roles. Father's legacy passed to children.",
+        "Mo": "Nurturing, sensitive children with strong emotional intelligence. Close mother-child bond. Children may work in public, nurturing, or creative fields.",
+        "Ma": "Energetic, bold, athletic children – courageous and competitive. Possibly more sons. Active and passionate generative force.",
+        "Me": "Intelligent, communicative, analytical children. Academic excellence likely. Children suited to communication, IT, trade, or education careers.",
+        "Ju": "Wise, fortunate, well-educated children – the most auspicious D7 planet. Abundant blessings for progeny; children bring joy and prosperity.",
+        "Ve": "Artistic, beautiful, socially gifted children. Strong aesthetic sensibility. Children may excel in arts, design, fashion, or diplomacy.",
+        "Sa": "Fewer children or delays; disciplined and serious progeny. Children may face early hardships but build strong characters. Karmic parent-child bond.",
+        "Ra": "Unconventional, innovative children – possibly gifted in technology, foreign fields. Unusual conception circumstances or unexpected arrival.",
+        "Ke": "Spiritually oriented or intuitive children; past-life karmic connection. Children may show detachment from worldly life or mystical inclinations.",
+    }
+
+    order = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]
+    for pl in order:
+        if pl not in d7:
+            continue
+        d = d7[pl]
+        d7_sign = d["sign"]
+        d7_dig = get_dignity(pl, d7_sign)
+        dig_note = f" [{d7_dig}]" if d7_dig else ""
+        pl_full = short_to_full.get(pl, pl)
+        out.append(f"  {pl_full:9} in {d7_sign:12} {d['deg']:5.2f}°{dig_note}")
+        out.append(f"    → {planet_d7_meanings[pl]}")
+        if d7_dig == "Debilitated":
+            out.append(f"    ⚠ Debilitated in D7: challenges to above; remedies (Jupiter mantra, charity) advised.")
+        elif d7_dig in ("Exalt", "Own"):
+            out.append(f"    ✓ {d7_dig} in D7: above significations fully activated and reliable.")
+
+    # Jupiter in D7 summary
+    out.append(f"\n  Key Karakas: Jupiter (natural) + 5th lord {short_to_full.get(fifth_lord, fifth_lord)} (functional)")
+    if "Ju" in d7:
+        ju_sign = d7["Ju"]["sign"]
+        ju_dig = get_dignity("Ju", ju_sign)
+        if ju_dig == "Exalt":
+            out.append(f"  ✓ Jupiter Exalted in D7 ({ju_sign}) – Excellent, abundant, and wise progeny strongly indicated.")
+        elif ju_dig == "Own":
+            out.append(f"  ✓ Jupiter in Own sign in D7 ({ju_sign}) – Good number of children; wise and fortunate progeny.")
+        elif ju_dig == "Debilitated":
+            out.append(f"  ⚠ Jupiter Debilitated in D7 ({ju_sign}) – Progeny challenges; possible delays or health issues for children; remedies essential.")
+        else:
+            out.append(f"  Jupiter in {ju_sign} in D7 – Moderate progeny; timing through Jupiter/5th lord Dasha is key.")
+    return out
+
+
+def interpret_d10(result):
+    """Full D10 Dasamsa analysis – career, profession, public life"""
+    d10 = result["d10"]
+    lagna_idx = zodiac_signs.index(result["lagna_sign"])
+    tenth_sign = zodiac_signs[(lagna_idx + 9) % 12]
+    tenth_lord = sign_lords[tenth_sign]
+    out = []
+    out.append("(D10 reveals true professional destiny, career field, authority level, "
+               "and the quality of public life. Sun, Saturn, and 10th lord are primary karakas.)")
+
+    planet_d10_meanings = {
+        "Su": "Government, administration, politics, leadership roles, father's career influence. Sun strong in D10 = fame, authority, and recognition.",
+        "Mo": "Public-facing work, healthcare, hospitality, food, real estate, business involving masses. Fluctuating but popular career.",
+        "Ma": "Engineering, military, surgery, real estate, sports, competitive and technical fields. Mars strong = decisive, results-driven professional.",
+        "Me": "Communication, writing, IT, education, trade, accounts, media, analysis. Mercury strong = skilled, versatile professional.",
+        "Ju": "Teaching, law, counseling, finance, philosophy, management, spiritual guidance. Jupiter strong in D10 = respected, morally driven career.",
+        "Ve": "Arts, entertainment, fashion, luxury goods, beauty industry, hospitality, diplomacy. Venus strong = glamorous or aesthetics-driven profession.",
+        "Sa": "Service sector, labor, judiciary, mining, research, long-term technical work, social welfare. Saturn strong = career builder who earns through sustained effort.",
+        "Ra": "Foreign companies, cutting-edge technology, unconventional professions, film, mass politics, import/export. Rahu = career outside traditional norms.",
+        "Ke": "Research, spirituality, healing arts, behind-the-scenes work, mathematics, programming. Ketu = expertise in niche or hidden fields.",
+    }
+
+    order = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]
+    for pl in order:
+        if pl not in d10:
+            continue
+        d = d10[pl]
+        d10_sign = d["sign"]
+        d10_dig = get_dignity(pl, d10_sign)
+        dig_note = f" [{d10_dig}]" if d10_dig else ""
+        pl_full = short_to_full.get(pl, pl)
+        out.append(f"  {pl_full:9} in {d10_sign:12} {d['deg']:5.2f}°{dig_note}")
+        out.append(f"    → {planet_d10_meanings[pl]}")
+        if d10_dig == "Debilitated":
+            out.append(f"    ⚠ Debilitated in D10: professional obstacles in this area; choose field aligned with planet's strength elsewhere.")
+        elif d10_dig in ("Exalt", "Own"):
+            out.append(f"    ✓ {d10_dig} in D10: career success in this domain is strongly supported.")
+
+    # 10th lord summary
+    out.append(f"\n  Primary Karaka: Sun (fame/authority) | Functional 10th Lord: {short_to_full.get(tenth_lord, tenth_lord)}")
+    if tenth_lord in d10:
+        tl_sign = d10[tenth_lord]["sign"]
+        tl_dig = get_dignity(tenth_lord, tl_sign)
+        if tl_dig in ("Exalt", "Own"):
+            out.append(f"  ✓ 10th lord ({short_to_full.get(tenth_lord, tenth_lord)}) {tl_dig} in D10 ({tl_sign}) – Peak career success; prominence and rise to authority highly indicated.")
+        elif tl_dig == "Debilitated":
+            out.append(f"  ⚠ 10th lord Debilitated in D10 ({tl_sign}) – Career hurdles; switching to the planet's natural field (see above) and remedies help significantly.")
+        else:
+            out.append(f"  10th lord in {tl_sign} in D10 – Career grows steadily through hard work; major rise during 10th lord's Mahadasha.")
+    # Sun in D10
+    if "Su" in d10:
+        su_dig = get_dignity("Su", d10["Su"]["sign"])
+        if su_dig in ("Exalt", "Own"):
+            out.append(f"  ✓ Sun ({su_dig}) in D10 – Strong public image, authority, and social recognition.")
+        elif su_dig == "Debilitated":
+            out.append(f"  ⚠ Sun Debilitated in D10 – Ego conflicts with authority; avoid confrontations with superiors; build reputation quietly.")
+    # Exalted/debilitated summary
+    exalt_d10 = [short_to_full.get(pl, pl) for pl in order
+                 if pl in d10 and get_dignity(pl, d10[pl]["sign"]) == "Exalt"]
+    deb_d10 = [short_to_full.get(pl, pl) for pl in order
+               if pl in d10 and get_dignity(pl, d10[pl]["sign"]) == "Debilitated"]
+    if exalt_d10:
+        out.append(f"  ✓ Exalted in D10: {', '.join(exalt_d10)} – Career domains of these planets thrive.")
+    if deb_d10:
+        out.append(f"  ⚠ Debilitated in D10: {', '.join(deb_d10)} – Avoid career fields solely dependent on these planets.")
+    return out
+
+
+# ────────────────────────────────────────────────
 # Print Function
 # ────────────────────────────────────────────────
-def print_kundali(result):
-    print("\n" + "═" * 95)
-    print(" VEDIC KUNDALI – Whole Sign – Lahiri – D7 + D10 + Marriage Timing")
-    print("═" * 95)
-    print(f"Lagna : {result['lagna_sign']} {result['lagna_deg']}°")
-    print(f"Moon (Rasi) : {result['moon_sign']} – {result['moon_nakshatra']}")
-    print(f"7th Lord : {result['seventh_lord']}\n")
+def print_kundali(result, file=None):
+    lines = []
+
+    def write(s):
+        lines.append(s)
+
+    write("\n" + "═" * 95)
+    write(" VEDIC KUNDALI – Whole Sign – Lahiri – D7 + D10 + Marriage Timing")
+    write("═" * 95)
+    write(f"Lagna        : {result['lagna_sign']} {result['lagna_deg']}°")
+    write(f"Moon (Rasi)  : {result['moon_sign']} – {result['moon_nakshatra']}")
+    write(f"7th Lord     : {result['seventh_lord']}")
+    # Panchanga
+    pan = result.get("panchanga", {})
+    if pan:
+        write(f"Tithi        : {pan.get('tithi','?')}")
+        write(f"Vara         : {pan.get('vara','?')}")
+        write(f"Yoga         : {pan.get('yoga','?')}")
+        write(f"Karana       : {pan.get('karana','?')}")
+    write("")
     order = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]
-    print("Planets in Rasi (D1):")
-    print("-" * 85)
+    write("Planets in Rasi (D1):")
+    write("-" * 85)
     for pl in order:
         if pl in result["planets"]:
             d = result["planets"][pl]
-            r = " R" if d["retro"] else ""
+            flags = ""
+            if d.get("retro"):
+                flags += " R"
+            if d.get("combust"):
+                flags += " C"
             dig = f" ({d['dignity']})" if d["dignity"] else ""
-            print(
-                f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11} {d['nakshatra']:18}{dig}{r}"
+            write(
+                f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11} {d['nakshatra']:18}{dig}{flags}"
             )
-    for div, title in [
-        ("navamsa", "Navamsa (D9 – Marriage/Spouse)"),
-        ("d7", "Saptamsa (D7 – Children/Progeny)"),
-        ("d10", "Dasamsa (D10 – Career/Profession)"),
+    write("  (R = Retrograde, C = Combust/Astangata – weakened by closeness to Sun)")
+    for div, title, interp_fn in [
+        ("navamsa", "Navamsa (D9 – Marriage/Spouse/Dharma)", interpret_navamsa),
+        ("d7", "Saptamsa (D7 – Children/Progeny)", interpret_d7),
+        ("d10", "Dasamsa (D10 – Career/Profession)", interpret_d10),
     ]:
-        print(f"\n{title}:")
-        print("-" * 85)
+        write(f"\n{title}:")
+        write("-" * 85)
         for pl in order:
             if pl in result[div]:
                 d = result[div][pl]
-                print(f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11}")
-    print("\nHouses (Whole Sign):")
-    print("-" * 85)
+                write(f"{pl:>3}: {d['deg']:5.2f}° {d['sign']:11}")
+        write(f"\nDetailed {title.split('(')[1].rstrip(')')} Analysis:")
+        write("-" * 85)
+        for line in interp_fn(result):
+            write(line)
+    write("\nHouses (Whole Sign):")
+    write("-" * 85)
     lagna_idx = zodiac_signs.index(result["lagna_sign"])
     for h in range(1, 13):
         sidx = (lagna_idx + h - 1) % 12
         sign = zodiac_signs[sidx]
         pls = sorted(result["houses"][h])
         content = " ".join(pls) if pls else "—"
-        print(f"House {h:2d} ({sign:11}): {content}")
-    print("\nAspects (Drishti):")
-    print("-" * 85)
+        write(f"House {h:2d} ({sign:11}): {content}")
+    write("\nAspects (Drishti) – Summary:")
+    write("-" * 85)
     for h in range(1, 13):
         if result["aspects"][h]:
-            print(f"House {h:2d}: {', '.join(result['aspects'][h])}")
-    print("\nVimshottari Dasha:")
-    print("-" * 85)
+            write(f"House {h:2d}: {', '.join(result['aspects'][h])}")
+    write("\nAspects (Drishti) – Full Analysis:")
+    write("-" * 85)
+    write("Aspect strengths: 7th=100% | Jupiter 5th/9th=75% | Mars 8th=75% | Saturn 10th=75% | Mars 4th=50% | Saturn 3rd=25%")
+    for line in interpret_aspects(result):
+        write(line)
+    # Functional Benefics/Malefics
+    write("\nFunctional Benefics / Malefics (by Lagna):")
+    write("-" * 85)
+    fq = FUNCTIONAL_QUALITY.get(result["lagna_sign"], {})
+    if fq:
+        ben_names = [short_to_full.get(p, p) for p in fq.get("ben", [])]
+        mal_names = [short_to_full.get(p, p) for p in fq.get("mal", [])]
+        yk = fq.get("yk")
+        write(f"  Functional Benefics  : {', '.join(ben_names)}")
+        write(f"  Functional Malefics  : {', '.join(mal_names)}")
+        if yk:
+            write(f"  Yogakaraka           : {short_to_full.get(yk, yk)} "
+                  f"(owns both kendra + trikona for this lagna – most powerful single planet)")
+        write("  Note: Prioritise strengthening functional benefics and mitigating functional malefics.")
+
+    # House Lord Placements
+    write("\nHouse Lord Placements:")
+    write("-" * 85)
+    hl_map = result.get("house_lords", {})
+    lagna_idx_p = zodiac_signs.index(result["lagna_sign"])
+    for h_num in range(1, 13):
+        h_sign = zodiac_signs[(lagna_idx_p + h_num - 1) % 12]
+        info = hl_map.get(h_num, {})
+        lord = info.get("lord", "?")
+        placed = info.get("placed_in")
+        lord_full = short_to_full.get(lord, lord)
+        placed_sign = zodiac_signs[(lagna_idx_p + placed - 1) % 12] if placed else "?"
+        key = (h_num, placed)
+        if key in HOUSE_LORD_IN_HOUSE:
+            meaning = HOUSE_LORD_IN_HOUSE[key]
+        else:
+            meaning = (f"Lord of House {h_num} ({h_sign}) placed in House {placed} ({placed_sign}): "
+                       f"House {h_num} themes expressed through the environment of House {placed}.")
+        write(f"  H{h_num:02d} ({h_sign:11}) lord {lord_full:9} → H{placed:02d} ({placed_sign:11}): "
+              f"{meaning.split(':')[-1].strip()}")
+
+    write("\nVimshottari Dasha:")
+    write("-" * 85)
     vim = result["vimshottari"]
-    print(
+    write(
         f"Starting MD : {vim['starting_lord']} (balance {vim['balance_at_birth_years']} yrs)"
     )
     if vim["current_md"]:
-        print(f"Current : {vim['current_md']} → {vim['current_ad']}")
-    print("\nMarriage Timing Insights (Basic Parashari):")
-    print("-" * 85)
-    print(f"7th Lord : {result['seventh_lord']}")
-    print("Key Triggers : Venus MD/AD OR 7th-lord MD/AD")
-    print(
+        pd_info = result.get("vimshottari_pd", {})
+        current_pd = pd_info.get("current_pd")
+        pd_end_jd = pd_info.get("pd_end_jd")
+        if current_pd and pd_end_jd:
+            pd_end_yr = int(result["birth_year"] + (pd_end_jd - result["birth_jd"]) / 365.25)
+            write(f"Current (MD/AD/PD) : {vim['current_md']} / {vim['current_ad']} / {current_pd} (PD until ~{pd_end_yr})")
+        else:
+            write(f"Current (MD/AD) : {vim['current_md']} / {vim['current_ad']}")
+    write("\nMarriage Timing Insights (Basic Parashari):")
+    write("-" * 85)
+    write(f"7th Lord : {result['seventh_lord']}")
+    write("Key Triggers : Venus MD/AD OR 7th-lord MD/AD")
+    write(
         "Also favourable : Jupiter transit over 7th/2nd from Moon, strong D9 Venus/7th"
     )
     vm = vim["current_md"]
@@ -1157,48 +1901,71 @@ def print_kundali(result):
         or vm == result["seventh_lord"]
         or va == result["seventh_lord"]
     ):
-        print("*** CURRENT DASHA IS HIGHLY FAVOURABLE FOR MARRIAGE ***")
+        write("*** CURRENT DASHA IS HIGHLY FAVOURABLE FOR MARRIAGE ***")
     else:
-        print(
+        write(
             "Next favourable periods: Venus or 7th-lord Mahadasha/Antardasha (check full list)"
         )
-    print("\nCurrent Gochara (from Moon):")
-    print("-" * 85)
+    write("\nCurrent Gochara (from Moon):")
+    write("-" * 85)
     for pl, t in sorted(result["transits"].items()):
-        print(
+        write(
             f"{pl:>3}: {t['sign']:11} (house {t['house_from_moon']:2d}) – {t['effect']}"
         )
-    print("\n🔥 YOGAS WITH STRENGTH (1-10) & ACCURATE TIMINGS (ENTIRE LIFE)")
-    print("-" * 95)
-    for y in result.get("yogas", []):
-        print(f"• {y}")
-    print("\n📅 POSSIBLE FRUCTIFICATION PERIODS (Entire Life)")
-    print("-" * 95)
+    sade = result.get("sade_sati")
+    if sade:
+        write(f"\n  ⚠ SATURN SPECIAL TRANSIT: {sade}")
+    else:
+        write("  ✓ No active Sade Sati or Dhaiya (Saturn not in critical position from Moon)")
+    write("\n🔥 YOGAS WITH STRENGTH (1-10) & ACCURATE TIMINGS (2026–2046)")
+    write("-" * 95)
+    for yoga in result.get("yogas", []):
+        write(f"• {yoga}")
+    write("\n📅 POSSIBLE FRUCTIFICATION PERIODS (Next 20 years)")
+    write("-" * 95)
     for event, periods in result.get("timings", {}).items():
-        print(f"\n{event}:")
+        write(f"\n{event}:")
         if periods:
             for p in periods:
-                print(p)
+                write(p)
         else:
-            print("   No major favorable period detected for this event")
-    print("\n⚠️ PROBLEMS/DOSHAS IN KUNDALI")
-    print("-" * 95)
+            write(" No major period in next 20 years")
+    write("\n⚠️ PROBLEMS/DOSHAS IN KUNDALI")
+    write("-" * 95)
     for prob in result.get("problems", []):
-        print(f"• {prob['summary']}")
-    print("\nDetailed Explanation of Doshas:")
-    print("-" * 95)
+        write(f"• {prob['summary']}")
+    write("\nDetailed Explanation of Doshas:")
+    write("-" * 95)
     for prob in result.get("problems", []):
         if prob["detail"]:
-            print(f"{prob['summary'].split(':')[0]}:")
-            print(prob["detail"])
-            print()
-    print("\n" + result.get("final_analysis", ""))
-    print(
-        "\nNote: Highest probability when dasha + transit + gochara align. Predictions span full life (approx. up to 120 years)."
+            write(f"{prob['summary'].split(':')[0]}:")
+            write(prob["detail"])
+            write("")
+    write("\n🔧 TARGETED REMEDIES (per detected Dosha)")
+    write("-" * 95)
+    has_remedy = False
+    for prob in result.get("problems", []):
+        rems = prob.get("remedies", [])
+        if rems:
+            has_remedy = True
+            write(f"\n{prob['summary'].split(':')[0]}:")
+            for r in rems:
+                write(f"  • {r}")
+    if not has_remedy:
+        write("  No specific remedies needed – maintain positive practices.")
+    write("\n" + result.get("final_analysis", ""))
+    write("\nNote: Highest probability when dasha + transit + gochara align.")
+    birth_year = result.get("birth_year", "N/A")
+    current_year = datetime.datetime.now().year
+    write(
+        f"Timings calculated from birth year {birth_year}; current year {current_year}."
     )
-    print("For your chart: timings calculated from birth JD.")
-    print("Doshas indicate challenges; remedies like mantras/gemstones can mitigate.")
-    print("\n" + "═" * 95)
+    write("Doshas indicate challenges; remedies like mantras/gemstones can mitigate.")
+    write("\n" + "═" * 95)
+    output = "\n".join(lines) + "\n"
+    print(output, end="")
+    if file:
+        file.write(output)
 
 
 # ────────────────────────────────────────────────
@@ -1207,16 +1974,23 @@ def print_kundali(result):
 def main():
     print("Vedic Kundali Generator – Full Version with D7, D10 & Marriage Timing")
     print("─────────────────────────────────────────────────────────────────────\n")
-    date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
-    time_str = input("Birth Time (HH:MM 24h) : ").strip()
-    place = input("Birth Place (City, Country) : ").strip()
-    try:
-        result = calculate_kundali(date_str, time_str, place)
-        print_kundali(result)
-    except Exception as e:
-        print(f"\nError: {e}")
-        print("Tips: Use place='Mumbai, Maharashtra, India'")
-        print("      Make sure Swiss Ephemeris .se1 files are in the same folder")
+    while True:
+        name = input("Enter Name : ").strip()
+        date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
+        time_str = input("Birth Time (HH:MM 24h) : ").strip()
+        place = input("Birth Place (City, Country) : ").strip()
+        try:
+            result = calculate_kundali(date_str, time_str, place)
+            filename = f"{name}_kundali_report.txt"
+            with open(filename, "w", encoding="utf-8") as f:
+                print_kundali(result, file=f)
+            print(f"\nReport saved as '{filename}'")
+            break
+        except Exception as e:
+            print(f"\nError: {e}")
+            print("Tips: Use place='Mumbai, Maharashtra, India'")
+            print(" Make sure Swiss Ephemeris .se1 files are in the same folder")
+            print("Please re-enter the details.\n")
 
 
 if __name__ == "__main__":
