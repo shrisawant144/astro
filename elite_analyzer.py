@@ -42,6 +42,11 @@ class KundaliParser:
         # Default gender if not found
         if 'gender' not in data:
             data['gender'] = 'Male'
+        # Extract birth year from timings note
+        if m := re.search(r'birth year (\d{4})', self.content):
+            data['birth_year'] = int(m.group(1))
+        else:
+            data['birth_year'] = 1990  # Default
         return data
     
     def _parse_planets_section(self, section_name):
@@ -673,7 +678,9 @@ class EliteAnalyzer:
     
     def _life_trajectory_model(self):
         trajectory = {'phases': []}
-        current_year = 2026
+        birth_year = self.data.get('basic', {}).get('birth_year', 1990)
+        current_year = datetime.now().year
+        current_age = current_year - birth_year
         
         phases_data = [
             (0, 28, 'Foundation'),
@@ -683,9 +690,19 @@ class EliteAnalyzer:
         ]
         
         for start_age, end_age, phase in phases_data:
+            # Determine if phase is past, current, or future
+            if current_age > end_age:
+                status = 'Completed'
+            elif start_age <= current_age <= end_age:
+                status = 'Current'
+            else:
+                status = 'Upcoming'
+            
             trajectory['phases'].append({
                 'age': f'{start_age}-{end_age}',
+                'years': f'{birth_year + start_age}-{birth_year + end_age}',
                 'phase': phase,
+                'status': status,
                 'focus': self._get_phase_focus(phase),
                 'challenges': self._get_phase_challenges(phase),
                 'opportunities': self._get_phase_opportunities(phase)
@@ -723,21 +740,65 @@ class EliteAnalyzer:
         return matrix
     
     def _predictive_modeling(self):
-        """Probabilistic prediction engine with Bayesian-style weighting"""
+        """Probabilistic prediction engine with Bayesian-style weighting and age awareness"""
         timeline = []
         timings = self.data['timings']
         yogas = self.data['yogas']
         doshas = self.data['doshas']
+        current_year = datetime.now().year
+        birth_year = self.data.get('basic', {}).get('birth_year', 1990)
+        
+        # Age thresholds for realistic predictions
+        MIN_AGES = {
+            'Marriage': 21,
+            'Children / Progeny': 22,
+            'Career Rise / Fame': 18,
+            'Major Wealth / Property': 21
+        }
         
         # Calculate base factors
         yoga_strength = len([y for y in yogas if re.search(r'(\d+)/10', y) and int(re.search(r'(\d+)/10', y).group(1)) >= 7]) / max(len(yogas), 1)
         dosha_severity = len([d for d in doshas if 'Severe' in d or 'Significant' in d]) / max(len(doshas), 1)
         
         for event, periods in timings.items():
-            for period in periods[:3]:
+            min_age = MIN_AGES.get(event, 18)
+            min_event_year = birth_year + min_age
+            
+            for period in periods[:10]:  # Process more periods for full timeline
                 if years := re.findall(r'(\d{4})-(\d{4})', period):
-                    # Base probability from stars
-                    base_prob = 0.75 if '★★★' in period else 0.55 if '★★' in period else 0.35
+                    start_yr = int(years[0][0])
+                    end_yr = int(years[0][1])
+                    
+                    # Determine if entirely pre-adult
+                    if end_yr < min_event_year:
+                        # Entirely before minimum age - karmic seed
+                        start_age = start_yr - birth_year
+                        end_age = end_yr - birth_year
+                        age_range = f"Age {start_age}-{end_age}"
+                        status = 'Karmic Seed'
+                        age_category = 'formative'
+                        base_prob = 0.0
+                        display_window = f"{start_yr}-{end_yr}"
+                    else:
+                        # Truncate start to minimum age if needed
+                        effective_start = max(start_yr, min_event_year)
+                        effective_end = end_yr
+                        start_age = effective_start - birth_year
+                        end_age = effective_end - birth_year
+                        age_range = f"Age {start_age}-{end_age}"
+                        display_window = f"{effective_start}-{effective_end}"
+                        
+                        # Determine status
+                        if effective_end < current_year:
+                            status = 'Past'
+                        elif effective_start <= current_year <= effective_end:
+                            status = 'Current'
+                        else:
+                            status = 'Future'
+                        age_category = 'adult'
+                        
+                        # Base probability from stars
+                        base_prob = 0.75 if '★★★' in period else 0.55 if '★★' in period else 0.35
                     
                     # Dasha alignment bonus
                     dasha_match = re.search(r'(\w+)/(\w+)', period)
@@ -750,10 +811,13 @@ class EliteAnalyzer:
                     
                     timeline.append({
                         'event': event,
-                        'window': f"{years[0][0]}-{years[0][1]}",
+                        'window': display_window,
+                        'age_range': age_range,
                         'probability': probability,
-                        'confidence': self._classify_probability(probability),
-                        'dasha': dasha_match.groups() if dasha_match else None
+                        'confidence': 'Karmic Seed' if age_category == 'formative' else self._classify_probability(probability),
+                        'dasha': dasha_match.groups() if dasha_match else None,
+                        'status': status,
+                        'age_category': age_category
                     })
         
         return sorted(timeline, key=lambda x: x['window'])
@@ -893,10 +957,11 @@ def generate_elite_report(insights, data):
         lines.append(f"  Resolution: {pattern['resolution']}")
     lines.append("")
     
-    lines.append("📈 LIFE TRAJECTORY MODEL")
+    lines.append("📈 LIFE TRAJECTORY MODEL (Full Timeline)")
     lines.append("-" * 90)
     for phase in insights['life_trajectory']['phases']:
-        lines.append(f"Ages {phase['age']} - {phase['phase']} Phase")
+        status_marker = "[COMPLETED]" if phase.get('status') == 'Completed' else "[CURRENT] ◀" if phase.get('status') == 'Current' else "[UPCOMING]"
+        lines.append(f"Ages {phase['age']} ({phase.get('years', '')}): {phase['phase']} Phase {status_marker}")
         lines.append(f"  Focus: {phase['focus']}")
         lines.append(f"  Challenges: {', '.join(phase['challenges'])}")
         lines.append(f"  Opportunities: {', '.join(phase['opportunities'])}")
@@ -998,15 +1063,58 @@ def generate_elite_report(insights, data):
         lines.append("✓ No active Sade Sati - Saturn transit not in critical position")
     lines.append("")
     
-    lines.append("🎯 PREDICTIVE TIMELINE (Probabilistic Model)")
+    lines.append("🎯 PREDICTIVE TIMELINE (Full Life - Age-Aware Probabilistic Model)")
     lines.append("-" * 90)
-    for event in insights['predictive_timeline'][:10]:
-        prob_pct = int(event['probability'] * 100)
-        conf_bar = "●" * (prob_pct // 10) + "○" * (10 - prob_pct // 10)
-        lines.append(f"{event['window']}: {event['event']}")
-        lines.append(f"           [{conf_bar}] {prob_pct}% | Confidence: {event['confidence']}")
-        if event['dasha']:
-            lines.append(f"           Dasha: {event['dasha'][0]}/{event['dasha'][1]}")
+    lines.append("  [KARMIC SEED] = Pre-adult formative | [PAST] = Adult past | [NOW] = Current | [FUTURE] = Upcoming")
+    lines.append("")
+    
+    # Group by status with age awareness
+    karmic_events = [e for e in insights['predictive_timeline'] if e.get('age_category') == 'formative']
+    past_events = [e for e in insights['predictive_timeline'] if e.get('status') == 'Past' and e.get('age_category') != 'formative']
+    current_events = [e for e in insights['predictive_timeline'] if e.get('status') == 'Current']
+    future_events = [e for e in insights['predictive_timeline'] if e.get('status') == 'Future']
+    
+    # Show karmic seeds separately
+    if karmic_events:
+        lines.append("🌱 KARMIC SEEDS (Pre-Adult Formative Periods):")
+        lines.append("   ⚠️ These represent destiny foundations, not practical predictions")
+        for event in karmic_events[-3:]:  # Show last 3 formative periods
+            age_str = event.get('age_range', '')
+            lines.append(f"  {event['window']} ({age_str}): {event['event']} [KARMIC SEED]")
+        lines.append("")
+    
+    if past_events:
+        lines.append("📜 PAST ADULT PERIODS:")
+        for event in past_events[-5:]:  # Last 5 past adult events
+            prob_pct = int(event['probability'] * 100)
+            conf_bar = "●" * (prob_pct // 10) + "○" * (10 - prob_pct // 10)
+            age_str = event.get('age_range', '')
+            lines.append(f"  {event['window']} ({age_str}): {event['event']} [PAST]")
+            lines.append(f"           [{conf_bar}] {prob_pct}% | {event['confidence']}")
+        lines.append("")
+    
+    if current_events:
+        lines.append("🔥 CURRENT PERIODS:")
+        for event in current_events:
+            prob_pct = int(event['probability'] * 100)
+            conf_bar = "●" * (prob_pct // 10) + "○" * (10 - prob_pct // 10)
+            age_str = event.get('age_range', '')
+            lines.append(f"  {event['window']} ({age_str}): {event['event']} [NOW] ◀")
+            lines.append(f"           [{conf_bar}] {prob_pct}% | {event['confidence']}")
+            if event['dasha']:
+                lines.append(f"           Dasha: {event['dasha'][0]}/{event['dasha'][1]}")
+        lines.append("")
+    
+    if future_events:
+        lines.append("🔮 FUTURE PERIODS:")
+        for event in future_events[:8]:  # Next 8 future events
+            prob_pct = int(event['probability'] * 100)
+            conf_bar = "●" * (prob_pct // 10) + "○" * (10 - prob_pct // 10)
+            age_str = event.get('age_range', '')
+            lines.append(f"  {event['window']} ({age_str}): {event['event']}")
+            lines.append(f"           [{conf_bar}] {prob_pct}% | {event['confidence']}")
+            if event['dasha']:
+                lines.append(f"           Dasha: {event['dasha'][0]}/{event['dasha'][1]}")
     lines.append("")
     
     lines.append("⚠️  RISK & OPPORTUNITY ANALYSIS")

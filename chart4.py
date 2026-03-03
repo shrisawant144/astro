@@ -1772,12 +1772,21 @@ def calculate_marriage_score(result, md_lord, ad_lord=None):
 
 
 # ────────────────────────────────────────────────
-# Accurate Fructification Timings (2026-2046)
+# Accurate Fructification Timings (Full Life Timeline)
 # ────────────────────────────────────────────────
 def generate_timings(result, birth_year, birth_jd):
-    """Generate accurate timing predictions for next 20 years with probability scores"""
+    """Generate accurate timing predictions from birth to future with probability scores and age awareness"""
     dashas = result["vimshottari"]["mahadasas"]
-    current_year = 2026
+    import datetime
+    current_year = datetime.datetime.now().year
+    # Cover from birth to 20 years in future
+    start_year = birth_year
+    end_year = current_year + 20
+    
+    # Age thresholds for realistic predictions
+    MIN_MARRIAGE_AGE = 21
+    MIN_CAREER_AGE = 18
+    MIN_CHILDREN_AGE = 22
 
     def lord_of(house_no):
         lagna_idx = zodiac_signs.index(result["lagna_sign"])
@@ -1819,38 +1828,78 @@ def generate_timings(result, birth_year, birth_jd):
     output = {}
     for event, fav_lords in events.items():
         periods = []
+        # Set minimum age based on event type
+        if event == "Marriage":
+            min_age = MIN_MARRIAGE_AGE
+        elif event == "Children / Progeny":
+            min_age = MIN_CHILDREN_AGE
+        elif event == "Career Rise / Fame":
+            min_age = MIN_CAREER_AGE
+        else:
+            min_age = 18  # Default minimum for most life events
+        
+        min_event_year = birth_year + min_age
+        
         for md in dashas:
             md_lord = md["lord"]
             md_start_age = (md["start_jd"] - birth_jd) / 365.25
             md_start_y = int(birth_year + md_start_age)
             md_end_y = int(birth_year + (md["end_jd"] - birth_jd) / 365.25)
-            # Skip if MD is completely outside our window
-            if md_end_y < current_year or md_start_y > current_year + 20:
+            # Skip if MD is completely outside our window (birth to future)
+            if md_end_y < start_year or md_start_y > end_year:
                 continue
+            # Determine status (Past/Current/Future)
+            status = "[PAST]" if md_end_y < current_year else "[NOW]" if md_start_y <= current_year <= md_end_y else "[FUTURE]"
+            # Calculate age at period start
+            start_age = md_start_y - birth_year
+            age_str = f"(Age {start_age}-{md_end_y - birth_year})"
+            
             # Include if MD lord is favorable
             if md_lord in fav_lords:
-                periods.append(f"• {md_lord} Mahadasha ({md_start_y}-{md_end_y})")
-            # Check antardashas within the 2026-2046 window
+                # Mark periods before minimum age as "Karmic Seed"
+                if md_end_y < min_event_year:
+                    periods.append(f"• {md_lord} Mahadasha ({md_start_y}-{md_end_y}) {age_str} [KARMIC SEED]")
+                else:
+                    periods.append(f"• {md_lord} Mahadasha ({md_start_y}-{md_end_y}) {age_str} {status}")
+            # Check antardashas within our full timeline
             for ad in md.get("antardashas", []):
                 if ad["lord"] in fav_lords:
                     ad_start_age = (ad["start_jd"] - birth_jd) / 365.25
                     ad_end_age = (ad["end_jd"] - birth_jd) / 365.25
                     ad_start_y = int(birth_year + ad_start_age)
                     ad_end_y = int(birth_year + ad_end_age)
-                    # Include if AD starts or overlaps within 2026-2046
-                    if ad_start_y <= current_year + 20 and ad_end_y >= current_year:
-                        # For marriage, add probability score
+                    # Include if AD starts or overlaps within our full timeline
+                    if ad_start_y <= end_year and ad_end_y >= start_year:
+                        # Determine AD status
+                        ad_status = "[PAST]" if ad_end_y < current_year else "[NOW]" if ad_start_y <= current_year <= ad_end_y else "[FUTURE]"
+                        # Calculate age for this period
+                        ad_age_str = f"Age {ad_start_y - birth_year}-{ad_end_y - birth_year}"
+                        
+                        # For marriage, add probability score and age filtering
                         if event == "Marriage":
                             score = calculate_marriage_score(result, md_lord, ad["lord"])
                             prob_label = "★★★" if score >= 7 else "★★" if score >= 4 else "★"
-                            periods.append(
-                                f" └─ {md_lord}/{ad['lord']} ({ad_start_y}-{ad_end_y}) {prob_label} [{score}/10]"
-                            )
+                            # Mark pre-21 as karmic seed for marriage
+                            if ad_end_y < min_event_year:
+                                periods.append(
+                                    f" └─ {md_lord}/{ad['lord']} ({ad_start_y}-{ad_end_y}) ({ad_age_str}) [KARMIC SEED - too young]"
+                                )
+                            else:
+                                periods.append(
+                                    f" └─ {md_lord}/{ad['lord']} ({ad_start_y}-{ad_end_y}) ({ad_age_str}) {prob_label} [{score}/10] {ad_status}"
+                                )
                         else:
-                            periods.append(
-                                f" └─ {md_lord}/{ad['lord']} Antardasha ({ad_start_y}-{ad_end_y})"
-                            )
-        output[event] = periods[:10] if periods else []
+                            # For other events, mark appropriately
+                            if ad_end_y < min_event_year:
+                                periods.append(
+                                    f" └─ {md_lord}/{ad['lord']} ({ad_start_y}-{ad_end_y}) ({ad_age_str}) [FORMATIVE]"
+                                )
+                            else:
+                                periods.append(
+                                    f" └─ {md_lord}/{ad['lord']} Antardasha ({ad_start_y}-{ad_end_y}) ({ad_age_str}) {ad_status}"
+                                )
+        # Sort by year and include more periods
+        output[event] = sorted(periods, key=lambda x: int(re.search(r'\((\d{4})', x).group(1)) if re.search(r'\((\d{4})', x) else 0)[:20] if periods else []
     return output
 
 
@@ -3122,19 +3171,21 @@ def print_kundali(result, file=None):
         write(f"\n  ⚠ SATURN SPECIAL TRANSIT: {sade}")
     else:
         write("  ✓ No active Sade Sati or Dhaiya (Saturn not in critical position from Moon)")
-    write("\n🔥 YOGAS WITH STRENGTH (1-10) & ACCURATE TIMINGS (2026–2046)")
+    write("\n🔥 YOGAS WITH STRENGTH (1-10) & ACCURATE TIMINGS")
     write("-" * 95)
     for yoga in result.get("yogas", []):
         write(f"• {yoga}")
-    write("\n📅 POSSIBLE FRUCTIFICATION PERIODS (Next 20 years)")
+    birth_year = result.get("birth_year", "N/A")
+    write(f"\n📅 FRUCTIFICATION PERIODS (Full Life Timeline from {birth_year})")
     write("-" * 95)
+    write("  [PAST] = Already occurred | [NOW] = Currently active | [FUTURE] = Upcoming")
     for event, periods in result.get("timings", {}).items():
         write(f"\n{event}:")
         if periods:
             for p in periods:
                 write(p)
         else:
-            write(" No major period in next 20 years")
+            write(" No major period found")
     write("\n⚠️ PROBLEMS/DOSHAS IN KUNDALI")
     write("-" * 95)
     for prob in result.get("problems", []):
