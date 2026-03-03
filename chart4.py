@@ -322,6 +322,143 @@ FUNCTIONAL_QUALITY = {
     "Pisces":      {"ben": ["Ju", "Mo", "Ma"], "mal": ["Sa", "Ve"], "maraka": ["Me"], "mixed": [], "yk": None},
 }
 
+
+def calculate_functional_strength_index(result, planet):
+    """
+    Calculate a nuanced Functional Classification Strength Index (0-100) for a planet.
+    
+    Instead of binary benefic/malefic labels, this provides a weighted score:
+    - Base functional status (benefic=70, malefic=30, mixed=50)
+    - D1 dignity adjustment (exalt +20, own +15, debilitated -15)
+    - D9 dignity adjustment (exalt +10, own +8, debilitated -8)
+    - House placement (+/- based on kendra/trikona/dusthana)
+    - Benefic aspects received (+5 each)
+    - Malefic aspects received (-5 each)
+    
+    Returns: dict with score, classification, and modifying factors
+    """
+    lagna_sign = result["lagna_sign"]
+    fq = FUNCTIONAL_QUALITY.get(lagna_sign, {})
+    planets_data = result.get("planets", {})
+    navamsa = result.get("navamsa", {})
+    houses = result.get("houses", {})
+    aspects = result.get("aspects", {})
+    
+    # Base score based on functional classification
+    if planet in fq.get("ben", []):
+        base = 70
+        base_class = "Benefic"
+    elif planet in fq.get("mal", []):
+        base = 30
+        base_class = "Malefic"
+    elif planet in fq.get("maraka", []):
+        base = 35
+        base_class = "Maraka"
+    elif planet in fq.get("mixed", []):
+        base = 50
+        base_class = "Mixed"
+    else:
+        base = 50
+        base_class = "Neutral"
+    
+    # Yogakaraka bonus
+    yk_bonus = 0
+    if fq.get("yk") == planet:
+        yk_bonus = 20
+        base_class = "Yogakaraka"
+    
+    # D1 dignity adjustment
+    d1_adj = 0
+    d1_reason = ""
+    if planet in planets_data:
+        dignity = planets_data[planet].get("dignity", "")
+        if "Exalted" in dignity:
+            d1_adj = 20
+            d1_reason = "D1 Exalted"
+        elif "Own" in dignity:
+            d1_adj = 15
+            d1_reason = "D1 Own Sign"
+        elif "Debilitated" in dignity:
+            d1_adj = -15
+            d1_reason = "D1 Debilitated"
+            # Check for neecha bhanga
+            if planets_data[planet].get("neecha_bhanga", False):
+                d1_adj = -5  # Reduced penalty
+                d1_reason = "D1 Debilitated (NB)"
+    
+    # D9 dignity adjustment
+    d9_adj = 0
+    d9_reason = ""
+    if planet in navamsa:
+        d9_sign = navamsa[planet].get("sign", "")
+        d9_dignity = get_dignity(planet, d9_sign)
+        if d9_dignity == "Exalt":
+            d9_adj = 10
+            d9_reason = "D9 Exalted"
+        elif d9_dignity == "Own":
+            d9_adj = 8
+            d9_reason = "D9 Own"
+        elif d9_dignity == "Debilitated":
+            d9_adj = -8
+            d9_reason = "D9 Debilitated"
+    
+    # House placement adjustment
+    house_adj = 0
+    house_reason = ""
+    for h, plist in houses.items():
+        if planet in plist:
+            if h in [1, 4, 7, 10]:  # Kendras - good for all planets
+                house_adj = 5
+                house_reason = f"H{h} Kendra"
+            elif h in [5, 9]:  # Trikonas - great for benefics
+                house_adj = 8 if base >= 50 else 3
+                house_reason = f"H{h} Trikona"
+            elif h in [6, 8, 12]:  # Dusthanas - challenging
+                house_adj = -5 if base >= 50 else 3  # Malefics do okay in dusthanas
+                house_reason = f"H{h} Dusthana"
+            elif h in [2, 11]:  # Wealth houses
+                house_adj = 4
+                house_reason = f"H{h} Wealth"
+            elif h == 3:  # Upachaya
+                house_adj = 2
+                house_reason = f"H{h} Upachaya"
+            break
+    
+    # Calculate final score
+    final_score = base + yk_bonus + d1_adj + d9_adj + house_adj
+    final_score = max(0, min(100, final_score))
+    
+    # Determine effective classification
+    if final_score >= 80:
+        effective_class = "Strong Benefic"
+    elif final_score >= 65:
+        effective_class = "Conditional Benefic"
+    elif final_score >= 50:
+        effective_class = "Neutral-Positive"
+    elif final_score >= 35:
+        effective_class = "Conditional Malefic"
+    else:
+        effective_class = "Functional Malefic"
+    
+    # Build modifiers list
+    modifiers = []
+    if yk_bonus:
+        modifiers.append("Yogakaraka")
+    if d1_reason:
+        modifiers.append(d1_reason)
+    if d9_reason:
+        modifiers.append(d9_reason)
+    if house_reason:
+        modifiers.append(house_reason)
+    
+    return {
+        "score": final_score,
+        "base_class": base_class,
+        "effective_class": effective_class,
+        "modifiers": modifiers
+    }
+
+
 # ────────────────────────────────────────────────
 # Panchanga Names
 # ────────────────────────────────────────────────
@@ -2448,23 +2585,45 @@ def interpret_navamsa(result):
     """Full D9 Navamsa analysis – marriage, spouse, dharma, inner soul"""
     navamsa = result["navamsa"]
     planets_data = result["planets"]
+    gender = result.get("gender", "Male")
+    spouse_term = "husband" if gender == "Female" else "wife"
+    spouse_karaka = "Jupiter" if gender == "Female" else "Venus"
+    spouse_karaka_short = "Ju" if gender == "Female" else "Ve"
+    his_her = "his" if gender == "Male" else "her"
+    he_she = "he" if gender == "Male" else "she"
+    
     out = []
-    out.append("(D9 reveals spouse character, marriage quality, dharmic path, and "
+    out.append(f"(D9 reveals {spouse_term} character, marriage quality, dharmic path, and "
                "the soul's evolutionary direction. D1 shows the promise; D9 confirms or modifies it. "
                "Strong D1 + strong D9 = highly reliable results; strong D1 + weak D9 = fluctuating results; "
-               "weak D1 + strong D9 = gradual improvement over time.)")
+               f"weak D1 + strong D9 = gradual improvement over time. For {gender}, {spouse_karaka} is the primary karaka for {spouse_term}.)")
 
-    planet_d9_meanings = {
-        "Su": "Soul authority: spouse may have Sun-like qualities (leadership, pride). Dharma path involves service, governance, or father-like responsibility.",
-        "Mo": "Emotional soul: deep emotional bond with spouse; marriage is nurturing. Inner self driven by security, mother, and public approval.",
-        "Ma": "Passionate soul: spouse is energetic, ambitious, possibly athletic or bold. Marriage has intense passion; conflicts must be managed consciously.",
-        "Me": "Intellectual soul: spouse is communicative, witty, analytical. Marriage thrives on mental connection; dharma through teaching or trade.",
-        "Ju": "Wisdom soul: spouse is wise, spiritual, generous. Jupiter's D9 dignity determines dharmic blessings; strong = growth, weak = obstacles.",
-        "Ve": "Artistic soul: spouse is beautiful, artistic, loving, comfort-seeking. Venus's D9 dignity is crucial for marital harmony and satisfaction.",
-        "Sa": "Karmic soul: spouse may be older, serious, disciplined, or from a different background. Marriage has karmic weight; deep loyalty over time.",
-        "Ra": "Unconventional soul: spouse may be foreign, unconventional, or connected by past-life karma. Marriage outside norms; obsessive at times.",
-        "Ke": "Spiritual soul: previous-life karmic bond with spouse; partner may be deeply spiritual, detached, or intuitive. Marriage is meaningful but impersonal.",
+    # Gender-specific planet meanings
+    planet_d9_meanings_male = {
+        "Su": "Soul authority: wife may have Sun-like qualities (leadership, pride). Dharma path involves service, governance, or father-like responsibility.",
+        "Mo": "Emotional soul: deep emotional bond with wife; marriage is nurturing. Inner self driven by security, mother, and public approval.",
+        "Ma": "Passionate soul: wife is energetic, ambitious, possibly athletic or bold. Marriage has intense passion; conflicts must be managed consciously.",
+        "Me": "Intellectual soul: wife is communicative, witty, analytical. Marriage thrives on mental connection; dharma through teaching or trade.",
+        "Ju": "Wisdom soul: wife is wise, spiritual, generous. Jupiter's D9 dignity determines dharmic blessings; strong = growth, weak = obstacles.",
+        "Ve": "Artistic soul (WIFE KARAKA): wife is beautiful, artistic, loving, comfort-seeking. Venus's D9 dignity is crucial for marital harmony and satisfaction.",
+        "Sa": "Karmic soul: wife may be older, serious, disciplined, or from a different background. Marriage has karmic weight; deep loyalty over time.",
+        "Ra": "Unconventional soul: wife may be foreign, unconventional, or connected by past-life karma. Marriage outside norms; obsessive at times.",
+        "Ke": "Spiritual soul: previous-life karmic bond with wife; partner may be deeply spiritual, detached, or intuitive. Marriage is meaningful but impersonal.",
     }
+    
+    planet_d9_meanings_female = {
+        "Su": "Soul authority: husband may have Sun-like qualities (leadership, pride, authority). Dharma path involves service, governance, or father-like responsibility.",
+        "Mo": "Emotional soul: deep emotional bond with husband; marriage is nurturing. Inner self driven by security, mother, and public approval.",
+        "Ma": "Passionate soul: husband is energetic, ambitious, athletic or bold. Mars indicates husband's courage and vitality.",
+        "Me": "Intellectual soul: husband is communicative, witty, analytical. Marriage thrives on mental connection; dharma through teaching or trade.",
+        "Ju": "Wisdom soul (HUSBAND KARAKA): husband is wise, spiritual, generous. Jupiter's D9 dignity is crucial for marital harmony and husband's qualities.",
+        "Ve": "Artistic soul: husband appreciates beauty, arts, and comfort. Strong Venus gives loving marriage and material comforts.",
+        "Sa": "Karmic soul: husband may be older, serious, disciplined, or from a different background. Marriage has karmic weight; deep loyalty over time.",
+        "Ra": "Unconventional soul: husband may be foreign, unconventional, or connected by past-life karma. Marriage outside norms; obsessive at times.",
+        "Ke": "Spiritual soul: previous-life karmic bond with husband; partner may be deeply spiritual, detached, or intuitive. Marriage is meaningful but impersonal.",
+    }
+    
+    planet_d9_meanings = planet_d9_meanings_female if gender == "Female" else planet_d9_meanings_male
 
     order = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]
     for pl in order:
@@ -2519,18 +2678,46 @@ def interpret_navamsa(result):
         out.append(f"  ✓ Exalted in D9: {', '.join(exalt_d9)} – Marriage/dharma blessings are magnified.")
     if deb_d9:
         out.append(f"  ⚠ Debilitated in D9: {', '.join(deb_d9)} – D1 promise may fluctuate; conscious effort helps stabilise results.")
-    # Venus in D9 is the single most important marriage indicator
-    if "Ve" in navamsa:
-        ve_d9_sign = navamsa["Ve"]["sign"]
-        ve_d9_dig = get_dignity("Ve", ve_d9_sign)
-        if ve_d9_dig in ("Exalt", "Own"):
-            ve_note = "Excellent – beauty, love, and harmony are core features of marriage."
-        elif ve_d9_dig == "Debilitated":
-            ve_note = "Debilitated – marital satisfaction may require extra effort; Venus remedies can help."
-        else:
-            ve_note = "Moderate – marriage has affection but may need conscious nurturing."
-        dig_tag = f", {ve_d9_dig}" if ve_d9_dig else ""
-        out.append(f"\n  Venus in D9 ({ve_d9_sign}{dig_tag}): {ve_note}")
+    
+    # Gender-specific spouse karaka analysis
+    if gender == "Female":
+        # Jupiter is the primary husband karaka for females
+        if "Ju" in navamsa:
+            ju_d9_sign = navamsa["Ju"]["sign"]
+            ju_d9_dig = get_dignity("Ju", ju_d9_sign)
+            if ju_d9_dig in ("Exalt", "Own"):
+                ju_note = "Excellent – husband will be wise, prosperous, and supportive."
+            elif ju_d9_dig == "Debilitated":
+                ju_note = "Debilitated – husband's qualities may require patience; Jupiter remedies can help."
+            else:
+                ju_note = "Moderate – good husband qualities but may need conscious nurturing."
+            dig_tag = f", {ju_d9_dig}" if ju_d9_dig else ""
+            out.append(f"\n  Jupiter in D9 ({ju_d9_sign}{dig_tag}) [HUSBAND KARAKA]: {ju_note}")
+        # Also check Venus for marital harmony
+        if "Ve" in navamsa:
+            ve_d9_sign = navamsa["Ve"]["sign"]
+            ve_d9_dig = get_dignity("Ve", ve_d9_sign)
+            if ve_d9_dig in ("Exalt", "Own"):
+                ve_note = "Excellent – beauty, love, and harmony in marriage."
+            elif ve_d9_dig == "Debilitated":
+                ve_note = "Debilitated – marital romance may require extra effort."
+            else:
+                ve_note = "Moderate – marriage has affection but may need conscious nurturing."
+            dig_tag = f", {ve_d9_dig}" if ve_d9_dig else ""
+            out.append(f"  Venus in D9 ({ve_d9_sign}{dig_tag}) [Marital Harmony]: {ve_note}")
+    else:
+        # Venus is the primary wife karaka for males
+        if "Ve" in navamsa:
+            ve_d9_sign = navamsa["Ve"]["sign"]
+            ve_d9_dig = get_dignity("Ve", ve_d9_sign)
+            if ve_d9_dig in ("Exalt", "Own"):
+                ve_note = "Excellent – wife will be beautiful, loving, and harmony-loving."
+            elif ve_d9_dig == "Debilitated":
+                ve_note = "Debilitated – wife's qualities may require patience; Venus remedies can help."
+            else:
+                ve_note = "Moderate – marriage has affection but may need conscious nurturing."
+            dig_tag = f", {ve_d9_dig}" if ve_d9_dig else ""
+            out.append(f"\n  Venus in D9 ({ve_d9_sign}{dig_tag}) [WIFE KARAKA]: {ve_note}")
     return out
 
 
@@ -2661,6 +2848,7 @@ def interpret_d10(result):
 # ────────────────────────────────────────────────
 def print_kundali(result, file=None):
     lines = []
+    gender = result.get("gender", "Male")  # Default to Male if not specified
 
     def write(s):
         lines.append(s)
@@ -2668,6 +2856,7 @@ def print_kundali(result, file=None):
     write("\n" + "═" * 95)
     write(" VEDIC KUNDALI – Whole Sign – Lahiri – D7 + D10 + Marriage Timing")
     write("═" * 95)
+    write(f"Gender       : {gender}")
     write(f"Lagna        : {result['lagna_sign']} {result['lagna_deg']}°")
     write(f"Moon (Rasi)  : {result['moon_sign']} – {result['moon_nakshatra']}")
     write(f"7th Lord     : {result['seventh_lord']}")
@@ -2733,24 +2922,114 @@ def print_kundali(result, file=None):
     write("Aspect strengths: 7th=100% | Jupiter 5th/9th=75% | Mars 8th=75% | Saturn 10th=75% | Mars 4th=50% | Saturn 3rd=25%")
     for line in interpret_aspects(result):
         write(line)
-    # Functional Benefics/Malefics
-    write("\nFunctional Benefics / Malefics (by Lagna):")
+    # Functional Benefics/Malefics with Strength Index
+    write("\nFunctional Classification Strength Index (by Lagna):")
     write("-" * 85)
+    write("(Nuanced scoring: Base functional status + D1 dignity + D9 dignity + House placement)")
+    write("")
     fq = FUNCTIONAL_QUALITY.get(result["lagna_sign"], {})
     if fq:
+        # Show traditional classifications first
         ben_names = [short_to_full.get(p, p) for p in fq.get("ben", [])]
         mal_names = [short_to_full.get(p, p) for p in fq.get("mal", [])]
         maraka_names = [short_to_full.get(p, p) for p in fq.get("maraka", [])]
         mixed_names = [short_to_full.get(p, p) for p in fq.get("mixed", [])]
         yk = fq.get("yk")
-        write(f"  Functional Benefics  : {', '.join(ben_names) if ben_names else '—'}")
-        write(f"  Functional Malefics  : {', '.join(mal_names) if mal_names else '—'}")
-        write(f"  Marakas (2nd/7th)    : {', '.join(maraka_names) if maraka_names else '—'}")
-        write(f"  Mixed Nature         : {', '.join(mixed_names) if mixed_names else '—'}")
+        write(f"  Base Benefics    : {', '.join(ben_names) if ben_names else '—'}")
+        write(f"  Base Malefics    : {', '.join(mal_names) if mal_names else '—'}")
+        write(f"  Marakas (2/7)    : {', '.join(maraka_names) if maraka_names else '—'}")
+        write(f"  Mixed Nature     : {', '.join(mixed_names) if mixed_names else '—'}")
         if yk:
-            write(f"  Yogakaraka           : {short_to_full.get(yk, yk)} "
-                  f"(owns both kendra + trikona for this lagna – most powerful single planet)")
-        write("  Note: Strengthen benefics and Yogakaraka; be cautious during Maraka dashas.")
+            write(f"  Yogakaraka       : {short_to_full.get(yk, yk)}")
+        write("")
+        write("  FUNCTIONAL STRENGTH INDEX (Adjusted for this chart):")
+        write("  " + "-" * 80)
+        for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
+            if pl in result["planets"]:
+                fsi = calculate_functional_strength_index(result, pl)
+                score = fsi["score"]
+                bar = "█" * (score // 5) + "░" * (20 - score // 5)
+                pl_full = short_to_full.get(pl, pl)
+                mods = ", ".join(fsi["modifiers"]) if fsi["modifiers"] else "—"
+                write(f"  {pl_full:9} [{bar}] {score:3}/100 | {fsi['effective_class']}")
+                write(f"             Base: {fsi['base_class']:12} | Modifiers: {mods}")
+        write("")
+        write("  Legend: ≥80 Strong Benefic | ≥65 Conditional Benefic | ≥50 Neutral-Positive")
+        write("          ≥35 Conditional Malefic | <35 Functional Malefic")
+        write("  Note: A 'Malefic' planet in own sign/exalted becomes Conditional Benefic.")
+
+    # Cross-Chart Planetary Integrity Index
+    write("\nCross-Chart Planetary Integrity Index (D1-D9-D10-D7):")
+    write("-" * 85)
+    write("(Measures each planet's consistency across divisional charts – higher = more reliable results)")
+    write("")
+    
+    DIGNITY_SIGNS = {
+        "Su": {"exalt": "Aries", "own": ["Leo"], "deb": "Libra"},
+        "Mo": {"exalt": "Taurus", "own": ["Cancer"], "deb": "Scorpio"},
+        "Ma": {"exalt": "Capricorn", "own": ["Aries", "Scorpio"], "deb": "Cancer"},
+        "Me": {"exalt": "Virgo", "own": ["Gemini", "Virgo"], "deb": "Pisces"},
+        "Ju": {"exalt": "Cancer", "own": ["Sagittarius", "Pisces"], "deb": "Capricorn"},
+        "Ve": {"exalt": "Pisces", "own": ["Taurus", "Libra"], "deb": "Virgo"},
+        "Sa": {"exalt": "Libra", "own": ["Capricorn", "Aquarius"], "deb": "Aries"},
+    }
+    
+    for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
+        if pl not in result["planets"]:
+            continue
+        
+        integrity_score = 50
+        positions = {"D1": result["planets"][pl]["sign"]}
+        strong_count = 0
+        weak_count = 0
+        
+        for chart_name, chart_data in [("D9", result.get("navamsa", {})),
+                                        ("D10", result.get("d10", {})),
+                                        ("D7", result.get("d7", {}))]:
+            if pl in chart_data:
+                positions[chart_name] = chart_data[pl]["sign"]
+        
+        dig_info = DIGNITY_SIGNS.get(pl, {})
+        for chart, sign in positions.items():
+            if sign == dig_info.get("exalt"):
+                integrity_score += 15 if chart == "D1" else 10
+                strong_count += 1
+            elif sign in dig_info.get("own", []):
+                integrity_score += 12 if chart == "D1" else 8
+                strong_count += 1
+            elif sign == dig_info.get("deb"):
+                integrity_score -= 15 if chart == "D1" else 8
+                weak_count += 1
+        
+        # Vargottama bonus
+        if pl in result.get("navamsa", {}) and result["planets"][pl]["sign"] == result["navamsa"][pl]["sign"]:
+            integrity_score += 15
+        
+        # Triple alignment bonus
+        if (pl in result.get("navamsa", {}) and pl in result.get("d10", {})):
+            if (result["planets"][pl]["sign"] == result["navamsa"][pl]["sign"] == result["d10"][pl]["sign"]):
+                integrity_score += 20
+        
+        integrity_score = max(0, min(100, integrity_score))
+        
+        # Classify reliability
+        if integrity_score >= 80 and weak_count == 0:
+            reliability = "Highly Reliable (Triple Confirmation)"
+        elif integrity_score >= 65 and strong_count >= 2:
+            reliability = "Reliable (Multi-Chart Support)"
+        elif integrity_score >= 50:
+            reliability = "Moderate (Needs Activation)"
+        elif weak_count >= 2:
+            reliability = "Challenged (Karmic Work Required)"
+        else:
+            reliability = "Variable (Context-Dependent)"
+        
+        bar = "█" * (integrity_score // 5) + "░" * (20 - integrity_score // 5)
+        pl_full = short_to_full.get(pl, pl)
+        pos_str = " | ".join([f"{k}:{v}" for k, v in positions.items()])
+        write(f"  {pl_full:9} [{bar}] {integrity_score:3}/100 | {reliability}")
+        write(f"             Positions: {pos_str}")
+    write("")
 
     # House Lord Placements
     write("\nHouse Lord Placements:")
@@ -2788,7 +3067,13 @@ def print_kundali(result, file=None):
             write(f"Current (MD/AD/PD) : {vim['current_md']} / {vim['current_ad']} / {current_pd} (PD until ~{pd_end_yr})")
         else:
             write(f"Current (MD/AD) : {vim['current_md']} / {vim['current_ad']}")
-    write("\nMarriage Timing Insights (Enhanced Parashari):")
+    
+    # Gender-specific marriage analysis
+    spouse_term = "husband" if gender == "Female" else "wife"
+    spouse_karaka = "Jupiter" if gender == "Female" else "Venus"
+    spouse_karaka_short = "Ju" if gender == "Female" else "Ve"
+    
+    write(f"\nMarriage Timing Insights (Enhanced Parashari) – For {gender}:")
     write("-" * 85)
     # Calculate key factors
     lagna_idx = zodiac_signs.index(result["lagna_sign"])
@@ -2797,34 +3082,34 @@ def print_kundali(result, file=None):
     seventh_lord = result["seventh_lord"]
     second_lord = lord_of_h(2)
     
-    write(f"  7th Lord (spouse)    : {short_to_full.get(seventh_lord, seventh_lord)}")
+    write(f"  7th Lord ({spouse_term}): {short_to_full.get(seventh_lord, seventh_lord)}")
     write(f"  2nd Lord (family)    : {short_to_full.get(second_lord, second_lord)}")
-    write(f"  Venus (natural karak): {result['planets'].get('Ve', {}).get('sign', '?')}")
+    write(f"  {spouse_karaka} ({spouse_term} karaka): {result['planets'].get(spouse_karaka_short, {}).get('sign', '?')}")
     
-    # D9 Venus status
-    ve_d9 = result.get("navamsa", {}).get("Ve", {})
-    if ve_d9:
-        ve_d9_dig = get_dignity("Ve", ve_d9.get("sign", ""))
-        d9_status = f"{ve_d9.get('sign', '?')}"
-        if ve_d9_dig:
-            d9_status += f" ({ve_d9_dig})"
-        write(f"  D9 Venus             : {d9_status}")
+    # D9 spouse karaka status (gender-specific)
+    karaka_d9 = result.get("navamsa", {}).get(spouse_karaka_short, {})
+    if karaka_d9:
+        karaka_d9_dig = get_dignity(spouse_karaka_short, karaka_d9.get("sign", ""))
+        d9_status = f"{karaka_d9.get('sign', '?')}"
+        if karaka_d9_dig:
+            d9_status += f" ({karaka_d9_dig})"
+        write(f"  D9 {spouse_karaka}          : {d9_status}")
     
-    write("\n  Probability factors scored: 7th lord (+3), Venus (+3), 2nd lord (+2),")
-    write("  Jupiter (+1), D9 Venus dignity (+1), D9 7th lord (+1), house placement (+1)")
+    write(f"\n  Probability factors scored: 7th lord (+3), {spouse_karaka} (+3), 2nd lord (+2),")
+    write(f"  {'Venus' if gender == 'Female' else 'Jupiter'} (+1), D9 {spouse_karaka} dignity (+1), D9 7th lord (+1), house placement (+1)")
     write("  Score legend: ★★★ (7-10) High | ★★ (4-6) Moderate | ★ (1-3) Lower")
     vm = vim["current_md"]
     va = vim["current_ad"]
     if (
-        vm in ["Venus", "Ve"]
-        or va in ["Venus", "Ve"]
+        vm in [spouse_karaka, spouse_karaka_short]
+        or va in [spouse_karaka, spouse_karaka_short]
         or vm == result["seventh_lord"]
         or va == result["seventh_lord"]
     ):
         write("*** CURRENT DASHA IS HIGHLY FAVOURABLE FOR MARRIAGE ***")
     else:
         write(
-            "Next favourable periods: Venus or 7th-lord Mahadasha/Antardasha (check full list)"
+            f"Next favourable periods: {spouse_karaka} or 7th-lord Mahadasha/Antardasha (check full list)"
         )
     write("\nCurrent Gochara (from Moon):")
     write("-" * 85)
@@ -2896,11 +3181,17 @@ def main():
     print("─────────────────────────────────────────────────────────────────────\n")
     while True:
         name = input("Enter Name : ").strip()
+        gender_input = input("Gender (M/F) : ").strip().upper()
+        while gender_input not in ("M", "F"):
+            print("Please enter M for Male or F for Female")
+            gender_input = input("Gender (M/F) : ").strip().upper()
+        gender = "Male" if gender_input == "M" else "Female"
         date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
         time_str = input("Birth Time (HH:MM 24h) : ").strip()
         place = input("Birth Place (City, Country) : ").strip()
         try:
             result = calculate_kundali(date_str, time_str, place)
+            result["gender"] = gender  # Store gender in result
             filename = f"{name}_kundali_report.txt"
             with open(filename, "w", encoding="utf-8") as f:
                 print_kundali(result, file=f)
