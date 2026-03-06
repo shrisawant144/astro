@@ -1067,24 +1067,45 @@ def detect_problems(result):
             summary = "Kemdrum Yoga: Moon isolated – Emotional instability, financial fluctuations"
             detail = f"- Reason: Kemdrum Yoga forms when the Moon is alone without planetary support in adjacent houses, leading to emotional void.\n- Direct Outcome: Loneliness, mood swings, or financial instability; strengthened by Moon's aspects or remedies like Chandra mantra."
             problems.append({"summary": summary, "detail": detail})
-    # 3. Kaal Sarp Yoga (Basic: All planets between Rahu and Ketu in one arc)
+    # 3. Kaal Sarp Yoga (All planets between Rahu and Ketu in the shorter arc)
     if "Ra" in planet_house and "Ke" in planet_house:
         ra_house = planet_house["Ra"]
         ke_house = planet_house["Ke"]
-        # Normalize houses: assume houses are 1-12
-        # Check if all other planets are between ra_house and ke_house (clockwise or anticlockwise)
-        all_planets_between = True
-        direction1 = (ke_house - ra_house + 12) % 12  # From Ra to Ke clockwise
-        direction2 = (ra_house - ke_house + 12) % 12  # From Ke to Ra clockwise
-        if (
-            direction1 <= 6 or direction2 <= 6
-        ):  # Only if span is half or less (simplified)
-            for pl_house in planet_house.values():
-                if pl_house not in [ra_house, ke_house]:
-                    pos_from_ra = (pl_house - ra_house + 12) % 12
-                    if not (0 < pos_from_ra < direction1):
-                        all_planets_between = False
-                        break
+        # Normalize to 0-11 for easier arithmetic
+        ra_pos = ra_house - 1
+        ke_pos = ke_house - 1
+        
+        # Compute both possible arcs (clockwise from Ra to Ke, and clockwise from Ke to Ra)
+        arc1 = (ke_pos - ra_pos) % 12  # houses from Ra to Ke moving forward
+        arc2 = (ra_pos - ke_pos) % 12  # houses from Ke to Ra moving forward
+        
+        # The actual occupied arc is the smaller of the two (should be <=6 for Kaal Sarp)
+        if arc1 <= 6:
+            start, end = ra_pos, ke_pos
+            direction = 1  # forward
+        elif arc2 <= 6:
+            start, end = ke_pos, ra_pos
+            direction = 1
+        else:
+            start = end = None  # arc too large, not Kaal Sarp
+        
+        if start is not None:
+            all_planets_between = True
+            for pl, ph in planet_house.items():
+                if pl in ["Ra", "Ke"]:
+                    continue
+                pos = ph - 1
+                # Check if planet lies within the arc (including start and end? No, nodes are excluded)
+                # The arc from start to end moving forward (direction=1) should contain pos.
+                if direction == 1:
+                    if start < end:
+                        if not (start < pos < end):
+                            all_planets_between = False
+                            break
+                    else:  # wrap around
+                        if not (pos > start or pos < end):
+                            all_planets_between = False
+                            break
             if all_planets_between:
                 summary = "Kaal Sarp Yoga: All planets hemmed between Rahu-Ketu – Life obstacles, but potential for sudden rise"
                 detail = f"- Reason: Kaal Sarp forms when all planets are trapped between Rahu and Ketu's axis, creating karmic restrictions.\n- Direct Outcome: Life struggles, delays in success, but potential breakthroughs after mid-life; remedies include Naga puja."
@@ -1570,7 +1591,7 @@ def calculate_marriage_score(result, md_lord, ad_lord=None):
     fq = FUNCTIONAL_QUALITY.get(lagna_sign, {})
     func_benefics = fq.get("ben", [])
     func_malefics = fq.get("mal", [])
-    yogakaraka = fq.get("yoga", None)
+    yogakaraka = fq.get("yk", None)
     
     # Convert to short form for comparison
     md_short = next((k for k, v in short_to_full.items() if v == md_lord), md_lord)
@@ -2412,6 +2433,10 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
     result["timings"] = generate_timings(result, y, birth_jd)
     result["problems"] = detect_problems(result)
     result["final_analysis"] = generate_final_analysis(result)
+    
+    # Add Ashtakavarga calculation
+    result["ashtakavarga"] = calculate_ashtakavarga(result)
+    
     return result
 
 
@@ -2436,6 +2461,171 @@ HOUSE_SIGNIFICATIONS = {
 
 NATURAL_BENEFICS = {"Ju", "Ve", "Mo"}
 NATURAL_MALEFICS = {"Sa", "Ma", "Su", "Ra", "Ke"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ASHTAKAVARGA CALCULATION (Classical Parashari System)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Ashtakavarga benefic dots (rekhas/bindus) for each planet from each reference
+# Format: planet_name -> {reference: [list of houses that get benefic dots from 0-11]}
+# House 0 = same sign as reference, House 1 = next sign, etc.
+ASHTAKAVARGA_REKHAS = {
+    "Su": {  # Sun's Ashtakavarga
+        "Su": [0, 1, 2, 3, 4, 6, 9, 10, 11],  # From Sun
+        "Mo": [2, 5, 6, 8, 10, 11],  # From Moon
+        "Ma": [0, 2, 3, 4, 6, 9, 10],  # From Mars
+        "Me": [2, 4, 5, 6, 8, 10, 11],  # From Mercury
+        "Ju": [4, 5, 6, 8],  # From Jupiter
+        "Ve": [5, 6, 8, 10, 11],  # From Venus
+        "Sa": [0, 1, 3, 4, 6, 9, 10],  # From Saturn
+        "As": [2, 3, 4, 6, 9, 10, 11],  # From Ascendant
+    },
+    "Mo": {  # Moon's Ashtakavarga
+        "Su": [2, 5, 6, 8, 10, 11],
+        "Mo": [0, 2, 5, 6, 8, 9, 10],
+        "Ma": [1, 2, 3, 6, 9, 10],
+        "Me": [0, 2, 3, 4, 5, 6, 8, 10],
+        "Ju": [0, 3, 5, 6, 8, 10],
+        "Ve": [2, 3, 5, 6, 8, 9, 10],
+        "Sa": [2, 5, 6, 10, 11],
+        "As": [2, 5, 6, 8, 10, 11],
+    },
+    "Ma": {  # Mars's Ashtakavarga
+        "Su": [2, 4, 5, 6, 9, 10],
+        "Mo": [2, 5, 6, 8, 10, 11],
+        "Ma": [0, 1, 3, 5, 9, 10],
+        "Me": [2, 4, 6, 9, 10, 11],
+        "Ju": [5, 6, 9, 10],
+        "Ve": [5, 7, 8, 10, 11],
+        "Sa": [2, 4, 5, 6, 8, 10, 11],
+        "As": [0, 2, 3, 5, 9, 10],
+    },
+    "Me": {  # Mercury's Ashtakavarga
+        "Su": [4, 5, 6, 8, 10, 11],
+        "Mo": [1, 2, 3, 4, 5, 7, 8],
+        "Ma": [0, 1, 2, 3, 4, 6, 7, 9, 10],
+        "Me": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10],
+        "Ju": [5, 6, 8, 11],
+        "Ve": [0, 1, 2, 3, 4, 5, 7, 8],
+        "Sa": [0, 1, 3, 4, 5, 6, 7, 9, 10],
+        "As": [0, 1, 3, 4, 5, 6, 7, 9, 10],
+    },
+    "Ju": {  # Jupiter's Ashtakavarga
+        "Su": [0, 1, 3, 4, 5, 6, 8, 10],
+        "Mo": [1, 2, 3, 5, 6, 8, 10],
+        "Ma": [0, 1, 3, 5, 8, 10],
+        "Me": [0, 1, 2, 4, 5, 6, 8, 10],
+        "Ju": [0, 1, 2, 4, 6, 7, 8, 10],
+        "Ve": [1, 2, 4, 5, 6, 8, 10, 11],
+        "Sa": [2, 4, 5, 6, 9, 10, 11],
+        "As": [0, 1, 3, 4, 5, 6, 8, 10],
+    },
+    "Ve": {  # Venus's Ashtakavarga
+        "Su": [7, 8, 10, 11],
+        "Mo": [0, 1, 2, 3, 4, 5, 7, 8, 11],
+        "Ma": [2, 3, 4, 5, 7, 8, 10, 11],
+        "Me": [2, 4, 5, 7, 8, 10, 11],
+        "Ju": [4, 5, 7, 8, 10],
+        "Ve": [0, 1, 2, 3, 4, 5, 7, 8],
+        "Sa": [2, 3, 4, 5, 7, 8, 10, 11],
+        "As": [0, 1, 2, 3, 4, 5, 7, 8, 10, 11],
+    },
+    "Sa": {  # Saturn's Ashtakavarga
+        "Su": [0, 1, 3, 4, 5, 6, 10, 11],
+        "Mo": [2, 5, 6, 11],
+        "Ma": [2, 4, 6, 9, 10, 11],
+        "Me": [5, 6, 10, 11],
+        "Ju": [5, 6, 11],
+        "Ve": [5, 6, 11],
+        "Sa": [2, 5, 6, 10, 11],
+        "As": [0, 2, 3, 6, 10, 11],
+    },
+}
+
+
+def calculate_ashtakavarga(result):
+    """
+    Calculate Ashtakavarga (SAV - Sarvashtakavarga) for all houses.
+    
+    Returns:
+        dict: {
+            'individual': {planet: [12 house scores]},
+            'sav': [12 house scores for SAV],
+            'interpretation': {house: text}
+        }
+    """
+    planets_d1 = result["planets"]
+    lagna_sign = result["lagna_sign"]
+    lagna_idx = zodiac_signs.index(lagna_sign)
+    
+    # Get planet positions (0-11 from lagna)
+    planet_positions = {}
+    for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
+        if pl in planets_d1:
+            pl_sign = planets_d1[pl]["sign"]
+            pl_idx = zodiac_signs.index(pl_sign)
+            planet_positions[pl] = pl_idx
+    
+    planet_positions["As"] = lagna_idx  # Ascendant
+    
+    # Calculate individual Ashtakavarga for each planet
+    individual_av = {}
+    
+    for target_planet in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
+        if target_planet not in planet_positions:
+            continue
+        
+        house_bindus = [0] * 12  # Initialize 12 houses with 0 benefic dots
+        
+        rekhas = ASHTAKAVARGA_REKHAS.get(target_planet, {})
+        
+        # For each reference point (planets + Ascendant)
+        for ref_point, ref_pos in planet_positions.items():
+            if ref_point not in rekhas:
+                continue
+            
+            benefic_houses = rekhas[ref_point]
+            
+            # Add benefic dots to appropriate houses
+            for house_offset in benefic_houses:
+                # Calculate actual house (0-11) from reference position
+                actual_house = (ref_pos + house_offset) % 12
+                house_bindus[actual_house] += 1
+        
+        individual_av[target_planet] = house_bindus
+    
+    # Calculate SAV (Sarvashtakavarga) - sum of all individual Ashtakavargas
+    sav = [0] * 12
+    for planet_bindus in individual_av.values():
+        for i in range(12):
+            sav[i] += planet_bindus[i]
+    
+    # Interpret SAV scores (especially for 7th house - marriage)
+    interpretation = {}
+    for house_num in range(1, 13):
+        house_idx = (house_num - 1 + lagna_idx) % 12
+        score = sav[house_idx]
+        
+        if score >= 30:
+            interp = "Excellent (Very strong support)"
+        elif score >= 26:
+            interp = "Good (Positive support)"
+        elif score >= 23:
+            interp = "Average (Normal karma)"
+        else:
+            interp = "Weak (Challenges/delays likely)"
+        
+        interpretation[house_num] = {
+            'score': score,
+            'strength': interp
+        }
+    
+    return {
+        'individual': individual_av,
+        'sav': sav,
+        'interpretation': interpretation
+    }
 
 
 def get_aspect_quality_score(planet, lagna_sign, dignity, is_combust=False, is_retro=False):
@@ -2971,6 +3161,58 @@ def print_kundali(result, file=None):
     write("Aspect strengths: 7th=100% | Jupiter 5th/9th=75% | Mars 8th=75% | Saturn 10th=75% | Mars 4th=50% | Saturn 3rd=25%")
     for line in interpret_aspects(result):
         write(line)
+    
+    # Ashtakavarga (SAV)
+    write("\nAshtakavarga (Sarvashtakavarga - Marriage & Life Support Index):")
+    write("-" * 85)
+    write("(SAV measures accumulated benefic points for each house. Marriage astrology heavily relies on 7th house SAV.)")
+    ashtak = result.get("ashtakavarga", {})
+    if ashtak:
+        sav_scores = ashtak.get('sav', [])
+        interpretation = ashtak.get('interpretation', {})
+        
+        lagna_idx_av = zodiac_signs.index(result["lagna_sign"])
+        
+        # Show all house SAV scores
+        write("\nSAV Points by House:")
+        for h in range(1, 13):
+            house_idx = (h - 1 + lagna_idx_av) % 12
+            score = sav_scores[house_idx] if house_idx < len(sav_scores) else 0
+            sign = zodiac_signs[(lagna_idx_av + h - 1) % 12]
+            
+            # Visual bar
+            bar_length = min(30, score)
+            bar = "█" * bar_length + "░" * (30 - bar_length)
+            
+            # Get interpretation
+            interp_data = interpretation.get(h, {})
+            strength = interp_data.get('strength', 'Unknown')
+            
+            # Highlight 7th house (marriage)
+            marker = " ★ MARRIAGE HOUSE" if h == 7 else ""
+            write(f"  H{h:02d} ({sign:11}): [{bar}] {score:2} pts - {strength}{marker}")
+        
+        # Special focus on 7th house
+        h7_data = interpretation.get(7, {})
+        h7_score = h7_data.get('score', 0)
+        h7_strength = h7_data.get('strength', 'Unknown')
+        
+        write(f"\n  ★ 7th House (Marriage) SAV: {h7_score} points - {h7_strength}")
+        
+        if h7_score >= 30:
+            marriage_interp = "Excellent marriage support! Smooth path, harmonious relationship."
+        elif h7_score >= 26:
+            marriage_interp = "Good marriage support. Positive relationship with manageable challenges."
+        elif h7_score >= 23:
+            marriage_interp = "Average marriage karma. Normal ups and downs expected."
+        else:
+            marriage_interp = "Weak marriage support. Extra effort, patience, or remedies recommended."
+        
+        write(f"     Interpretation for Marriage: {marriage_interp}")
+        
+        write("\n  SAV Scoring Legend: ≥30 = Excellent | 26-29 = Good | 23-25 = Average | <23 = Weak")
+        write("  Note: Low SAV doesn't mean 'no marriage' - it indicates more effort/karma to work through.")
+    
     # Functional Benefics/Malefics with Strength Index
     write("\nFunctional Classification Strength Index (by Lagna):")
     write("-" * 85)
