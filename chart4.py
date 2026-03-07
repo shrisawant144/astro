@@ -3692,6 +3692,8 @@ def main():
             print("Tips: Use place='Mumbai, Maharashtra, India'")
             print(" Make sure Swiss Ephemeris .se1 files are in the same folder")
             print("Please re-enter the details.\n")
+    
+    swe.close()
 
 
 if __name__ == "__main__":
