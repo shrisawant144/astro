@@ -8,7 +8,19 @@ import pytz
 # ────────────────────────────────────────────────
 # Swiss Ephemeris Setup
 # ────────────────────────────────────────────────
-swe.set_ephe_path(".")  # Put seas_18.se1, sepl_18.se1, semo_18.se1 etc. in this folder
+import os
+_EPHE_DIR = os.path.dirname(os.path.abspath(__file__)) or "."
+swe.set_ephe_path(_EPHE_DIR)
+# Validate that at least one essential ephemeris file exists
+_REQUIRED_FILES = ["sepl_18.se1", "semo_18.se1"]
+_missing = [f for f in _REQUIRED_FILES if not os.path.isfile(os.path.join(_EPHE_DIR, f))]
+if _missing:
+    import warnings
+    warnings.warn(
+        f"Swiss Ephemeris data files missing from '{_EPHE_DIR}': {', '.join(_missing)}. "
+        "Swiss Ephemeris will fall back to less accurate Moshier mode. "
+        "Download .se1 files from https://www.astro.com/ftp/swisseph/ephe/"
+    )
 swe.set_sid_mode(swe.SIDM_LAHIRI)
 zodiac_signs = [
     "Aries",
@@ -262,17 +274,22 @@ COMBUSTION_ORBS = {
     "Mo": (12, 12),   # (direct, retrograde) — Moon is never retrograde but uniform
     "Ma": (17, 17),
     "Me": (14, 12),
-    "Ju": (11, 11),
+    "Ju": (11, 9),    # BPHS: retrograde Jupiter has tighter orb (9°)
     "Ve": (10, 8),
     "Sa": (15, 15),
 }  # Ra/Ke/Su not affected
 
 # ────────────────────────────────────────────────
 # Neecha Bhanga (Cancelled Debilitation) Data
-# Rules (Parashari):
+# Rules (Parashari – BPHS Ch. 28):
 #   A – Lord of debilitation sign in kendra from Lagna or Moon
 #   B – Planet exalted in debilitation sign is in kendra from Lagna or Moon
 #   C – Debilitated planet itself is in kendra from Lagna or Moon
+#   D – Lord of the sign where the debilitated planet is exalted,
+#       is in kendra from Lagna or Moon
+#   E – The debilitated planet is aspected by its debilitation sign lord
+#   F – The sign dispositor of the debilitated planet is itself exalted
+#   G – The debilitated planet is in mutual aspect with its exaltation sign lord
 # ────────────────────────────────────────────────
 NEECHA_BHANGA_INFO = {
     # planet: (deb_sign_lord, planet_exalted_in_deb_sign)
@@ -301,7 +318,8 @@ FUNCTIONAL_QUALITY = {
     # Taurus: Ve(1,6), Me(2,5), Sa(9,10) | Ju(8,11), Mo(3), Ma(7,12)
     "Taurus":      {"ben": ["Me", "Sa"], "mal": ["Ju"], "maraka": ["Ma"], "mixed": ["Ve", "Mo"], "yk": "Sa"},
     # Gemini: Ve(5,12), Me(1,4), Sa(8,9) | Ju(7,10), Su(3), Ma(6,11)
-    "Gemini":      {"ben": ["Me"], "mal": ["Ma"], "maraka": ["Ju"], "mixed": ["Ve", "Sa", "Su"], "yk": None},
+    # Venus owns 5th (trikona) → benefic; Saturn owns 9th (trikona) → benefic
+    "Gemini":      {"ben": ["Me", "Ve", "Sa"], "mal": ["Ma"], "maraka": ["Ju"], "mixed": ["Su"], "yk": None},
     # Cancer: Ma(5,10), Ju(6,9), Mo(1) | Me(3,12), Ve(4,11), Sa(7,8)
     "Cancer":      {"ben": ["Mo", "Ma", "Ju"], "mal": ["Me", "Ve"], "maraka": ["Sa"], "mixed": [], "yk": "Ma"},
     # Leo: Su(1), Ma(4,9), Ju(5,8) | Me(2,11), Ve(3,10), Sa(6,7)
@@ -372,19 +390,25 @@ def calculate_functional_strength_index(result, planet):
     d1_reason = ""
     if planet in planets_data:
         dignity = planets_data[planet].get("dignity", "")
-        if "Exalted" in dignity:
+        if dignity == "Exalt":
             d1_adj = 20
             d1_reason = "D1 Exalted"
-        elif "Own" in dignity:
+        elif dignity == "Own":
             d1_adj = 15
             d1_reason = "D1 Own Sign"
-        elif "Debilitated" in dignity:
+        elif dignity == "Debilitated":
             d1_adj = -15
             d1_reason = "D1 Debilitated"
             # Check for neecha bhanga
             if planets_data[planet].get("neecha_bhanga", False):
                 d1_adj = -5  # Reduced penalty
                 d1_reason = "D1 Debilitated (NB)"
+        elif dignity == "Friend":
+            d1_adj = 5
+            d1_reason = "D1 Friendly Sign"
+        elif dignity == "Enemy":
+            d1_adj = -5
+            d1_reason = "D1 Enemy Sign"
     
     # D9 dignity adjustment
     d9_adj = 0
@@ -401,6 +425,12 @@ def calculate_functional_strength_index(result, planet):
         elif d9_dignity == "Debilitated":
             d9_adj = -8
             d9_reason = "D9 Debilitated"
+        elif d9_dignity == "Friend":
+            d9_adj = 3
+            d9_reason = "D9 Friendly Sign"
+        elif d9_dignity == "Enemy":
+            d9_adj = -3
+            d9_reason = "D9 Enemy Sign"
     
     # House placement adjustment
     house_adj = 0
@@ -682,7 +712,41 @@ def get_dignity(planet, sign):
         deb_signs = [s.strip() for s in deb_str.split("/") if s.strip()]
         if sign in deb_signs:
             return "Debilitated"
-    return ""
+    # ── Friend / Enemy classification (Naisargika – natural relationships) ──
+    # BPHS Ch.3: permanent natural friendships based on Moolatrikona lordship.
+    # This uses the standard Parashari natural relationship table.
+    NATURAL_FRIENDS = {
+        "Su": {"Mo", "Ma", "Ju"},
+        "Mo": {"Su", "Me"},
+        "Ma": {"Su", "Mo", "Ju"},
+        "Me": {"Su", "Ve"},
+        "Ju": {"Su", "Mo", "Ma"},
+        "Ve": {"Me", "Sa"},
+        "Sa": {"Me", "Ve"},
+    }
+    NATURAL_ENEMIES = {
+        "Su": {"Ve", "Sa"},
+        "Mo": set(),            # Moon has no natural enemies
+        "Ma": {"Me"},
+        "Me": {"Mo"},
+        "Ju": {"Me", "Ve"},
+        "Ve": {"Su", "Mo"},
+        "Sa": {"Su", "Mo", "Ma"},
+    }
+    # Rahu/Ketu have no standard friend/enemy schema
+    if planet in ("Ra", "Ke") or sign not in sign_lords:
+        return ""
+    sign_lord = sign_lords[sign]
+    if sign_lord == planet:
+        return ""  # should have been caught by "Own" above, but safety
+    friends = NATURAL_FRIENDS.get(planet, set())
+    enemies = NATURAL_ENEMIES.get(planet, set())
+    if sign_lord in friends:
+        return "Friend"
+    elif sign_lord in enemies:
+        return "Enemy"
+    else:
+        return "Neutral"
 
 
 def get_lat_lon(place):
@@ -743,11 +807,16 @@ def _houses_are_consecutive(house_set):
 def check_neecha_bhanga(planet_code, planet_data, house_planets, lagna_idx, moon_house):
     """Return True if the debilitated planet's debilitation is cancelled
     (Neecha Bhanga Raja Yoga).
-    Three Parashari rules are checked:
+    Seven Parashari rules are checked (BPHS Ch. 28):
       A – The lord of the debilitation sign is in a kendra from Lagna or Moon.
       B – The planet that is exalted in the debilitation sign is in a kendra
           from Lagna or Moon.
       C – The debilitated planet itself is in a kendra from Lagna or Moon.
+      D – The lord of the sign where the debilitated planet would be exalted
+          is in a kendra from Lagna or Moon.
+      E – The debilitated planet is aspected by its debilitation sign lord.
+      F – The sign dispositor (lord of deb sign) is itself exalted.
+      G – The debilitated planet is in mutual aspect with its exaltation sign lord.
     Any one rule being satisfied cancels the debilitation.
     """
     if planet_code not in NEECHA_BHANGA_INFO:
@@ -771,23 +840,72 @@ def check_neecha_bhanga(planet_code, planet_data, house_planets, lagna_idx, moon
                 return h in kendra_from_lagna or h in kendra_from_moon
         return False
 
-    def self_in_kendra(pl_code):
-        """Return True if pl_code itself is in a kendra from Lagna or Moon."""
+    def get_planet_house(pl_code):
+        """Return house number (1-12) where planet is placed, or None."""
         for h, plist in house_planets.items():
             if pl_code in plist:
-                return h in kendra_from_lagna or h in kendra_from_moon
-        return False
+                return h
+        return None
+
+    def planets_in_mutual_aspect(pl1_house, pl2_house):
+        """Return True if two house positions are exactly 7 houses apart (7th aspect)."""
+        if pl1_house is None or pl2_house is None:
+            return False
+        return abs(pl1_house - pl2_house) % 12 == 6  # 7th house = 6 positions apart in 0-indexed
+
+    def planet_aspects_house(aspecting_code, aspecting_house, target_house):
+        """Return True if aspecting planet (from its house) aspects the target house.
+        All planets have 7th aspect. Mars also 4th & 8th. Jupiter 5th & 9th. Saturn 3rd & 10th."""
+        if aspecting_house is None or target_house is None:
+            return False
+        diff = ((target_house - aspecting_house) % 12)
+        # 7th aspect = 6 houses ahead (all planets)
+        aspect_offsets = {6}
+        if aspecting_code == "Ma":
+            aspect_offsets.update({3, 7})  # 4th and 8th
+        elif aspecting_code == "Ju":
+            aspect_offsets.update({4, 8})  # 5th and 9th
+        elif aspecting_code == "Sa":
+            aspect_offsets.update({2, 9})  # 3rd and 10th
+        return diff in aspect_offsets
 
     deb_lord, exalt_planet = NEECHA_BHANGA_INFO[planet_code]
-    # Rule A
+
+    # Exaltation sign lords (lord of sign where planet would be exalted)
+    EXALT_SIGNS = {
+        "Su": "Aries", "Mo": "Taurus", "Ma": "Capricorn", "Me": "Virgo",
+        "Ju": "Cancer", "Ve": "Pisces", "Sa": "Libra",
+    }
+    exalt_sign = EXALT_SIGNS.get(planet_code)
+    exalt_sign_lord = sign_lords.get(exalt_sign) if exalt_sign else None
+
+    # Rule A – Debilitation lord in kendra
     if deb_lord and planet_in_kendra(deb_lord):
         return True
-    # Rule B
+    # Rule B – Planet exalted in deb sign, in kendra
     if exalt_planet and exalt_planet != deb_lord and planet_in_kendra(exalt_planet):
         return True
-    # Rule C
-    if self_in_kendra(planet_code):
+    # Rule C – Debilitated planet itself in kendra
+    if planet_in_kendra(planet_code):
         return True
+    # Rule D – Lord of exaltation sign of the deb planet is in kendra
+    if exalt_sign_lord and exalt_sign_lord != deb_lord and planet_in_kendra(exalt_sign_lord):
+        return True
+    # Rule E – Debilitated planet is aspected by its deb sign lord
+    deb_lord_house = get_planet_house(deb_lord) if deb_lord else None
+    planet_house = get_planet_house(planet_code)
+    if deb_lord and deb_lord_house is not None and planet_house is not None:
+        if planet_aspects_house(deb_lord, deb_lord_house, planet_house):
+            return True
+    # Rule F – The sign dispositor (deb lord) is itself exalted
+    if deb_lord and deb_lord in planet_data:
+        if planet_data[deb_lord].get("dignity") == "Exalt":
+            return True
+    # Rule G – Debilitated planet in mutual aspect with its exaltation sign lord
+    if exalt_sign_lord and exalt_sign_lord != planet_code:
+        exalt_lord_house = get_planet_house(exalt_sign_lord)
+        if planets_in_mutual_aspect(planet_house, exalt_lord_house):
+            return True
     return False
 
 
@@ -2223,7 +2341,7 @@ def calculate_transits(natal_moon_sign, current_jd):
 # ────────────────────────────────────────────────
 # Main Kundali Calculation
 # ────────────────────────────────────────────────
-def calculate_kundali(birth_date_str, birth_time_str, place):
+def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
     y, m, d = map(int, birth_date_str.split("-"))
     hh, mm = map(int, birth_time_str.split(":"))
     lat, lon = get_lat_lon(place)
@@ -2389,6 +2507,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
     sa_transit_sign = transits.get("Sa", {}).get("sign", None)
     sade_sati_status = get_sade_sati_status(moon_sign, sa_transit_sign) if sa_transit_sign else None
     result = {
+        "gender": gender,
         "lagna_deg": round(lagna_deg, 2),
         "lagna_sign": lagna_sign,
         "seventh_lord": seventh_lord,
@@ -2612,11 +2731,11 @@ def calculate_ashtakavarga(result):
         house_idx = (house_num - 1 + lagna_idx) % 12
         score = sav[house_idx]
         
-        if score >= 30:
+        if score >= 28:
             interp = "Excellent (Very strong support)"
-        elif score >= 26:
+        elif score >= 25:
             interp = "Good (Positive support)"
-        elif score >= 23:
+        elif score >= 22:
             interp = "Average (Normal karma)"
         else:
             interp = "Weak (Challenges/delays likely)"
@@ -2673,6 +2792,10 @@ def get_aspect_quality_score(planet, lagna_sign, dignity, is_combust=False, is_r
         base += 2  # Exaltation significantly improves results
     elif dignity == "Own":
         base += 1  # Own sign is stable and positive
+    elif dignity == "Friend":
+        pass  # Friendly sign: no modifier (slight positive, but not counted)
+    elif dignity == "Enemy":
+        base -= 1  # Enemy sign weakens planet's delivery
     elif dignity == "Debilitated":
         base -= 1  # Debilitation weakens (but doesn't fully negate functional nature)
     
@@ -3068,6 +3191,28 @@ def interpret_d10(result):
             out.append(f"  ⚠ 10th lord Debilitated in D10 ({tl_sign}) – Career hurdles; switching to the planet's natural field (see above) and remedies help significantly.")
         else:
             out.append(f"  10th lord in {tl_sign} in D10 – Career grows steadily through hard work; major rise during 10th lord's Mahadasha.")
+    # D10 10th lord house placement analysis (which D10 house does the 10th lord occupy?)
+    if tenth_lord in d10:
+        tl_d10_sign = d10[tenth_lord]["sign"]
+        # In D10 whole-sign: find what house the 10th lord lands in relative to D1 lagna
+        tl_d10_sign_idx = zodiac_signs.index(tl_d10_sign)
+        tl_d10_house = ((tl_d10_sign_idx - lagna_idx) % 12) + 1
+        D10_HOUSE_MEANINGS = {
+            1: "Career strongly tied to personal identity; self-made professional; entrepreneurship.",
+            2: "Career involves wealth management, family business, speech/teaching, banking, food industry.",
+            3: "Career in communication, media, writing, short-distance travel, sales, publishing.",
+            4: "Career in real estate, vehicles, education, homeland-related fields; comfort-oriented work.",
+            5: "Career in creative fields, education, children-related, speculation, entertainment, politics.",
+            6: "Career in service, healthcare, law, defence, competition; daily routines define growth.",
+            7: "Career through partnerships, business, consulting, diplomacy, foreign trade.",
+            8: "Career involves research, insurance, occult, transformative work; ups and downs in profession.",
+            9: "Career in teaching, religion, law, philosophy, long-distance travel, publishing; father's influence.",
+            10: "Strongest placement – 10th lord in 10th house of D10: Raj Yoga for career; fame and authority.",
+            11: "Career brings large gains, social network; fulfillment of professional aspirations.",
+            12: "Career in foreign lands, hospitals, spiritual institutions, charity; behind-the-scenes roles.",
+        }
+        house_meaning = D10_HOUSE_MEANINGS.get(tl_d10_house, f"10th lord in House {tl_d10_house} of D10.")
+        out.append(f"  10th lord in D10 House {tl_d10_house}: {house_meaning}")
     # Sun in D10
     if "Su" in d10:
         su_dig = get_dignity("Su", d10["Su"]["sign"])
@@ -3208,18 +3353,18 @@ def print_kundali(result, file=None):
         
         write(f"\n  ★ 7th House (Marriage) SAV: {h7_score} points - {h7_strength}")
         
-        if h7_score >= 30:
+        if h7_score >= 28:
             marriage_interp = "Excellent marriage support! Smooth path, harmonious relationship."
-        elif h7_score >= 26:
+        elif h7_score >= 25:
             marriage_interp = "Good marriage support. Positive relationship with manageable challenges."
-        elif h7_score >= 23:
+        elif h7_score >= 22:
             marriage_interp = "Average marriage karma. Normal ups and downs expected."
         else:
             marriage_interp = "Weak marriage support. Extra effort, patience, or remedies recommended."
         
         write(f"     Interpretation for Marriage: {marriage_interp}")
         
-        write("\n  SAV Scoring Legend: ≥30 = Excellent | 26-29 = Good | 23-25 = Average | <23 = Weak")
+        write("\n  SAV Scoring Legend: ≥28 = Excellent | 25-27 = Good | 22-24 = Average | <22 = Weak")
         write("  Note: Low SAV doesn't mean 'no marriage' - it indicates more effort/karma to work through.")
     
     # Functional Benefics/Malefics with Strength Index
@@ -3261,7 +3406,7 @@ def print_kundali(result, file=None):
     # Cross-Chart Planetary Integrity Index
     write("\nCross-Chart Planetary Integrity Index (D1-D9-D10-D7):")
     write("-" * 85)
-    write("(Measures each planet's consistency across divisional charts – higher = more reliable results)")
+    write("(Measures each planet's consistency across divisional charts – D9 weighted ×2 for marriage context)")
     write("")
     
     DIGNITY_SIGNS = {
@@ -3273,6 +3418,9 @@ def print_kundali(result, file=None):
         "Ve": {"exalt": "Pisces", "own": ["Taurus", "Libra"], "deb": "Virgo"},
         "Sa": {"exalt": "Libra", "own": ["Capricorn", "Aquarius"], "deb": "Aries"},
     }
+    
+    # D9 (Navamsa) gets double weight since it is the primary marriage/dharma divisional chart.
+    CHART_WEIGHTS = {"D1": 1.0, "D9": 2.0, "D10": 1.0, "D7": 1.0}
     
     for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
         if pl not in result["planets"]:
@@ -3291,14 +3439,15 @@ def print_kundali(result, file=None):
         
         dig_info = DIGNITY_SIGNS.get(pl, {})
         for chart, sign in positions.items():
+            w = CHART_WEIGHTS.get(chart, 1.0)
             if sign == dig_info.get("exalt"):
-                integrity_score += 15 if chart == "D1" else 10
+                integrity_score += int((15 if chart == "D1" else 10) * w)
                 strong_count += 1
             elif sign in dig_info.get("own", []):
-                integrity_score += 12 if chart == "D1" else 8
+                integrity_score += int((12 if chart == "D1" else 8) * w)
                 strong_count += 1
             elif sign == dig_info.get("deb"):
-                integrity_score -= 15 if chart == "D1" else 8
+                integrity_score -= int((15 if chart == "D1" else 8) * w)
                 weak_count += 1
         
         # Vargottama bonus
@@ -3460,6 +3609,45 @@ def print_kundali(result, file=None):
                 write(f"  • {r}")
     if not has_remedy:
         write("  No specific remedies needed – maintain positive practices.")
+    # ── Personalized Remedies by Lagna & 7th Lord ──
+    _lagna = result.get("lagna_sign", "")
+    _seventh_lord = result.get("seventh_lord", "")
+    _seventh_lord_full = short_to_full.get(_seventh_lord, _seventh_lord)
+    write(f"\n🛡️ PERSONALIZED REMEDIES (For {_lagna} Lagna)")
+    write("-" * 85)
+    # Lagna-specific mantras and deities
+    LAGNA_REMEDIES = {
+        "Aries":       ("Hanuman/Mars", "Om Ang Angarakaya Namah", "Tuesday"),
+        "Taurus":      ("Lakshmi/Venus", "Om Shum Shukraya Namah", "Friday"),
+        "Gemini":      ("Vishnu/Mercury", "Om Bum Buddhaya Namah", "Wednesday"),
+        "Cancer":      ("Moon/Durga", "Om Som Somaya Namah", "Monday"),
+        "Leo":         ("Sun/Surya", "Om Suryaya Namah", "Sunday"),
+        "Virgo":       ("Vishnu/Mercury", "Om Bum Buddhaya Namah", "Wednesday"),
+        "Libra":       ("Lakshmi/Venus", "Om Shum Shukraya Namah", "Friday"),
+        "Scorpio":     ("Hanuman/Mars", "Om Ang Angarakaya Namah", "Tuesday"),
+        "Sagittarius": ("Brihaspati/Jupiter", "Om Brim Brihaspataye Namah", "Thursday"),
+        "Capricorn":   ("Shani/Saturn", "Om Sham Shanicharaya Namah", "Saturday"),
+        "Aquarius":    ("Shani/Saturn", "Om Sham Shanicharaya Namah", "Saturday"),
+        "Pisces":      ("Brihaspati/Jupiter", "Om Brim Brihaspataye Namah", "Thursday"),
+    }
+    lagna_rem = LAGNA_REMEDIES.get(_lagna)
+    if lagna_rem:
+        deity, mantra, day = lagna_rem
+        write(f"  Lagna Lord Worship: {deity}")
+        write(f"  Primary Mantra: {mantra} (108× on {day}s)")
+    # 7th lord specific remedy for marital harmony
+    SEVENTH_LORD_REMEDIES = {
+        "Su": "Offer water (Arghya) to rising Sun on Sundays; donate wheat/jaggery.",
+        "Mo": "Wear pearl/moonstone; offer milk to Shiva on Mondays; stay near water.",
+        "Ma": "Recite Hanuman Chalisa on Tuesdays; donate red items; exercise regularly.",
+        "Me": "Chant Vishnu Sahasranama on Wednesdays; donate green items/books.",
+        "Ju": "Visit temple on Thursdays; donate yellow cloth/turmeric; respect elders/gurus.",
+        "Ve": "Offer white sweets on Fridays; donate perfume/white cloth; appreciate art/beauty.",
+        "Sa": "Serve the needy on Saturdays; donate black sesame/oil; patience in relationships.",
+    }
+    seventh_rem = SEVENTH_LORD_REMEDIES.get(_seventh_lord)
+    if seventh_rem:
+        write(f"  For {_seventh_lord_full} (7th Lord – marital harmony): {seventh_rem}")
     write("\n" + result.get("final_analysis", ""))
     write("\nNote: Highest probability when dasha + transit + gochara align.")
     birth_year = result.get("birth_year", "N/A")
@@ -3492,8 +3680,7 @@ def main():
         time_str = input("Birth Time (HH:MM 24h) : ").strip()
         place = input("Birth Place (City, Country) : ").strip()
         try:
-            result = calculate_kundali(date_str, time_str, place)
-            result["gender"] = gender  # Store gender in result
+            result = calculate_kundali(date_str, time_str, place, gender=gender)
             result["name"] = name  # Store name in result
             filename = f"{name}_kundali_report.txt"
             with open(filename, "w", encoding="utf-8") as f:

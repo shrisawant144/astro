@@ -21,7 +21,9 @@ NEW LAYERS ADDED:
 ✅ 7th Lord in D9 Analysis
 ✅ Retrograde/Combustion Influences
 
-ACCURACY: 90-98% when 8+ systems confirm
+ACCURACY NOTE: Confidence levels are qualitative, based on classical
+correlations (BPHS, Jaimini Sutras, Phaladeepika). They are NOT
+statistically validated and should not be treated as probabilities.
 """
 
 import re
@@ -140,19 +142,22 @@ DIGNITY_TABLE = {
         "friends": ["Me", "Ve"],
         "enemies": ["Su", "Mo", "Ma"],
     },
+    # Note: Rahu/Ketu have no classical consensus on dignities in BPHS.
+    # Some traditions omit them entirely. We use empty dict to avoid
+    # implying false certainty - rely on placement/aspects instead.
     "Ra": {
-        "exalt": "Gemini",
+        "exalt": None,  # Non-classical
         "own": [],
-        "deb": "Sagittarius",
-        "friends": ["Ve", "Sa"],
-        "enemies": ["Su", "Mo", "Ma"],
+        "deb": None,    # Non-classical
+        "friends": [],
+        "enemies": [],
     },
     "Ke": {
-        "exalt": "Sagittarius",
+        "exalt": None,  # Non-classical
         "own": [],
-        "deb": "Gemini",
-        "friends": ["Ma", "Ju"],
-        "enemies": ["Ve"],
+        "deb": None,    # Non-classical
+        "friends": [],
+        "enemies": [],
     },
 }
 
@@ -412,8 +417,35 @@ NAKSHATRA_DEITIES = {
 }
 
 NAKSHATRA_QUALITIES = {
-    # Short descriptions: "Deer", "Serpent", "Elephant", etc. and temperament
-    # (will be filled in code with a helper function)
+    # Source: BPHS Ch. 3, Muhurta Chintamani – animal symbols, gunas, temperament.
+    # Used to refine spouse traits from nakshatra placement of key planets.
+    "Ashwini": {"animal": "Horse (male)", "guna": "Sattvic", "temperament": "Swift, healing, initiating"},
+    "Bharani": {"animal": "Elephant (male)", "guna": "Rajasic", "temperament": "Intense, transformative, creative"},
+    "Krittika": {"animal": "Sheep (female)", "guna": "Rajasic", "temperament": "Sharp, fiery, purifying"},
+    "Rohini": {"animal": "Serpent (male)", "guna": "Rajasic", "temperament": "Creative, nurturing, fertile"},
+    "Mrigashira": {"animal": "Serpent (female)", "guna": "Sattvic", "temperament": "Searching, gentle, curious"},
+    "Ardra": {"animal": "Dog (female)", "guna": "Tamasic", "temperament": "Stormy, passionate, transformative"},
+    "Punarvasu": {"animal": "Cat (female)", "guna": "Sattvic", "temperament": "Renewal, optimistic, returning"},
+    "Pushya": {"animal": "Goat (male)", "guna": "Sattvic", "temperament": "Nourishing, protective, generous"},
+    "Ashlesha": {"animal": "Cat (male)", "guna": "Tamasic", "temperament": "Cunning, wise, serpentine"},
+    "Magha": {"animal": "Rat (male)", "guna": "Tamasic", "temperament": "Regal, ancestral, proud"},
+    "Purva Phalguni": {"animal": "Rat (female)", "guna": "Rajasic", "temperament": "Romantic, creative, pleasure-seeking"},
+    "Uttara Phalguni": {"animal": "Cow (male)", "guna": "Rajasic", "temperament": "Stable, contractual, reliable"},
+    "Hasta": {"animal": "Buffalo (female)", "guna": "Sattvic", "temperament": "Skillful, dexterous, crafty"},
+    "Chitra": {"animal": "Tiger (female)", "guna": "Rajasic", "temperament": "Artistic, brilliant, charismatic"},
+    "Swati": {"animal": "Buffalo (male)", "guna": "Sattvic", "temperament": "Independent, flexible, scattered"},
+    "Vishakha": {"animal": "Tiger (male)", "guna": "Rajasic", "temperament": "Determined, competitive, goal-driven"},
+    "Anuradha": {"animal": "Deer (female)", "guna": "Sattvic", "temperament": "Devoted, friendly, successful"},
+    "Jyeshtha": {"animal": "Deer (male)", "guna": "Tamasic", "temperament": "Senior, authoritative, protective"},
+    "Mula": {"animal": "Dog (male)", "guna": "Tamasic", "temperament": "Investigative, destructive, rooted"},
+    "Purva Ashadha": {"animal": "Monkey (male)", "guna": "Rajasic", "temperament": "Victorious, influential, invigorating"},
+    "Uttara Ashadha": {"animal": "Mongoose (male)", "guna": "Sattvic", "temperament": "Enduring, universal, righteous"},
+    "Shravana": {"animal": "Monkey (female)", "guna": "Sattvic", "temperament": "Learned, listening, connected"},
+    "Dhanishta": {"animal": "Lion (female)", "guna": "Rajasic", "temperament": "Musical, wealthy, ambitious"},
+    "Shatabhisha": {"animal": "Horse (female)", "guna": "Tamasic", "temperament": "Healing, secretive, philosophical"},
+    "Purva Bhadrapada": {"animal": "Lion (male)", "guna": "Rajasic", "temperament": "Spiritual, eccentric, fiery"},
+    "Uttara Bhadrapada": {"animal": "Cow (female)", "guna": "Sattvic", "temperament": "Grounded, deep, watery"},
+    "Revati": {"animal": "Elephant (female)", "guna": "Sattvic", "temperament": "Nurturing, compassionate, journeying"},
 }
 
 # ============================================================================
@@ -481,7 +513,16 @@ def get_nakshatra_deity(nakshatra: str) -> str:
 
 
 def get_nakshatra_meaning(nakshatra: str, planet: str) -> str:
-    """Return spouse-related meaning for a given nakshatra (fallback to generic if missing)."""
+    """Return spouse-related meaning for a given nakshatra, enriched with
+    animal symbol and guna from NAKSHATRA_QUALITIES (BPHS Ch. 3)."""
+    # Prepend nakshatra quality info if available
+    qualities = NAKSHATRA_QUALITIES.get(nakshatra, {})
+    quality_prefix = ""
+    if qualities:
+        animal = qualities.get("animal", "")
+        guna = qualities.get("guna", "")
+        temperament = qualities.get("temperament", "")
+        quality_prefix = f"[{animal}, {guna} guna, {temperament}] "
     meanings = {
         "Ashwini": "Spouse may be a healer, fast-moving, or involved in medicine.",
         "Bharani": "Spouse could be intense, transformative, or associated with cycles of life.",
@@ -511,7 +552,8 @@ def get_nakshatra_meaning(nakshatra: str, planet: str) -> str:
         "Uttara Bhadrapada": "Spouse likely grounded, deep, and connected to water.",
         "Revati": "Spouse may be nurturing, boundary-less, and compassionate.",
     }
-    return meanings.get(nakshatra, f"Unique {nakshatra} influence.")
+    base_meaning = meanings.get(nakshatra, f"Unique {nakshatra} influence.")
+    return quality_prefix + base_meaning
 
 
 # ============================================================================
@@ -569,6 +611,7 @@ class AdvancedChartParser:
 
     def _parse_planets(self, section: str) -> Dict:
         planets = {}
+        # Flexible section matching: handle variations in header/separator format
         section_match = re.search(
             rf"{section}.*?\n-+\n(.*?)(?=\n[A-Z]|\n\n[A-Z]|\Z)",
             self.content,
@@ -577,7 +620,11 @@ class AdvancedChartParser:
         if not section_match:
             return planets
         for line in section_match.group(1).split("\n"):
-            m = re.match(r"\s*(\w+):\s*([\d.]+)°\s+(\w+)(?:\s+(\w+))?", line.strip())
+            line = line.strip()
+            if not line:
+                continue
+            # Flexible regex: optional °, variable spacing, multi-word nakshatras
+            m = re.match(r"(\w+)\s*:\s*([\d.]+)\s*°?\s+(\w+)(?:\s+([\w ]+\w))?", line)
             if m:
                 planet = m.group(1)
                 planets[planet] = {
@@ -939,7 +986,8 @@ class AdvancedSpousePredictor:
     # New: Functional Nature Integration
     # ------------------------------------------------------------------------
     def _analyze_functional_venus_jupiter(self) -> Dict:
-        """Analyze functional status of Venus and Jupiter."""
+        """Analyze functional status of Venus and Jupiter, including mutual
+        aspect/conjunction (BPHS Ch. 25: mutual aspect indicates harmonious spouse)."""
         func = self.data.get("functional_nature", {})
         venus = func.get("Ve", {})
         jupiter = func.get("Ju", {})
@@ -964,6 +1012,32 @@ class AdvancedSpousePredictor:
                 f"Jupiter functionally benefic - blessed marriage"
             )
 
+        # Venus-Jupiter mutual aspect/conjunction check (BPHS Ch. 25)
+        d1 = self.data["planets_d1"]
+        ve_data = d1.get("Ve", {})
+        ju_data = d1.get("Ju", {})
+        ve_deg = ve_data.get("deg", 0)
+        ju_deg = ju_data.get("deg", 0)
+        ve_sign = ve_data.get("sign", "")
+        ju_sign = ju_data.get("sign", "")
+        ve_house = self._get_house("Ve")
+        ju_house = self._get_house("Ju")
+
+        vj_relationship = "No direct connection"
+        if ve_sign and ju_sign:
+            if ve_sign == ju_sign:
+                # Conjunction – check orb (<10° for benefics)
+                deg_diff = abs(ve_deg - ju_deg)
+                if deg_diff < 10:
+                    vj_relationship = f"Conjunction within {deg_diff:.1f}° – harmonious union, spouse is wise and beautiful"
+                    self.confidence_factors.append("Venus-Jupiter conjunction – strong marriage indicator")
+                else:
+                    vj_relationship = f"Same sign but wide orb ({deg_diff:.1f}°) – mild positive"
+            elif has_aspect(ve_house, ju_house, "Ve") or has_aspect(ju_house, ve_house, "Ju"):
+                vj_relationship = "Mutual aspect – harmonious spouse, balanced marriage"
+                self.confidence_factors.append("Venus-Jupiter mutual aspect – positive marriage karma")
+
+        result["venus_jupiter_relationship"] = vj_relationship
         return result
 
     # ------------------------------------------------------------------------
@@ -1526,21 +1600,21 @@ class AdvancedSpousePredictor:
             return {
                 "points": "Data not available",
                 "guidance": "Add SAV parsing to chart4.py output",
-                "interpretation": "Sarvashtakavarga (SAV) scoring: ≥30 = Excellent (strong support), 26-29 = Good, 23-25 = Average, <23 = Weak (delays/obstacles)",
+                "interpretation": "Sarvashtakavarga (SAV) scoring: ≥28 = Excellent (Uttara Kalamrita), 25-27 = Good, 22-24 = Average, <22 = Weak (delays/obstacles)",
             }
-        if h7_points >= 30:
-            interp = "Excellent - Very strong marriage yoga, smooth path"
+        if h7_points >= 28:
+            interp = "Excellent - Very strong marriage yoga, smooth path (classical threshold: 28+ per Uttara Kalamrita)"
             self.confidence_factors.append(
                 f"Ashtakavarga 7th house {h7_points} points - excellent support"
             )
             strength = "Very Strong"
-        elif h7_points >= 26:
+        elif h7_points >= 25:
             interp = "Good - Positive support for marriage"
             self.confidence_factors.append(
                 f"Ashtakavarga 7th house {h7_points} points - good"
             )
             strength = "Strong"
-        elif h7_points >= 23:
+        elif h7_points >= 22:
             interp = "Average - Normal marriage karma"
             strength = "Average"
         else:
@@ -1794,17 +1868,20 @@ class AdvancedSpousePredictor:
         return {"7th_house_influence": h7_traits, "darakaraka_influence": dk_traits}
 
     def _calculate_confidence(self) -> str:
+        """Qualitative confidence based on confirming factor count.
+        These are NOT statistical probabilities – they reflect the number
+        of classical correlations aligning, per BPHS/Jaimini/Phaladeepika."""
         count = len(self.confidence_factors)
         if count >= 10:
-            return "95-98% (Excellent)"
+            return "Very High (10+ confirming factors)"
         elif count >= 7:
-            return "85-90% (Very High)"
+            return "High (7-9 confirming factors)"
         elif count >= 5:
-            return "75-80% (High)"
+            return "Moderate-High (5-6 confirming factors)"
         elif count >= 3:
-            return "65-70% (Moderate)"
+            return "Moderate (3-4 confirming factors)"
         else:
-            return "50-60% (Low)"
+            return "Low (<3 confirming factors)"
 
     # ------------------------------------------------------------------------
     # Report Generation
@@ -2146,7 +2223,7 @@ class AdvancedSpousePredictor:
         lines.append(
             "Classical Sources: BPHS, Jaimini Sutras, Phaladeepika, Saravali, Jataka Tattva"
         )
-        lines.append("Accuracy: 90-98% when 8+ confirming factors present")
+        lines.append("Note: Confidence levels are qualitative (based on classical correlations), not statistically validated.")
         lines.append("=" * 90)
 
         return "\n".join(lines)
@@ -2308,7 +2385,11 @@ def get_seventh_sign(lagna_lon):
 
 def signs_have_nadi_relation(s1, s2):
     """
-    Nadi directional relation: same sign (0), 2/12 (1), 3/11 (2), opposition (6)
+    Nadi-INSPIRED sign relation (Parashari approximation).
+    NOT true Nadi astrology (Chandra Kala Nadi etc.) which uses amsa-based
+    directional strengths at 1/4° granularity.
+
+    Relation types: same sign (0), 2/12 (1), 3/11 (2), opposition (6)
     Use min diff to handle zodiac circle.
     """
     diff = abs(s1 - s2) % 12
@@ -2318,11 +2399,15 @@ def signs_have_nadi_relation(s1, s2):
 
 def get_progressed_jupiter_sign(natal_jup_lon, age_floor):
     """
-    Nadi-style Jupiter progression: +1 sign per full year.
+    Degree-based Jupiter progression: natal degree + age * 30°.
+    Traditional Bhrigu Nadi uses ~1°/month (~12°/year), but many schools
+    simplify to 30°/year (1 sign/year). Starting from the exact natal
+    degree preserves sub-sign precision, avoiding 6-12 month errors
+    that arise from rounding to whole signs.
     Returns progressed sign index.
     """
-    natal_sign = get_sign(natal_jup_lon)
-    return (natal_sign + age_floor) % 12
+    progressed_lon = (natal_jup_lon + age_floor * 30) % 360
+    return get_sign(progressed_lon)
 
 
 def is_jupiter_transit_activating(transit_jup_sign, natal_sig_sign, progressed_sign):
@@ -2433,10 +2518,15 @@ def check_nadi_promise(planets, gender='male'):
 def get_moon_transit_days(year, month, seventh_sign, sig_sign, use_jpl=False):
     """
     Find days in the given month when Moon transits 7th sign or significator sign.
+    Filters out Amavasya (new moon) and Ashtami (8th tithi) as inauspicious
+    for marriage muhurta per Muhurta Chintamani.
+    Favorable tithis: 2,3,5,7,10,11,13 (classical marriage tithis).
     Returns list of day numbers (1-31).
     """
     if not ASTROPY_AVAILABLE:
         return []
+    
+    FAVORABLE_TITHIS = {1, 2, 4, 6, 9, 10, 12, 14}  # 0-indexed (tithi 2,3,5,7,10,11,13,Purnima)
     
     favorable_days = []
     try:
@@ -2448,7 +2538,17 @@ def get_moon_transit_days(year, month, seventh_sign, sig_sign, use_jpl=False):
                 if moon_lon is not None:
                     moon_sign = get_sign(moon_lon)
                     if moon_sign == seventh_sign or moon_sign == sig_sign:
-                        favorable_days.append(day)
+                        # Approximate tithi check: Moon-Sun elongation
+                        sun_lon = get_sidereal_lon('sun', check_dt, use_jpl)
+                        if sun_lon is not None:
+                            tithi_num = int(((moon_lon - sun_lon) % 360) / 12)  # 0-29
+                            # Skip Amavasya (29) and Ashtami (7, 22) as inauspicious
+                            if tithi_num in (7, 22, 29):
+                                continue  # Skip inauspicious tithis
+                            favorable_days.append(day)
+                        else:
+                            # Can't check tithi, include day anyway
+                            favorable_days.append(day)
             except ValueError:
                 break  # Month doesn't have this many days
     except Exception as e:
@@ -2457,15 +2557,8 @@ def get_moon_transit_days(year, month, seventh_sign, sig_sign, use_jpl=False):
     return favorable_days
 
 
-def is_jupiter_transit_activating(transit_jup_sign, natal_sig_sign, progressed_sign):
-    """
-    Basic month-level check: Transit Jupiter in a sign that relates to natal significator or progressed Jupiter.
-    Refine with exact degrees later for higher precision.
-    """
-    return (
-        signs_have_nadi_relation(transit_jup_sign, natal_sig_sign) or
-        signs_have_nadi_relation(transit_jup_sign, progressed_sign)
-    )
+# NOTE: is_jupiter_transit_activating is defined earlier in this file (~line 2370).
+# The duplicate was removed to avoid shadowing.
 
 
 def find_marriage_date(kundali, start_age=21, end_age=45, future_only=True, gender='male', use_real_transits=True, show_all_periods=False):
