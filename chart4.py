@@ -2418,6 +2418,11 @@ def calculate_kundali(birth_date_str, birth_time_str, place):
         },
         "transits": transits,
         "birth_year": y,
+        "birth_month": m,
+        "birth_day": d,
+        "birth_date": birth_date_str,
+        "birth_time": birth_time_str,
+        "birth_place": place,
         "birth_jd": birth_jd,
         "panchanga": panchanga,
         "house_lords": house_lord_map,
@@ -3095,7 +3100,11 @@ def print_kundali(result, file=None):
     write("\n" + "═" * 95)
     write(" VEDIC KUNDALI – Whole Sign – Lahiri – D7 + D10 + Marriage Timing")
     write("═" * 95)
+    write(f"Name         : {result.get('name', 'Not provided')}")
     write(f"Gender       : {gender}")
+    write(f"Birth Date   : {result.get('birth_date', 'N/A')}")
+    write(f"Birth Time   : {result.get('birth_time', 'N/A')}")
+    write(f"Birth Place  : {result.get('birth_place', 'N/A')}")
     write(f"Lagna        : {result['lagna_sign']} {result['lagna_deg']}°")
     write(f"Moon (Rasi)  : {result['moon_sign']} – {result['moon_nakshatra']}")
     write(f"7th Lord     : {result['seventh_lord']}")
@@ -3485,6 +3494,7 @@ def main():
         try:
             result = calculate_kundali(date_str, time_str, place)
             result["gender"] = gender  # Store gender in result
+            result["name"] = name  # Store name in result
             filename = f"{name}_kundali_report.txt"
             with open(filename, "w", encoding="utf-8") as f:
                 print_kundali(result, file=f)
