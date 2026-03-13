@@ -1,10 +1,17 @@
 # utils.py
 
 import re
-from .constants import (
-    ZODIAC_SIGNS, SIGN_LORDS, DIGNITY_TABLE, FULL_TO_SHORT,
-    NAKSHATRAS, NAKSHATRA_LORDS, NAKSHATRA_DEITIES, NAKSHATRA_QUALITIES
-)
+
+try:
+    from .constants import (
+        ZODIAC_SIGNS, SIGN_LORDS, DIGNITY_TABLE, FULL_TO_SHORT,
+        NAKSHATRAS, NAKSHATRA_LORDS, NAKSHATRA_DEITIES, NAKSHATRA_QUALITIES
+    )
+except ImportError:
+    from constants import (
+        ZODIAC_SIGNS, SIGN_LORDS, DIGNITY_TABLE, FULL_TO_SHORT,
+        NAKSHATRAS, NAKSHATRA_LORDS, NAKSHATRA_DEITIES, NAKSHATRA_QUALITIES
+    )
 
 def get_navamsa_sign(deg: float) -> str:
     rasi_idx = int(deg // 30)

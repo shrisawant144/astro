@@ -2,15 +2,27 @@
 
 from datetime import datetime
 from typing import Dict, List
-from .constants import (
-    ZODIAC_SIGNS, SIGN_LORDS, SHORT_TO_FULL, FULL_TO_SHORT,
-    SIGN_APPEARANCE, PLANET_SPOUSE_TRAITS, MEETING_CIRCUMSTANCES,
-    PROFESSION_BY_HOUSE
-)
-from .utils import (
-    get_navamsa_sign, get_dignity, safe_sign_index, has_aspect,
-    get_nakshatra_lord, get_nakshatra_deity, get_nakshatra_meaning
-)
+
+try:
+    from .constants import (
+        ZODIAC_SIGNS, SIGN_LORDS, SHORT_TO_FULL, FULL_TO_SHORT,
+        SIGN_APPEARANCE, PLANET_SPOUSE_TRAITS, MEETING_CIRCUMSTANCES,
+        PROFESSION_BY_HOUSE
+    )
+    from .utils import (
+        get_navamsa_sign, get_dignity, safe_sign_index, has_aspect,
+        get_nakshatra_lord, get_nakshatra_deity, get_nakshatra_meaning
+    )
+except ImportError:
+    from constants import (
+        ZODIAC_SIGNS, SIGN_LORDS, SHORT_TO_FULL, FULL_TO_SHORT,
+        SIGN_APPEARANCE, PLANET_SPOUSE_TRAITS, MEETING_CIRCUMSTANCES,
+        PROFESSION_BY_HOUSE
+    )
+    from utils import (
+        get_navamsa_sign, get_dignity, safe_sign_index, has_aspect,
+        get_nakshatra_lord, get_nakshatra_deity, get_nakshatra_meaning
+    )
 
 class AdvancedSpousePredictor:
     """

@@ -2,7 +2,11 @@
 
 import re
 from typing import Dict, List
-from .constants import FULL_TO_SHORT, ZODIAC_SIGNS
+
+try:
+    from .constants import FULL_TO_SHORT, ZODIAC_SIGNS
+except ImportError:
+    from constants import FULL_TO_SHORT, ZODIAC_SIGNS
 
 class AdvancedChartParser:
     """Extracts all possible data from the kundali report."""
@@ -77,10 +81,19 @@ class AdvancedChartParser:
 
     def _parse_ashtakavarga(self) -> Dict:
         ashtak = {}
-        pattern = r"7th House \(Marriage\) SAV:\s*(\d+)\s*points"
-        match = re.search(pattern, self.content, re.IGNORECASE)
-        if match:
-            ashtak["7th_house_points"] = int(match.group(1))
+        # Try multiple patterns
+        patterns = [
+            r"7th House \(Marriage\) SAV:\s*(\d+)\s*points",
+            r"★\s*7th House SAV:\s*(\d+)\s*points",
+            r"7th.*?SAV.*?:\s*(\d+)"
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, self.content, re.IGNORECASE)
+            if match:
+                ashtak["7th_house_points"] = int(match.group(1))
+                break
+        
         return ashtak
 
     def _parse_nakshatras_d1(self) -> Dict:
@@ -106,13 +119,21 @@ class AdvancedChartParser:
     def _parse_functional_classification(self) -> Dict:
         """Extract functional nature of each planet."""
         func = {}
-        section = re.search(
+        # Try multiple patterns for functional strength section
+        patterns = [
             r"FUNCTIONAL STRENGTH INDEX \(Adjusted[^:]*\):\s*\n\s*-+\s*\n(.*?)(?=\n\s*\n|\n\s*Legend:)",
-            self.content,
-            re.DOTALL,
-        )
+            r"FUNCTIONAL STRENGTH INDEX:\s*\n\s*-+\s*\n(.*?)(?=\n\s*\n|\nVimshottari)"
+        ]
+        
+        section = None
+        for pattern in patterns:
+            section = re.search(pattern, self.content, re.DOTALL)
+            if section:
+                break
+        
         if not section:
             return func
+        
         lines = section.group(1).split("\n")
         for line in lines:
             line = line.strip()
@@ -129,6 +150,7 @@ class AdvancedChartParser:
             planet_full = planet_part.split()[0] if planet_part.split() else ""
             if not planet_full:
                 continue
+            # Convert full planet name to short code
             planet = FULL_TO_SHORT.get(planet_full, planet_full)
             rest = parts[1].split("]")[-1].strip()
             score_match = re.search(r"(\d+)/100", rest)

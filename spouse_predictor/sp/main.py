@@ -1,12 +1,24 @@
 # main.py
 
 import sys
+import os
 from datetime import datetime
 import traceback
 
-from .parser import AdvancedChartParser
-from .predictor import AdvancedSpousePredictor
-from .nadi import parse_kundali_for_marriage_date, find_marriage_date, ASTROPY_AVAILABLE
+# Add parent directory to path for direct execution
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    __package__ = "sp"
+
+try:
+    from .parser import AdvancedChartParser
+    from .predictor import AdvancedSpousePredictor
+    from .nadi import parse_kundali_for_marriage_date, find_marriage_date, ASTROPY_AVAILABLE
+except ImportError:
+    # Fallback for direct execution
+    from parser import AdvancedChartParser
+    from predictor import AdvancedSpousePredictor
+    from nadi import parse_kundali_for_marriage_date, find_marriage_date, ASTROPY_AVAILABLE
 
 def main():
     if len(sys.argv) < 2:

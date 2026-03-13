@@ -5,8 +5,12 @@ from datetime import datetime, timezone
 from math import floor
 from typing import Dict, List
 
-from .constants import ZODIAC_SIGNS, SIGN_LORDS, SHORT_TO_FULL, FULL_TO_SHORT
-from .utils import safe_sign_index, get_dignity
+try:
+    from .constants import ZODIAC_SIGNS, SIGN_LORDS, SHORT_TO_FULL, FULL_TO_SHORT
+    from .utils import safe_sign_index, get_dignity
+except ImportError:
+    from constants import ZODIAC_SIGNS, SIGN_LORDS, SHORT_TO_FULL, FULL_TO_SHORT
+    from utils import safe_sign_index, get_dignity
 
 # Astropy import (optional)
 try:
