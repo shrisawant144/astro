@@ -92,6 +92,15 @@ planets = {
 # -------------------------------------------------------------------
 # Dignity tables (own, exalt, deb)
 # -------------------------------------------------------------------
+dignity_SIGNS = {
+    "Su": {"exalt": "Aries", "own": ["Leo"], "deb": "Libra"},
+    "Mo": {"exalt": "Taurus", "own": ["Cancer"], "deb": "Scorpio"},
+    "Ma": {"exalt": "Capricorn", "own": ["Aries", "Scorpio"], "deb": "Cancer"},
+    "Me": {"exalt": "Virgo", "own": ["Gemini", "Virgo"], "deb": "Pisces"},
+    "Ju": {"exalt": "Cancer", "own": ["Sagittarius", "Pisces"], "deb": "Capricorn"},
+    "Ve": {"exalt": "Pisces", "own": ["Taurus", "Libra"], "deb": "Virgo"},
+    "Sa": {"exalt": "Libra", "own": ["Capricorn", "Aquarius"], "deb": "Aries"},
+}
 dignity_table = {
     "Su": {"own": "Leo", "exalt": "Aries", "deb": "Libra"},
     "Mo": {"own": "Cancer", "exalt": "Taurus", "deb": "Scorpio"},

@@ -11,7 +11,7 @@ from constants import (
     sign_lords,
     HOUSE_SIGNIFICATIONS,
     FUNCTIONAL_QUALITY,
-    DIGNITY_SIGNS,
+    dignity_SIGNS,
     CHART_WEIGHTS,
     LAGNA_REMEDIES,
     SEVENTH_LORD_REMEDIES,
@@ -229,15 +229,7 @@ def print_kundali(result, file=None):
     )
     write("")
 
-    DIGNITY_SIGNS = {
-        "Su": {"exalt": "Aries", "own": ["Leo"], "deb": "Libra"},
-        "Mo": {"exalt": "Taurus", "own": ["Cancer"], "deb": "Scorpio"},
-        "Ma": {"exalt": "Capricorn", "own": ["Aries", "Scorpio"], "deb": "Cancer"},
-        "Me": {"exalt": "Virgo", "own": ["Gemini", "Virgo"], "deb": "Pisces"},
-        "Ju": {"exalt": "Cancer", "own": ["Sagittarius", "Pisces"], "deb": "Capricorn"},
-        "Ve": {"exalt": "Pisces", "own": ["Taurus", "Libra"], "deb": "Virgo"},
-        "Sa": {"exalt": "Libra", "own": ["Capricorn", "Aquarius"], "deb": "Aries"},
-    }
+    # ...existing code...
 
     # D9 (Navamsa) gets double weight since it is the primary marriage/dharma divisional chart.
     CHART_WEIGHTS = {"D1": 1.0, "D9": 2.0, "D10": 1.0, "D7": 1.0}
@@ -259,7 +251,7 @@ def print_kundali(result, file=None):
             if pl in chart_data:
                 positions[chart_name] = chart_data[pl]["sign"]
 
-        dig_info = DIGNITY_SIGNS.get(pl, {})
+        dig_info = dignity_SIGNS.get(pl, {})
         for chart, sign in positions.items():
             w = CHART_WEIGHTS.get(chart, 1.0)
             if sign == dig_info.get("exalt"):
