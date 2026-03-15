@@ -1,4 +1,4 @@
-# main.py
+# main.py (updated with spouse prediction support)
 """
 Main orchestration module for Vedic kundali generation.
 Coordinates all calculations and provides the primary API.
@@ -15,57 +15,30 @@ from timezonefinder import TimezoneFinder
 
 # Import all modules
 from constants import (
-    zodiac_signs,
-    planets,
-    sign_lords,
-    short_to_full,
-    dasha_lords,
-    dasha_periods,
-    nakshatra_lord_index,
-    COMBUSTION_ORBS,
-    NEECHA_BHANGA_INFO,
-    FUNCTIONAL_QUALITY,
-    NATURAL_BENEFICS,
-    NATURAL_MALEFICS,
-    HOUSE_SIGNIFICATIONS,
-    ASHTAKAVARGA_REKHAS,
-    gochara_effects,
+    zodiac_signs, planets, sign_lords, short_to_full, dasha_lords,
+    dasha_periods, nakshatra_lord_index, COMBUSTION_ORBS, NEECHA_BHANGA_INFO,
+    FUNCTIONAL_QUALITY, NATURAL_BENEFICS, NATURAL_MALEFICS, HOUSE_SIGNIFICATIONS,
+    ASHTAKAVARGA_REKHAS, DIGNITY_SIGNS, CHART_WEIGHTS
 )
 from utils import (
-    get_sign,
-    get_nakshatra,
-    get_nakshatra_progress,
-    get_dignity,
-    get_lat_lon,
-    is_retrograde,
-    get_house_from_sign,
-    datetime_to_jd,
-    check_combustion,
-    get_panchanga,
-    get_sade_sati_status,
-    get_navamsa_sign_and_deg,
-    get_d7_sign_and_deg,
-    get_d10_sign_and_deg,
+    get_sign, get_nakshatra, get_nakshatra_progress, get_dignity,
+    get_lat_lon, is_retrograde, get_house_from_sign, datetime_to_jd,
+    check_combustion, get_panchanga, get_sade_sati_status,
+    get_navamsa_sign_and_deg, get_d7_sign_and_deg, get_d10_sign_and_deg
 )
 from neecha_bhanga import check_neecha_bhanga
 from yoga_detection import detect_yogas
 from dosha_detection import detect_problems
 from dasha import (
-    calculate_vimshottari_dasha,
-    calculate_antardashas,
-    find_current_dasha,
-    get_current_pratyantar,
+    calculate_vimshottari_dasha, calculate_antardashas,
+    find_current_dasha, get_current_pratyantar
 )
 from marriage_scoring import calculate_marriage_score
 from timings import generate_timings
 from ashtakavarga import calculate_ashtakavarga
 from interpretations import (
-    interpret_aspects,
-    interpret_navamsa,
-    interpret_d7,
-    interpret_d10,
-    calculate_functional_strength_index,
-    get_aspect_quality_score,
+    interpret_aspects, interpret_navamsa, interpret_d7, interpret_d10,
+    calculate_functional_strength_index, get_aspect_quality_score
 )
 from printing import print_kundali
 
@@ -75,11 +48,8 @@ from printing import print_kundali
 # -------------------------------------------------------------------
 _EPHE_DIR = os.path.dirname(os.path.abspath(__file__)) or "."
 swe.set_ephe_path(_EPHE_DIR)
-# Validate that at least one essential ephemeris file exists
 _REQUIRED_FILES = ["sepl_18.se1", "semo_18.se1"]
-_missing = [
-    f for f in _REQUIRED_FILES if not os.path.isfile(os.path.join(_EPHE_DIR, f))
-]
+_missing = [f for f in _REQUIRED_FILES if not os.path.isfile(os.path.join(_EPHE_DIR, f))]
 if _missing:
     warnings.warn(
         f"Swiss Ephemeris data files missing from '{_EPHE_DIR}': {', '.join(_missing)}. "
@@ -87,6 +57,109 @@ if _missing:
         "Download .se1 files from https://www.astro.com/ftp/swisseph/ephe/"
     )
 swe.set_sid_mode(swe.SIDM_LAHIRI)
+
+
+def calculate_functional_nature(result):
+    """Calculate functional nature for all planets and return dict of {planet: {score, label}}."""
+    functional = {}
+    for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
+        if pl in result["planets"]:
+            fsi = calculate_functional_strength_index(result, pl)
+            functional[pl] = {"score": fsi["score"], "label": fsi["effective_class"]}
+    return functional
+
+
+def calculate_integrity_index(result):
+    """
+    Cross-Chart Planetary Integrity Index (D1-D9-D10-D7).
+    Returns dict of {planet: {score, label}}.
+    """
+    integrity = {}
+    planets_data = result["planets"]
+    navamsa = result.get("navamsa", {})
+    d10 = result.get("d10", {})
+    d7 = result.get("d7", {})
+
+    DIGNITY_SIGNS = {
+        "Su": {"exalt": "Aries", "own": ["Leo"], "deb": "Libra"},
+        "Mo": {"exalt": "Taurus", "own": ["Cancer"], "deb": "Scorpio"},
+        "Ma": {"exalt": "Capricorn", "own": ["Aries", "Scorpio"], "deb": "Cancer"},
+        "Me": {"exalt": "Virgo", "own": ["Gemini", "Virgo"], "deb": "Pisces"},
+        "Ju": {"exalt": "Cancer", "own": ["Sagittarius", "Pisces"], "deb": "Capricorn"},
+        "Ve": {"exalt": "Pisces", "own": ["Taurus", "Libra"], "deb": "Virgo"},
+        "Sa": {"exalt": "Libra", "own": ["Capricorn", "Aquarius"], "deb": "Aries"},
+    }
+    CHART_WEIGHTS = {"D1": 1.0, "D9": 2.0, "D10": 1.0, "D7": 1.0}
+
+    for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
+        if pl not in planets_data:
+            continue
+
+        integrity_score = 50
+        positions = {"D1": planets_data[pl]["sign"]}
+        strong_count = 0
+        weak_count = 0
+
+        for chart_name, chart_data in [("D9", navamsa), ("D10", d10), ("D7", d7)]:
+            if pl in chart_data:
+                positions[chart_name] = chart_data[pl]["sign"]
+
+        dig_info = DIGNITY_SIGNS.get(pl, {})
+        for chart, sign in positions.items():
+            w = CHART_WEIGHTS.get(chart, 1.0)
+            if sign == dig_info.get("exalt"):
+                integrity_score += int((15 if chart == "D1" else 10) * w)
+                strong_count += 1
+            elif sign in dig_info.get("own", []):
+                integrity_score += int((12 if chart == "D1" else 8) * w)
+                strong_count += 1
+            elif sign == dig_info.get("deb"):
+                integrity_score -= int((15 if chart == "D1" else 8) * w)
+                weak_count += 1
+
+        # Vargottama bonus
+        if pl in navamsa and planets_data[pl]["sign"] == navamsa[pl]["sign"]:
+            integrity_score += 15
+
+        # Triple alignment bonus
+        if pl in navamsa and pl in d10:
+            if planets_data[pl]["sign"] == navamsa[pl]["sign"] == d10[pl]["sign"]:
+                integrity_score += 20
+
+        integrity_score = max(0, min(100, integrity_score))
+
+        # Classify reliability
+        if integrity_score >= 80 and weak_count == 0:
+            label = "Highly Reliable (Triple Confirmation)"
+        elif integrity_score >= 65 and strong_count >= 2:
+            label = "Reliable (Multi-Chart Support)"
+        elif integrity_score >= 50:
+            label = "Moderate (Needs Activation)"
+        elif weak_count >= 2:
+            label = "Challenged (Karmic Work Required)"
+        else:
+            label = "Variable (Context-Dependent)"
+
+        integrity[pl] = {"score": integrity_score, "label": label}
+
+    return integrity
+
+
+def extract_dasha_periods_for_marriage(timings):
+    """Parse marriage timing lines into list of (start_year, end_year, md, ad)."""
+    periods = []
+    marriage_lines = timings.get("Marriage", [])
+    for line in marriage_lines:
+        # Matches: └─ Mercury/Venus (2027-2030) (Age 28-31) ★★★ [10/10] [FUTURE]
+        import re
+        m = re.search(r'(\w+)/(\w+)\s+\((\d{4})-(\d{4})\)', line)
+        if m:
+            md = m.group(1)
+            ad = m.group(2)
+            start = int(m.group(3))
+            end = int(m.group(4))
+            periods.append((start, end, md, ad))
+    return periods
 
 
 def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
@@ -128,6 +201,9 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
     moon_nakshatra = None
     sun_full_lon = None
 
+    # Store nakshatras for later
+    nakshatras_d1 = {}
+
     for code, pid in planets.items():
         pos_speed = swe.calc_ut(birth_jd, pid, swe.FLG_SIDEREAL)[0]
         lon = pos_speed[0]
@@ -155,6 +231,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
             "d10_sign": None,
             "d10_deg": None,
         }
+        nakshatras_d1[code] = nak
         if code == "Mo":
             moon_sign = sign
             moon_nakshatra = nak
@@ -180,12 +257,14 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
         if "Mo" in _plist:
             moon_house_nb = _h
             break
+    neecha_bhanga_planets = []
     for code in list(planet_data.keys()):
         if code in ("Su", "Ra", "Ke"):
-            continue  # Sun never debilitated; Ra/Ke handled separately
-        planet_data[code]["neecha_bhanga"] = check_neecha_bhanga(
-            code, planet_data, house_planets, lagna_idx, moon_house_nb
-        )
+            continue
+        nb = check_neecha_bhanga(code, planet_data, house_planets, lagna_idx, moon_house_nb)
+        planet_data[code]["neecha_bhanga"] = nb
+        if nb:
+            neecha_bhanga_planets.append(code)
 
     # Ketu (from Rahu)
     ra_lon = swe.calc_ut(birth_jd, swe.MEAN_NODE, swe.FLG_SIDEREAL)[0][0]
@@ -209,6 +288,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
         "d10_sign": None,
         "d10_deg": None,
     }
+    nakshatras_d1["Ke"] = ke_nak
     ke_idx = zodiac_signs.index(ke_sign)
     ke_house = get_house_from_sign(lagna_idx, ke_idx)
     house_planets[ke_house].append("Ke")
@@ -245,9 +325,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
         elif code == "Ke":
             p_lon = ke_lon
         else:
-            p_lon = (zodiac_signs.index(planet_data[code]["sign"]) * 30) + planet_data[
-                code
-            ]["deg"]
+            p_lon = (zodiac_signs.index(planet_data[code]["sign"]) * 30) + planet_data[code]["deg"]
         ns, nd = get_navamsa_sign_and_deg(p_lon)
         d7s, d7d = get_d7_sign_and_deg(p_lon)
         d10s, d10d = get_d10_sign_and_deg(p_lon)
@@ -273,9 +351,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
 
     # Aspects
     aspects = {h: [] for h in range(1, 13)}
-    planet_houses = {
-        p: h for h, plist in house_planets.items() for p in plist if p != "Asc"
-    }
+    planet_houses = {p: h for h, plist in house_planets.items() for p in plist if p != "Asc"}
     for planet, ph in planet_houses.items():
         aspect_h = ((ph - 1 + 6) % 12) + 1
         aspects[aspect_h].append(f"{planet}-7th")
@@ -294,6 +370,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
                 aspects[ah].append(f"{node}-5/9")
 
     # Transits
+    from constants import gochara_effects
     transits = {}
     for pcode, pid in planets.items():
         lon = swe.calc_ut(current_jd, pid, swe.FLG_SIDEREAL)[0][0]
@@ -324,9 +401,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
 
     # Sade Sati / Dhaiya
     sa_transit_sign = transits.get("Sa", {}).get("sign", None)
-    sade_sati_status = (
-        get_sade_sati_status(moon_sign, sa_transit_sign) if sa_transit_sign else None
-    )
+    sade_sati_status = get_sade_sati_status(moon_sign, sa_transit_sign) if sa_transit_sign else None
 
     # Build result dictionary
     result = {
@@ -374,6 +449,8 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
             "pd_start_jd": pd_start_jd,
             "pd_end_jd": pd_end_jd,
         },
+        "nakshatras_d1": nakshatras_d1,
+        "neecha_bhanga_planets": neecha_bhanga_planets,
     }
 
     # Add yogas, timings, problems, and ashtakavarga
@@ -381,6 +458,20 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
     result["timings"] = generate_timings(result, y, birth_jd)
     result["problems"] = detect_problems(result)
     result["ashtakavarga"] = calculate_ashtakavarga(result)
+
+    # Additional fields for spouse predictor
+    result["functional_nature"] = calculate_functional_nature(result)
+    result["integrity"] = calculate_integrity_index(result)
+    result["dasha_periods_for_marriage"] = extract_dasha_periods_for_marriage(result["timings"])
+    result["lord7_full"] = short_to_full.get(seventh_lord, seventh_lord)
+    # Planets with full names and longitudes for marriage date prediction
+    result["planets_full_long"] = {}
+    for code, data in planet_data.items():
+        full = short_to_full.get(code, code)
+        result["planets_full_long"][full] = data["full_lon"]
+    # Birth date as datetime object
+    result["birth_datetime"] = local_dt
+
     result["final_analysis"] = generate_final_analysis(result)
 
     return result
@@ -427,18 +518,13 @@ def generate_final_analysis(result):
         if _periods:
             first_event = _event
             import re
-
-            _m = re.search(r"\((\d{4}-\d{4})\)", _periods[0])
+            _m = re.search(r'\((\d{4}-\d{4})\)', _periods[0])
             first_range = _m.group(1) if _m else "upcoming years"
             break
 
     # --- Dynamic: current dasha description ---
-    current_md_full = (
-        short_to_full.get(current_md, current_md) if current_md else "Unknown"
-    )
-    current_ad_full = (
-        short_to_full.get(current_ad, current_ad) if current_ad else "Unknown"
-    )
+    current_md_full = short_to_full.get(current_md, current_md) if current_md else "Unknown"
+    current_ad_full = short_to_full.get(current_ad, current_ad) if current_ad else "Unknown"
     dasha_desc = f"{current_md_full}/{current_ad_full} Antardasha"
 
     # --- Dynamic: planet qualities for current MD ---
@@ -453,9 +539,7 @@ def generate_final_analysis(result):
         "Rahu": "ambition, foreign exposure, and unconventional paths open",
         "Ketu": "detachment, spirituality, and past-karma resolution dominate",
     }
-    md_quality = md_qualities.get(
-        current_md_full, "the dasha lord's significations are active"
-    )
+    md_quality = md_qualities.get(current_md_full, "the dasha lord's significations are active")
 
     # --- Build analysis ---
     analysis = "### Final Analysis: Overall Chart Balance, Active Doshas, and Direct Life Outcomes\n"
@@ -517,6 +601,20 @@ def main():
             with open(filename, "w", encoding="utf-8") as f:
                 print_kundali(result, file=f)
             print(f"\nReport saved as '{filename}'")
+
+            # Optionally run spouse predictor if module available
+            import traceback
+            try:
+                from spouse_predictor import AdvancedSpousePredictor
+                predictor = AdvancedSpousePredictor(result)
+                spouse_report = predictor.generate_report()
+                spouse_filename = f"{name}_spouse_prediction.txt"
+                with open(spouse_filename, "w", encoding="utf-8") as f:
+                    f.write(spouse_report)
+                print(f"Spouse prediction saved as '{spouse_filename}'")
+            except ImportError as e:
+                print("Spouse predictor module not available.")
+                traceback.print_exc()
             break
         except Exception as e:
             print(f"\nError: {e}")

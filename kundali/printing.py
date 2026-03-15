@@ -11,7 +11,7 @@ from constants import (
     sign_lords,
     HOUSE_SIGNIFICATIONS,
     FUNCTIONAL_QUALITY,
-    dignity_SIGNS,
+    DIGNITY_SIGNS,
     CHART_WEIGHTS,
     LAGNA_REMEDIES,
     SEVENTH_LORD_REMEDIES,
@@ -251,7 +251,7 @@ def print_kundali(result, file=None):
             if pl in chart_data:
                 positions[chart_name] = chart_data[pl]["sign"]
 
-        dig_info = dignity_SIGNS.get(pl, {})
+        dig_info = DIGNITY_SIGNS.get(pl, {})
         for chart, sign in positions.items():
             w = CHART_WEIGHTS.get(chart, 1.0)
             if sign == dig_info.get("exalt"):

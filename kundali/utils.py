@@ -250,3 +250,55 @@ def get_d10_sign_and_deg(full_lon):
     frac = (deg_in_rasi % dasa_size) / dasa_size
     deg_in_d10 = frac * 30
     return zodiac_signs[new_idx], round(deg_in_d10, 2)
+
+# Add to utils.py
+
+def get_navamsa_sign(deg):
+    """Return D9 sign for a given longitude."""
+    from constants import zodiac_signs
+    rasi_idx = int(deg // 30)
+    deg_in_rasi = deg % 30
+    nav_size = 30.0 / 9
+    navamsa_in_rasi = int(deg_in_rasi / nav_size)
+    start_nav_idx = [0, 9, 6, 3][rasi_idx % 4]
+    nav_sign_idx = (start_nav_idx + navamsa_in_rasi) % 12
+    return zodiac_signs[nav_sign_idx]
+
+
+def has_aspect(planet_house, target_house, planet):
+    """Check if planet aspects target house (1-based houses)."""
+    if planet_house == 0 or target_house == 0:
+        return False
+    diff = (target_house - planet_house) % 12
+    if planet == "Ma":
+        return diff in [4, 7, 8]
+    if planet == "Ju":
+        return diff in [5, 7, 9]
+    if planet == "Sa":
+        return diff in [3, 7, 10]
+    return diff == 7
+
+
+def get_seventh_sign(lagna_lon):
+    """Get 7th house sign index (0-11) from Lagna longitude."""
+    from utils import get_sign
+    return (get_sign(lagna_lon) + 6) % 12
+
+
+def signs_have_nadi_relation(s1, s2):
+    """
+    Nadi-INSPIRED sign relation (Parashari approximation).
+    Relation types: same sign (0), 2/12 (1), 3/11 (2), opposition (6)
+    """
+    diff = abs(s1 - s2) % 12
+    min_diff = min(diff, 12 - diff)
+    return min_diff in (0, 1, 2, 6)
+
+
+def get_progressed_jupiter_sign(natal_jup_lon, age_floor):
+    """
+    Degree-based Jupiter progression: natal degree + age * 30°.
+    Returns progressed sign index (0-11).
+    """
+    progressed_lon = (natal_jup_lon + age_floor * 30) % 360
+    return get_sign(progressed_lon)
