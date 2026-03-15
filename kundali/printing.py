@@ -232,7 +232,7 @@ def print_kundali(result, file=None):
     # ...existing code...
 
     # D9 (Navamsa) gets double weight since it is the primary marriage/dharma divisional chart.
-    CHART_WEIGHTS = {"D1": 1.0, "D9": 2.0, "D10": 1.0, "D7": 1.0}
+    # CHART_WEIGHTS is now imported from constants
 
     for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
         if pl not in result["planets"]:
@@ -466,35 +466,12 @@ def print_kundali(result, file=None):
     write(f"\n🛡️ PERSONALIZED REMEDIES (For {_lagna} Lagna)")
     write("-" * 85)
     # Lagna-specific mantras and deities
-    LAGNA_REMEDIES = {
-        "Aries": ("Hanuman/Mars", "Om Ang Angarakaya Namah", "Tuesday"),
-        "Taurus": ("Lakshmi/Venus", "Om Shum Shukraya Namah", "Friday"),
-        "Gemini": ("Vishnu/Mercury", "Om Bum Buddhaya Namah", "Wednesday"),
-        "Cancer": ("Moon/Durga", "Om Som Somaya Namah", "Monday"),
-        "Leo": ("Sun/Surya", "Om Suryaya Namah", "Sunday"),
-        "Virgo": ("Vishnu/Mercury", "Om Bum Buddhaya Namah", "Wednesday"),
-        "Libra": ("Lakshmi/Venus", "Om Shum Shukraya Namah", "Friday"),
-        "Scorpio": ("Hanuman/Mars", "Om Ang Angarakaya Namah", "Tuesday"),
-        "Sagittarius": ("Brihaspati/Jupiter", "Om Brim Brihaspataye Namah", "Thursday"),
-        "Capricorn": ("Shani/Saturn", "Om Sham Shanicharaya Namah", "Saturday"),
-        "Aquarius": ("Shani/Saturn", "Om Sham Shanicharaya Namah", "Saturday"),
-        "Pisces": ("Brihaspati/Jupiter", "Om Brim Brihaspataye Namah", "Thursday"),
-    }
     lagna_rem = LAGNA_REMEDIES.get(_lagna)
     if lagna_rem:
         deity, mantra, day = lagna_rem
         write(f"  Lagna Lord Worship: {deity}")
         write(f"  Primary Mantra: {mantra} (108× on {day}s)")
     # 7th lord specific remedy for marital harmony
-    SEVENTH_LORD_REMEDIES = {
-        "Su": "Offer water (Arghya) to rising Sun on Sundays; donate wheat/jaggery.",
-        "Mo": "Wear pearl/moonstone; offer milk to Shiva on Mondays; stay near water.",
-        "Ma": "Recite Hanuman Chalisa on Tuesdays; donate red items; exercise regularly.",
-        "Me": "Chant Vishnu Sahasranama on Wednesdays; donate green items/books.",
-        "Ju": "Visit temple on Thursdays; donate yellow cloth/turmeric; respect elders/gurus.",
-        "Ve": "Offer white sweets on Fridays; donate perfume/white cloth; appreciate art/beauty.",
-        "Sa": "Serve the needy on Saturdays; donate black sesame/oil; patience in relationships.",
-    }
     seventh_rem = SEVENTH_LORD_REMEDIES.get(_seventh_lord)
     if seventh_rem:
         write(f"  For {_seventh_lord_full} (7th Lord – marital harmony): {seventh_rem}")

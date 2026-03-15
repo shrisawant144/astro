@@ -1,3 +1,30 @@
+# Remedies for each 7th Lord (marital harmony)
+SEVENTH_LORD_REMEDIES = {
+    "Su": "Offer water (Arghya) to rising Sun on Sundays; donate wheat/jaggery.",
+    "Mo": "Wear pearl/moonstone; offer milk to Shiva on Mondays; stay near water.",
+    "Ma": "Recite Hanuman Chalisa on Tuesdays; donate red items; exercise regularly.",
+    "Me": "Chant Vishnu Sahasranama on Wednesdays; donate green items/books.",
+    "Ju": "Visit temple on Thursdays; donate yellow cloth/turmeric; respect elders/gurus.",
+    "Ve": "Offer white sweets on Fridays; donate perfume/white cloth; appreciate art/beauty.",
+    "Sa": "Serve the needy on Saturdays; donate black sesame/oil; patience in relationships.",
+}
+# Remedies for each Lagna (ascendant)
+LAGNA_REMEDIES = {
+    "Aries": ("Hanuman/Mars", "Om Ang Angarakaya Namah", "Tuesday"),
+    "Taurus": ("Lakshmi/Venus", "Om Shum Shukraya Namah", "Friday"),
+    "Gemini": ("Vishnu/Mercury", "Om Bum Buddhaya Namah", "Wednesday"),
+    "Cancer": ("Moon/Durga", "Om Som Somaya Namah", "Monday"),
+    "Leo": ("Sun/Surya", "Om Suryaya Namah", "Sunday"),
+    "Virgo": ("Vishnu/Mercury", "Om Bum Buddhaya Namah", "Wednesday"),
+    "Libra": ("Lakshmi/Venus", "Om Shum Shukraya Namah", "Friday"),
+    "Scorpio": ("Hanuman/Mars", "Om Ang Angarakaya Namah", "Tuesday"),
+    "Sagittarius": ("Brihaspati/Jupiter", "Om Brim Brihaspataye Namah", "Thursday"),
+    "Capricorn": ("Shani/Saturn", "Om Sham Shanicharaya Namah", "Saturday"),
+    "Aquarius": ("Shani/Saturn", "Om Sham Shanicharaya Namah", "Saturday"),
+    "Pisces": ("Brihaspati/Jupiter", "Om Brim Brihaspataye Namah", "Thursday"),
+}
+# Chart weights for divisional charts
+CHART_WEIGHTS = {"D1": 1.0, "D9": 2.0, "D10": 1.0, "D7": 1.0}
 # constants.py
 """
 Vedic astrology constants: signs, nakshatras, planets, dignities, etc.

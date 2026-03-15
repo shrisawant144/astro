@@ -29,6 +29,7 @@ from constants import (
     NATURAL_MALEFICS,
     HOUSE_SIGNIFICATIONS,
     ASHTAKAVARGA_REKHAS,
+    gochara_effects,
 )
 from utils import (
     get_sign,
