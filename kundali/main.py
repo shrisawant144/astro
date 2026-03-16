@@ -300,7 +300,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
     seventh_sign = zodiac_signs[seventh_idx]
     seventh_lord = sign_lords[seventh_sign]
 
-    # House Lord Placements
+# House Lord Placements
     house_lord_map = {}  # house_num → (lord_code, lord_in_house)
     for h_num in range(1, 13):
         h_sign = zodiac_signs[(lagna_idx + h_num - 1) % 12]
@@ -312,6 +312,19 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
                 lord_in_house = ph
                 break
         house_lord_map[h_num] = {"lord": h_lord, "placed_in": lord_in_house}
+    
+    # Add interpretations for key marriage houses 2,5,7 used by spouse_predictor
+    from constants import HOUSE_LORD_IN_HOUSE
+    for h_num in [2, 5, 7]:
+        info = house_lord_map[h_num]
+        if info["placed_in"]:
+            key = (h_num, info["placed_in"])
+            interp = HOUSE_LORD_IN_HOUSE.get(key, 
+                f"Lord of House {h_num} ({zodiac_signs[(lagna_idx + h_num - 1) % 12]}) placed in House {info['placed_in']}: "
+                f"House {h_num} themes expressed through House {info['placed_in']} environment.")
+            house_lord_map[h_num]["interpretation"] = interp
+        else:
+            house_lord_map[h_num]["interpretation"] = f"Lord of House {h_num} position undetermined."
 
     # Birth Panchanga
     sun_lon_birth = planet_data["Su"]["full_lon"]
