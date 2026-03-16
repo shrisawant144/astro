@@ -610,7 +610,10 @@ def main():
         try:
             result = calculate_kundali(date_str, time_str, place, gender=gender)
             result["name"] = name  # Store name in result
-            filename = f"{name}_kundali_report.txt"
+            import os
+            outputs_dir = os.path.join(os.path.dirname(__file__), "outputs")
+            os.makedirs(outputs_dir, exist_ok=True)
+            filename = os.path.join(outputs_dir, f"{name}_kundali_report.txt")
             with open(filename, "w", encoding="utf-8") as f:
                 print_kundali(result, file=f)
             print(f"\nReport saved as '{filename}'")
@@ -621,7 +624,7 @@ def main():
                 from spouse_predictor import AdvancedSpousePredictor
                 predictor = AdvancedSpousePredictor(result)
                 spouse_report = predictor.generate_report()
-                spouse_filename = f"{name}_spouse_prediction.txt"
+                spouse_filename = os.path.join(outputs_dir, f"{name}_spouse_prediction.txt")
                 with open(spouse_filename, "w", encoding="utf-8") as f:
                     f.write(spouse_report)
                 print(f"Spouse prediction saved as '{spouse_filename}'")

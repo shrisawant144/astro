@@ -2898,7 +2898,11 @@ def main():
             report += "\n\n" + error_msg
         
         # Save combined report
-        output_file = filepath.replace(".txt", "_advanced_spouse_prediction.txt")
+        import os
+        outputs_dir = os.path.join(os.path.dirname(__file__), "kundali", "outputs")
+        os.makedirs(outputs_dir, exist_ok=True)
+        base_name = os.path.basename(filepath).replace(".txt", "_advanced_spouse_prediction.txt")
+        output_file = os.path.join(outputs_dir, base_name)
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(report)
         print(f"\n✓ Advanced report saved to: {output_file}")
