@@ -619,19 +619,48 @@ def main():
                 print_kundali(result, file=f)
             print(f"\nReport saved as '{filename}'")
 
-            # Optionally run spouse predictor if module available
-            import traceback
+            # Full spouse + marriage date prediction
+            from datetime import datetime as dt
             try:
-                from spouse_predictor import AdvancedSpousePredictor
+                from spouse_predictor import AdvancedSpousePredictor, extract_marriage_data, find_marriage_date
+                
+                # Spouse analysis
                 predictor = AdvancedSpousePredictor(result)
                 spouse_report = predictor.generate_report()
-                spouse_filename = os.path.join(outputs_dir, f"{name}_spouse_prediction.txt")
+                
+                # Marriage date prediction (Nadi method)
+                marriage_data = extract_marriage_data(result)
+                marriage_result = find_marriage_date(
+                    marriage_data, 
+                    gender=result["gender"].lower(), 
+                    show_all_periods=True
+                )
+                
+                # Combine reports
+                spouse_report += f"\n\n{'='*90}"
+                spouse_report += f"\n📅 MARRIAGE DATE PREDICTION (ENHANCED NADI METHOD)"
+                spouse_report += f"\n{'='*90}"
+                spouse_report += f"\nMethod: Jupiter progression + Real transits + Dasha + Moon triggers"
+                spouse_report += f"\n{marriage_result}"
+                spouse_report += f"\n\n📅 Birth Date: {result.get('birth_date', 'Unknown')}"
+                spouse_report += f"\n⏰ Generated: {dt.now().strftime('%Y-%m-%d %H:%M')}"
+                spouse_report += f"\n{'='*90}"
+                
+                # Match outer filename pattern: input_basename.replace(".txt", "_spouse_prediction.txt")
+                # Since we generate {name}_kundali_report.txt first:
+                report_base = f"{name}_kundali_report"
+                spouse_filename = os.path.join(outputs_dir, f"{report_base}_spouse_prediction.txt")
+                
                 with open(spouse_filename, "w", encoding="utf-8") as f:
                     f.write(spouse_report)
-                print(f"Spouse prediction saved as '{spouse_filename}'")
-            except ImportError as e:
-                print("Spouse predictor module not available.")
+                print(f"Full spouse + marriage prediction saved as '{spouse_filename}'")
+                
+            except Exception as e:
+                print(f"Spouse predictor error: {e}")
+                import traceback
                 traceback.print_exc()
+                print("Continuing with basic kundali report...")
+
             break
         except Exception as e:
             print(f"\nError: {e}")

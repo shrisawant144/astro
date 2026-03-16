@@ -144,8 +144,7 @@ dignity_table = {
 }
 
 # Lord of each sign (short code)
-sign_lords = {
-}
+sign_lords = {}
 # Lord of each sign (short code)
 sign_lords = {
     "Aries": "Ma",

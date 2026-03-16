@@ -75,7 +75,8 @@ def get_aspect_quality_score(
 
 def interpret_aspects(result):
     """Full Drishti analysis per house with strength, nature, and life outcomes.
-    Uses functional nature + dignity for balanced assessment instead of just natural benefic/malefic."""
+    Uses functional nature + dignity for balanced assessment instead of just natural benefic/malefic.
+    """
     aspects = result["aspects"]
     lagna_sign = result["lagna_sign"]
     lagna_idx = zodiac_signs.index(lagna_sign)

@@ -3,21 +3,429 @@ Advanced spouse predictor using 25+ Vedic techniques.
 Requires result dict from calculate_kundali().
 """
 
+from marriage_date_prediction import find_marriage_date, ASTROPY_AVAILABLE
+
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 from constants import (
-    ZODIAC_SIGNS, SIGN_LORDS, SHORT_TO_FULL, FULL_TO_SHORT,
-    PLANET_SPOUSE_TRAITS, SIGN_APPEARANCE, MEETING_CIRCUMSTANCES,
-    PROFESSION_BY_HOUSE, FUNCTIONAL_LABELS
+    ZODIAC_SIGNS,
+    SIGN_LORDS,
+    SHORT_TO_FULL,
+    FULL_TO_SHORT,
+    PLANET_SPOUSE_TRAITS,
+    SIGN_APPEARANCE,
+    MEETING_CIRCUMSTANCES,
+    PROFESSION_BY_HOUSE,
+    FUNCTIONAL_LABELS,
 )
 from utils import (
-    get_dignity, get_navamsa_sign, get_sign, has_aspect,
-    get_house_from_sign, get_seventh_sign
+    get_dignity,
+    get_navamsa_sign,
+    get_sign,
+    has_aspect,
+    get_house_from_sign,
+    get_seventh_sign,
 )
-from nakshatra import (
-    get_nakshatra_lord, get_nakshatra_deity, get_nakshatra_meaning
-)
+from nakshatra import get_nakshatra_lord, get_nakshatra_deity, get_nakshatra_meaning
+
+# Sign offsets for longitude calculation (Aries=0°)
+SIGN_OFFSETS = {
+    "Aries": 0,
+    "Taurus": 30,
+    "Gemini": 60,
+    "Cancer": 90,
+    "Leo": 120,
+    "Virgo": 150,
+    "Libra": 180,
+    "Scorpio": 210,
+    "Sagittarius": 240,
+    "Capricorn": 270,
+    "Aquarius": 300,
+    "Pisces": 330,
+}
+
+
+def extract_marriage_data(result):
+    """
+    Extract marriage date prediction data from main.py result dict.
+    Returns format compatible with find_marriage_date().
+    """
+    from datetime import datetime
+
+    # Lagna longitude
+    lagna_sign = result.get("lagna_sign", "Aries")
+    lagna_deg = result.get("lagna_deg", 0.0)
+    lagna_offset = SIGN_OFFSETS.get(lagna_sign, 0)
+    lagna_lon = lagna_offset + lagna_deg
+
+    # Planets: already have full_lon! Map short → full names
+    SHORT_TO_FULL = {
+        "Su": "Sun",
+        "Mo": "Moon",
+        "Ma": "Mars",
+        "Me": "Mercury",
+        "Ju": "Jupiter",
+        "Ve": "Venus",
+        "Sa": "Saturn",
+        "Ra": "Rahu",
+        "Ke": "Ketu",
+    }
+    planets_long = {}
+    for short, data in result["planets"].items():
+        if "full_lon" in data:
+            full_name = SHORT_TO_FULL.get(short, short)
+            planets_long[full_name] = data["full_lon"]
+
+    # 7th lord (already short code like "Mo")
+    lord7 = result.get("seventh_lord")
+
+    # Birth date
+    birth_date = result.get("birth_datetime") or datetime.now()
+
+    # Parse dasha periods from timings["Marriage"]
+    dasha_periods = []
+    marriage_lines = result.get("timings", {}).get("Marriage", [])
+    import re
+
+    for line in marriage_lines:
+        m = re.search(r"─\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)", line)
+        if m:
+            start, end = int(m.group(3)), int(m.group(4))
+            md, ad = m.group(1), m.group(2)
+            dasha_periods.append((start, end, md, ad))
+
+    return {
+        "lagna": lagna_lon,
+        "planets": planets_long,
+        "lord7": lord7,
+        "birth_date": birth_date,
+        "dasha_periods": dasha_periods,
+    }
+
+
+# ============================================================================
+# MARRIAGE DATE PREDICTION FUNCTIONS (copied/adapted from outer)
+# ============================================================================
+
+
+def get_sign(lon_deg):
+    """Convert absolute longitude to sign index: 0=Aries ... 11=Pisces"""
+    return int(lon_deg // 30) % 12
+
+
+def get_seventh_sign(lagna_lon):
+    """Get 7th house sign index from Lagna longitude (equal house system)."""
+    return (get_sign(lagna_lon) + 6) % 12
+
+
+def signs_have_nadi_relation(s1, s2):
+    """
+    Nadi-inspired sign relation: same (0), 2/12 (1), 3/11 (2), opposition (6).
+    """
+    diff = abs(s1 - s2) % 12
+    min_diff = min(diff, 12 - diff)
+    return min_diff in (0, 1, 2, 6)
+
+
+def get_progressed_jupiter_sign(natal_jup_lon, age_floor):
+    """Jupiter progression: natal degree + age * 30° (1 sign/year)."""
+    progressed_lon = (natal_jup_lon + age_floor * 30) % 360
+    return get_sign(progressed_lon)
+
+
+def check_nadi_promise(planets, gender="male"):
+    """Nadi marriage promise check."""
+    sig_key = "Venus" if gender.lower() == "male" else "Mars"
+    sig_lon = planets.get(sig_key)
+    jup_lon = planets.get("Jupiter")
+    sat_lon = planets.get("Saturn")
+
+    if not all([sig_lon, jup_lon, sat_lon]):
+        return "Insufficient data"
+
+    sig_sign = get_sign(sig_lon)
+    jup_sign = get_sign(jup_lon)
+    sat_sign = get_sign(sat_lon)
+
+    jup_rel = signs_have_nadi_relation(jup_sign, sig_sign)
+    sat_rel = signs_have_nadi_relation(sat_sign, sig_sign)
+
+    sign_names = [
+        "Aries",
+        "Taurus",
+        "Gemini",
+        "Cancer",
+        "Leo",
+        "Virgo",
+        "Libra",
+        "Scorpio",
+        "Sagittarius",
+        "Capricorn",
+        "Aquarius",
+        "Pisces",
+    ]
+
+    if jup_rel and sat_rel:
+        return f"★★★ 100% PROMISE (Ju+Sa relate to {sig_key})"
+    elif jup_rel:
+        return f"★★ TIMELY (Jupiter relates to {sig_key})"
+    elif sat_rel:
+        return f"★ DELAYED BUT ASSURED (Saturn relates to {sig_key})"
+    return f"⚠️ WEAK PROMISE (No strong relation to {sig_key})"
+
+
+def is_jupiter_transit_activating(transit_jup_sign, natal_sig_sign, progressed_sign):
+    return signs_have_nadi_relation(
+        transit_jup_sign, natal_sig_sign
+    ) or signs_have_nadi_relation(transit_jup_sign, progressed_sign)
+
+
+# Astropy imports (optional, graceful fallback)
+try:
+    from astropy.time import Time
+    from astropy.coordinates import (
+        solar_system_ephemeris,
+        get_body,
+        GeocentricTrueEcliptic,
+    )
+
+    ASTROPY_AVAILABLE = True
+except ImportError:
+    ASTROPY_AVAILABLE = False
+
+
+def approximate_lahiri_ayanamsa(jd):
+    """Rough Lahiri ayanamsa approximation."""
+    t = (jd - 2451545.0) / 36525.0
+    precess = 5029.0966 * t + 1.11161 * t**2
+    return (23.853 + precess / 3600.0) % 360
+
+
+def get_sidereal_lon(planet, dt, use_jpl=False):
+    """Get sidereal longitude (Astropy or None)."""
+    if not ASTROPY_AVAILABLE:
+        return None
+    try:
+        # JD calculation (Meeus algorithm)
+        yr, mo, dy = dt.year, dt.month, dt.day
+        hr = dt.hour + dt.minute / 60.0 + dt.second / 3600.0
+        if mo <= 2:
+            yr -= 1
+            mo += 12
+        A = yr // 100
+        B = 2 - A + A // 4
+        jd = (
+            int(365.25 * (yr + 4716))
+            + int(30.6001 * (mo + 1))
+            + dy
+            + B
+            - 1524.5
+            + hr / 24.0
+        )
+
+        t = Time(jd, format="jd", scale="tdb")
+        with solar_system_ephemeris.set("builtin"):
+            body = get_body(planet.lower(), t)
+            ecl = body.transform_to(GeocentricTrueEcliptic())
+            trop_lon = ecl.lon.deg % 360
+        ayan = approximate_lahiri_ayanamsa(jd)
+        return (trop_lon - ayan) % 360
+    except:
+        return None
+
+
+def get_moon_transit_days(year, month, seventh_sign, sig_sign):
+    """Days Moon transits 7th/sign (skip inauspicious tithis)."""
+    if not ASTROPY_AVAILABLE:
+        return []
+    FAVORABLE_TITHIS = {
+        1,
+        2,
+        4,
+        6,
+        9,
+        10,
+        12,
+        14,
+    }  # 0-indexed classical marriage tithis
+    days = []
+    for day in range(1, 32):
+        try:
+            dt = datetime(year, month, day, 12, tzinfo=timezone.utc)
+            moon_lon = get_sidereal_lon("moon", dt)
+            if moon_lon is not None and (
+                get_sign(moon_lon) in (seventh_sign, sig_sign)
+            ):
+                sun_lon = get_sidereal_lon("sun", dt)
+                if sun_lon:
+                    tithi = int(((moon_lon - sun_lon) % 360) / 12)
+                    if tithi not in (7, 22, 29):  # Skip Ashtami/Amavasya
+                        days.append(day)
+        except:
+            break
+    return days
+
+
+def find_marriage_date(
+    kundali,
+    start_age=21,
+    end_age=45,
+    future_only=True,
+    gender="male",
+    use_real_transits=True,
+    show_all_periods=False,
+):
+    """Core Nadi marriage timing prediction."""
+    planets = kundali["planets"]
+    sig_key = "Venus" if gender.lower() == "male" else "Mars"
+    sig_lon = planets.get(sig_key)
+    jup_lon = planets.get("Jupiter")
+    if not sig_lon or not jup_lon:
+        return "Missing data"
+
+    natal_sig_sign = get_sign(sig_lon)
+    lagna_lon = kundali.get("lagna", 0)
+    seventh_sign = get_seventh_sign(lagna_lon)
+    birth_year = kundali["birth_date"].year
+    today = datetime.now()
+
+    promise = check_nadi_promise(planets, gender)
+    significators_ad = {"Venus", "Moon", "Jupiter", kundali.get("lord7", "")}
+
+    sign_names = [
+        "Aries",
+        "Taurus",
+        "Gemini",
+        "Cancer",
+        "Leo",
+        "Virgo",
+        "Libra",
+        "Scorpio",
+        "Sagittarius",
+        "Capricorn",
+        "Aquarius",
+        "Pisces",
+    ]
+    results = []
+
+    for age in range(start_age, end_age + 1):
+        round_num = (age // 12) + 1
+        prog_sign = get_progressed_jupiter_sign(jup_lon, age)
+
+        if not signs_have_nadi_relation(prog_sign, natal_sig_sign):
+            continue
+
+        year = birth_year + age
+        if future_only and year < today.year:
+            continue
+
+        # Dasha match
+        dasha_ok = False
+        matching_period, dasha_score = None, 0
+        for start, end, md, ad in kundali["dasha_periods"]:
+            if start <= year <= end and ad in significators_ad:
+                dasha_ok = True
+                matching_period = f"{md}/{ad} ({start}-{end})"
+                dasha_score = 10 if ad == "Venus" else 8 if ad == "Jupiter" else 7
+                break
+        if not dasha_ok:
+            continue
+
+        # Jupiter transit months
+        probable_months, peak_months, saturn_months = [], [], set()
+        for month in range(1, 13):
+            if future_only:
+                check_date = datetime(year, month, 15)
+                if check_date < today:
+                    continue
+
+            jup_trans = (
+                get_sidereal_lon("jupiter", check_date) if use_real_transits else None
+            )
+            if jup_trans is not None:
+                jup_sign_t = get_sign(jup_trans)
+                jup_act = signs_have_nadi_relation(
+                    jup_sign_t, natal_sig_sign
+                ) or signs_have_nadi_relation(jup_sign_t, seventh_sign)
+                if jup_act:
+                    if jup_sign_t in (seventh_sign, natal_sig_sign):
+                        peak_months.append(month)
+                    probable_months.append(month)
+
+                    sat_trans = get_sidereal_lon("saturn", check_date)
+                    if sat_trans and signs_have_nadi_relation(
+                        get_sign(sat_trans), seventh_sign
+                    ):
+                        saturn_months.add(month)
+            else:
+                # Fallback approx
+                trans_jup = (get_sign(jup_lon) + age + month // 3) % 12
+                if is_jupiter_transit_activating(trans_jup, natal_sig_sign, prog_sign):
+                    probable_months.append(month)
+
+        if not probable_months:
+            continue
+
+        # Moon favorable days (first peak month)
+        all_dates = []
+        fav_days_first = get_moon_transit_days(
+            year, probable_months[0], seventh_sign, natal_sig_sign
+        )
+        for day in fav_days_first:
+            all_dates.append((year, probable_months[0], day))
+
+        # Best date
+        best_date = f"{year}-{probable_months[0]:02d}-{fav_days_first[0] if fav_days_first else 15}"
+
+        # Confidence
+        has_sat = bool(saturn_months & set(probable_months))
+        conf = (
+            "VERY HIGH"
+            if dasha_score >= 8 and has_sat
+            else "HIGH" if dasha_score >= 8 else "MEDIUM"
+        )
+
+        results.append(
+            {
+                "date": best_date,
+                "age": age,
+                "round": round_num,
+                "prog_sign": sign_names[prog_sign],
+                "dasha": matching_period,
+                "dasha_score": dasha_score,
+                "probable_months": probable_months,
+                "peak_months": peak_months,
+                "favorable_dates": [
+                    f"{year}-{m:02d}-{d:02d}" for m, d in all_dates[:15]
+                ],
+                "confidence": conf + (" [Saturn confirms]" if has_sat else ""),
+                "promise": promise,
+            }
+        )
+
+        if not show_all_periods and "HIGH" in conf:
+            return format_prediction_result(results[0])
+
+    if results:
+        results.sort(key=lambda x: (-x["dasha_score"], x["age"]))
+        output = f"Found {len(results)} periods:\n\n"
+        for i, r in enumerate(results[:5], 1):
+            output += f"\n{'='*60}\n{i}. " + format_prediction_result(r)
+        return output
+    return f"No periods found. Promise: {promise}"
+
+
+def format_prediction_result(result):
+    """Format single prediction nicely."""
+    out = f"📅 {result['date']}\n"
+    out += f"Age {result['age']} (Round {result['round']})\n"
+    out += f"Ju progressed: {result['prog_sign']}\n"
+    out += f"Dasha: {result['dasha']} (score {result['dasha_score']})\n"
+    out += f"Peak months: {', '.join(map(str,result['peak_months']))}\n"
+    out += f"Confidence: {result['confidence']}\n"
+    out += f"Promise: {result['promise']}"
+    return out
 
 
 class AdvancedSpousePredictor:
@@ -38,7 +446,11 @@ class AdvancedSpousePredictor:
 
         # D9 Lagna (calculated from lagna degree)
         self.d9_lagna_sign = get_navamsa_sign(self.lagna_deg)
-        self.d9_lagna_idx = ZODIAC_SIGNS.index(self.d9_lagna_sign) if self.d9_lagna_sign in ZODIAC_SIGNS else 0
+        self.d9_lagna_idx = (
+            ZODIAC_SIGNS.index(self.d9_lagna_sign)
+            if self.d9_lagna_sign in ZODIAC_SIGNS
+            else 0
+        )
 
         # Confidence tracking
         self.confidence_factors = []
@@ -84,7 +496,9 @@ class AdvancedSpousePredictor:
         if func_label in ["Strong Benefic", "Conditional Benefic"]:
             self.confidence_factors.append("7th lord functionally benefic")
         if integrity_score >= 70:
-            self.confidence_factors.append(f"7th lord high integrity ({integrity_score}%)")
+            self.confidence_factors.append(
+                f"7th lord high integrity ({integrity_score}%)"
+            )
 
         return analysis
 
@@ -109,9 +523,13 @@ class AdvancedSpousePredictor:
         }
 
         if venus.get("label") in ["Strong Benefic", "Conditional Benefic"]:
-            self.confidence_factors.append("Venus functionally benefic - excellent spouse karaka")
+            self.confidence_factors.append(
+                "Venus functionally benefic - excellent spouse karaka"
+            )
         if jupiter.get("label") in ["Strong Benefic", "Conditional Benefic"]:
-            self.confidence_factors.append("Jupiter functionally benefic - blessed marriage")
+            self.confidence_factors.append(
+                "Jupiter functionally benefic - blessed marriage"
+            )
 
         # Venus-Jupiter mutual aspect/conjunction
         d1 = self.data["planets"]
@@ -130,12 +548,20 @@ class AdvancedSpousePredictor:
                 deg_diff = abs(ve_deg - ju_deg)
                 if deg_diff < 10:
                     vj_relationship = f"Conjunction within {deg_diff:.1f}° – harmonious union, spouse is wise and beautiful"
-                    self.confidence_factors.append("Venus-Jupiter conjunction – strong marriage indicator")
+                    self.confidence_factors.append(
+                        "Venus-Jupiter conjunction – strong marriage indicator"
+                    )
                 else:
-                    vj_relationship = f"Same sign but wide orb ({deg_diff:.1f}°) – mild positive"
-            elif has_aspect(ve_house, ju_house, "Ve") or has_aspect(ju_house, ve_house, "Ju"):
+                    vj_relationship = (
+                        f"Same sign but wide orb ({deg_diff:.1f}°) – mild positive"
+                    )
+            elif has_aspect(ve_house, ju_house, "Ve") or has_aspect(
+                ju_house, ve_house, "Ju"
+            ):
                 vj_relationship = "Mutual aspect – harmonious spouse, balanced marriage"
-                self.confidence_factors.append("Venus-Jupiter mutual aspect – positive marriage karma")
+                self.confidence_factors.append(
+                    "Venus-Jupiter mutual aspect – positive marriage karma"
+                )
 
         result["venus_jupiter_relationship"] = vj_relationship
         return result
@@ -148,26 +574,26 @@ class AdvancedSpousePredictor:
         h7_house_num = ((self.lagna_idx + 6) % 12) + 1
 
         # Aspects to 7th house
-        h7_aspects = aspects_data.get(h7_house_num, [])  # aspects_data is dict house->list of aspect strings
+        h7_aspects = aspects_data.get(
+            h7_house_num, []
+        )  # aspects_data is dict house->list of aspect strings
 
         # Convert to structured list (simplified)
         combined = []
         for asp in h7_aspects:
             # asp is string like "Ju-7th" or "Ma-4"
-            parts = asp.split('-')
+            parts = asp.split("-")
             planet = parts[0]
             asp_type = parts[1] if len(parts) > 1 else "7th"
-            combined.append({
-                "target": "7th house",
-                "planet": planet,
-                "type": asp_type
-            })
+            combined.append({"target": "7th house", "planet": planet, "type": asp_type})
 
         # Add confidence for benefic aspects
         benefic_planets = ["Ju", "Ve", "Mo", "Me"]
         for asp in combined:
             if asp["planet"] in benefic_planets:
-                self.confidence_factors.append(f"Benefic {asp['planet']} aspect on 7th house")
+                self.confidence_factors.append(
+                    f"Benefic {asp['planet']} aspect on 7th house"
+                )
 
         return {"aspects": combined}
 
@@ -191,42 +617,51 @@ class AdvancedSpousePredictor:
         if not periods:  # Fallback parse if no pre-parsed
             timings = self.data.get("timings", {}).get("Marriage", [])
             import re
+
             for line in timings:
-                m = re.search(r'─\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)', line)
+                m = re.search(r"─\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)", line)
                 if m:
-                    periods.append({
-                        "maha": m.group(1),
-                        "antara": m.group(2),
-                        "start": int(m.group(3)),
-                        "end": int(m.group(4)),
-                        "score": 8  # Default
-                    })
+                    periods.append(
+                        {
+                            "maha": m.group(1),
+                            "antara": m.group(2),
+                            "start": int(m.group(3)),
+                            "end": int(m.group(4)),
+                            "score": 8,  # Default
+                        }
+                    )
         high_score = [p for p in periods if p.get("score", 0) >= 8]
         return {
             "high_score_periods": high_score,
-            "upcoming": [p for p in high_score if p.get("start", 0) > datetime.now().year],
-            "count": len(high_score)
+            "upcoming": [
+                p for p in high_score if p.get("start", 0) > datetime.now().year
+            ],
+            "count": len(high_score),
         }
+
     def _analyze_marriage_dashas(self) -> Dict:
         timings = self.data.get("timings", {}).get("Marriage", [])
         periods = []
         for line in timings:
             # Parse line like: " └─ Mercury/Venus (2027-2030) (Age 28-31) ★★★ [10/10] [FUTURE]"
             import re
-            m = re.search(r'(\w+)/(\w+)\s+\((\d+)-(\d+)\).*?★.*?\[(\d+)/10\]', line)
+
+            m = re.search(r"(\w+)/(\w+)\s+\((\d+)-(\d+)\).*?★.*?\[(\d+)/10\]", line)
             if m:
-                periods.append({
-                    "maha": m.group(1),
-                    "antara": m.group(2),
-                    "start": int(m.group(3)),
-                    "end": int(m.group(4)),
-                    "score": int(m.group(5))
-                })
+                periods.append(
+                    {
+                        "maha": m.group(1),
+                        "antara": m.group(2),
+                        "start": int(m.group(3)),
+                        "end": int(m.group(4)),
+                        "score": int(m.group(5)),
+                    }
+                )
         high_score = [p for p in periods if p["score"] >= 8]
         return {
             "high_score_periods": high_score,
             "upcoming": [p for p in high_score if p["start"] > datetime.now().year],
-            "count": len(high_score)
+            "count": len(high_score),
         }
 
     # ------------------------------------------------------------------------
@@ -251,11 +686,21 @@ class AdvancedSpousePredictor:
     # ------------------------------------------------------------------------
     def _analyze_marriage_yogas_from_list(self) -> List[Dict]:
         all_yogas = self.data.get("yogas", [])
-        marriage_keywords = ["marriage", "spouse", "wife", "husband", "venus", "7th", "darakaraka"]
+        marriage_keywords = [
+            "marriage",
+            "spouse",
+            "wife",
+            "husband",
+            "venus",
+            "7th",
+            "darakaraka",
+        ]
         relevant = []
         for yoga in all_yogas:
             if any(k in yoga.lower() for k in marriage_keywords):
-                relevant.append({"name": yoga, "strength": 5})  # strength not in string, approximate
+                relevant.append(
+                    {"name": yoga, "strength": 5}
+                )  # strength not in string, approximate
                 self.confidence_factors.append(f"Marriage yoga: {yoga}")
         return relevant
 
@@ -269,12 +714,20 @@ class AdvancedSpousePredictor:
 
         effects = {}
         if h7_lord in nb_planets:
-            effects["seventh_lord"] = "Neecha Bhanga - debilitation cancelled, becomes powerful after maturity"
-            self.confidence_factors.append("7th lord has Neecha Bhanga - delayed but strong marriage")
+            effects["seventh_lord"] = (
+                "Neecha Bhanga - debilitation cancelled, becomes powerful after maturity"
+            )
+            self.confidence_factors.append(
+                "7th lord has Neecha Bhanga - delayed but strong marriage"
+            )
         if dk in nb_planets:
-            effects["darakaraka"] = "Neecha Bhanga - spouse-related planet gains strength over time"
+            effects["darakaraka"] = (
+                "Neecha Bhanga - spouse-related planet gains strength over time"
+            )
         if "Ve" in nb_planets:
-            effects["venus"] = "Neecha Bhanga - Venus strengthens with age, spouse quality improves"
+            effects["venus"] = (
+                "Neecha Bhanga - Venus strengthens with age, spouse quality improves"
+            )
         return effects
 
     # ------------------------------------------------------------------------
@@ -327,9 +780,13 @@ class AdvancedSpousePredictor:
         func = self.data.get("functional_nature", {}).get(dk_planet, {})
 
         if dk_dignity_d1 in ["Exalted", "Own"]:
-            self.confidence_factors.append(f"Darakaraka {SHORT_TO_FULL[dk_planet]} strong in D1")
+            self.confidence_factors.append(
+                f"Darakaraka {SHORT_TO_FULL[dk_planet]} strong in D1"
+            )
         if integrity.get("score", 0) >= 70:
-            self.confidence_factors.append(f'Darakaraka high integrity ({integrity["score"]}%)')
+            self.confidence_factors.append(
+                f'Darakaraka high integrity ({integrity["score"]}%)'
+            )
 
         return {
             "planet": dk_planet,
@@ -357,12 +814,13 @@ class AdvancedSpousePredictor:
 
         # Lord position
         d9_h7_lord_sign = d9.get(d9_h7_lord, {}).get("sign", "")
-        d9_h7_lord_dignity = get_dignity(d9_h7_lord, d9_h7_lord_sign) if d9_h7_lord_sign else "Unknown"
+        d9_h7_lord_dignity = (
+            get_dignity(d9_h7_lord, d9_h7_lord_sign) if d9_h7_lord_sign else "Unknown"
+        )
 
         # Planets in D9 7th
         planets_in = [
-            p for p, data in d9.items()
-            if ZODIAC_SIGNS.index(data["sign"]) == d9_h7_idx
+            p for p, data in d9.items() if ZODIAC_SIGNS.index(data["sign"]) == d9_h7_idx
         ]
 
         # Functional nature (from D1 proxy)
@@ -377,7 +835,9 @@ class AdvancedSpousePredictor:
         elif d9_h7_lord_dignity == "Debilitated":
             interpretation.append("Challenges in marriage at deeper level")
         if planets_in:
-            interpretation.append(f'Planets in D9 7th: {", ".join([SHORT_TO_FULL[p] for p in planets_in])}')
+            interpretation.append(
+                f'Planets in D9 7th: {", ".join([SHORT_TO_FULL[p] for p in planets_in])}'
+            )
         if func_label in ["Strong Benefic", "Conditional Benefic"]:
             interpretation.append("D9 7th lord functionally benefic - blessed")
 
@@ -389,7 +849,9 @@ class AdvancedSpousePredictor:
             "planets_in_d9_7th": planets_in,
             "strong": d9_h7_lord_dignity in ["Exalted", "Own"],
             "functional_lord": func_label,
-            "interpretation": " | ".join(interpretation) if interpretation else "Average D9 7th house",
+            "interpretation": (
+                " | ".join(interpretation) if interpretation else "Average D9 7th house"
+            ),
         }
 
     # ------------------------------------------------------------------------
@@ -439,15 +901,31 @@ class AdvancedSpousePredictor:
 
         ul_2nd_idx = (ul_idx + 1) % 12
         ul_2nd_sign = ZODIAC_SIGNS[ul_2nd_idx]
-        planets_in_2nd = [p for p, data in d1.items() if ZODIAC_SIGNS.index(data["sign"]) == ul_2nd_idx]
+        planets_in_2nd = [
+            p
+            for p, data in d1.items()
+            if ZODIAC_SIGNS.index(data["sign"]) == ul_2nd_idx
+        ]
         has_malefic_2nd = any(p in ["Ma", "Sa", "Ra", "Ke"] for p in planets_in_2nd)
-        meaning_2nd = "Challenges in family harmony, possible financial strain" if has_malefic_2nd else "Supportive family after marriage, good sustenance, happiness"
+        meaning_2nd = (
+            "Challenges in family harmony, possible financial strain"
+            if has_malefic_2nd
+            else "Supportive family after marriage, good sustenance, happiness"
+        )
 
         ul_8th_idx = (ul_idx + 7) % 12
         ul_8th_sign = ZODIAC_SIGNS[ul_8th_idx]
-        planets_in_8th = [p for p, data in d1.items() if ZODIAC_SIGNS.index(data["sign"]) == ul_8th_idx]
+        planets_in_8th = [
+            p
+            for p, data in d1.items()
+            if ZODIAC_SIGNS.index(data["sign"]) == ul_8th_idx
+        ]
         has_malefic_8th = any(p in ["Ma", "Sa", "Ra", "Ke"] for p in planets_in_8th)
-        meaning_8th = "Possible transformations, in-law issues, or obstacles" if has_malefic_8th else "Stable long-term marriage, good in-laws relations"
+        meaning_8th = (
+            "Possible transformations, in-law issues, or obstacles"
+            if has_malefic_8th
+            else "Stable long-term marriage, good in-laws relations"
+        )
 
         return {
             "sign": ul_sign,
@@ -468,7 +946,9 @@ class AdvancedSpousePredictor:
             if p in d9 and d1[p]["sign"] == d9[p]["sign"]:
                 vargottama.append(p)
         if vargottama:
-            self.confidence_factors.append(f'Vargottama: {", ".join([SHORT_TO_FULL[p] for p in vargottama])}')
+            self.confidence_factors.append(
+                f'Vargottama: {", ".join([SHORT_TO_FULL[p] for p in vargottama])}'
+            )
         return {"vargottama": vargottama, "count": len(vargottama)}
 
     def _analyze_venus_mars(self) -> Dict:
@@ -488,7 +968,10 @@ class AdvancedSpousePredictor:
                 "status": "Mutual Aspect",
                 "effect": "Mutual attraction with some tension. Balanced passion, manageable conflicts.",
             }
-        return {"status": "No direct connection", "effect": "Standard or mild passion levels."}
+        return {
+            "status": "No direct connection",
+            "effect": "Standard or mild passion levels.",
+        }
 
     def _analyze_ashtakavarga(self) -> Dict:
         ashtak = self.data.get("ashtakavarga", {})
@@ -497,11 +980,15 @@ class AdvancedSpousePredictor:
             return {"points": "Data not available", "interpretation": "SAV not found"}
         if h7_points >= 28:
             interp = "Excellent - Very strong marriage yoga, smooth path"
-            self.confidence_factors.append(f"Ashtakavarga 7th house {h7_points} points - excellent support")
+            self.confidence_factors.append(
+                f"Ashtakavarga 7th house {h7_points} points - excellent support"
+            )
             strength = "Very Strong"
         elif h7_points >= 25:
             interp = "Good - Positive support for marriage"
-            self.confidence_factors.append(f"Ashtakavarga 7th house {h7_points} points - good")
+            self.confidence_factors.append(
+                f"Ashtakavarga 7th house {h7_points} points - good"
+            )
             strength = "Strong"
         elif h7_points >= 22:
             interp = "Average - Normal marriage karma"
@@ -520,7 +1007,11 @@ class AdvancedSpousePredictor:
         mars_dignity = get_dignity("Ma", mars_sign)
         is_manglik = mars_house in [1, 2, 4, 7, 8, 12]
         if not is_manglik:
-            return {"present": False, "mars_house": mars_house, "reason": "Mars not in Manglik houses"}
+            return {
+                "present": False,
+                "mars_house": mars_house,
+                "reason": "Mars not in Manglik houses",
+            }
         cancellations = []
         if mars_dignity in ["Exalted", "Own"]:
             cancellations.append("Mars in own/exalted sign (strength cancels dosha)")
@@ -541,7 +1032,11 @@ class AdvancedSpousePredictor:
                 cancellations.append("Venus very strong (mitigates Mars dosha)")
         severity = "Cancelled" if cancellations else "Present"
         if not cancellations:
-            severity = "Mild" if mars_house in [2, 12] else "Moderate" if mars_house in [1, 4] else "Strong"
+            severity = (
+                "Mild"
+                if mars_house in [2, 12]
+                else "Moderate" if mars_house in [1, 4] else "Strong"
+            )
         return {
             "present": True,
             "severity": severity,
@@ -639,7 +1134,9 @@ class AdvancedSpousePredictor:
         dk_planet = self._find_darakaraka_planet()
         profession = {}
         if dk_planet:
-            profession["primary"] = PLANET_SPOUSE_TRAITS.get(dk_planet, {}).get("profession", "")
+            profession["primary"] = PLANET_SPOUSE_TRAITS.get(dk_planet, {}).get(
+                "profession", ""
+            )
         h7_idx = (self.lagna_idx + 6) % 12
         h7_lord = SIGN_LORDS[ZODIAC_SIGNS[h7_idx]]
         h7_lord_house = self._get_house(h7_lord)
@@ -724,12 +1221,14 @@ class AdvancedSpousePredictor:
                 if abs(deg1 - deg2) <= 1.0:
                     winner = p1 if deg1 < deg2 else p2
                     loser = p2 if winner == p1 else p1
-                    wars.append({
-                        "planets": [p1, p2],
-                        "winner": winner,
-                        "loser": loser,
-                        "description": f"{SHORT_TO_FULL[winner]} wins over {SHORT_TO_FULL[loser]}, {SHORT_TO_FULL[loser]}'s results are weakened.",
-                    })
+                    wars.append(
+                        {
+                            "planets": [p1, p2],
+                            "winner": winner,
+                            "loser": loser,
+                            "description": f"{SHORT_TO_FULL[winner]} wins over {SHORT_TO_FULL[loser]}, {SHORT_TO_FULL[loser]}'s results are weakened.",
+                        }
+                    )
         return wars
 
     def _summarize_integrity(self) -> Dict:
@@ -751,7 +1250,9 @@ class AdvancedSpousePredictor:
         try:
             h7 = self._analyze_7th_house_multilevel()
         except Exception:
-            h7 = {"d1": {"sign": "Unknown", "lord": "Unknown", "lord_dignity": "Unknown"}}
+            h7 = {
+                "d1": {"sign": "Unknown", "lord": "Unknown", "lord_dignity": "Unknown"}
+            }
         try:
             karaka = self._analyze_functional_venus_jupiter()
         except Exception:
@@ -811,9 +1312,35 @@ class AdvancedSpousePredictor:
     def generate_report(self) -> str:
         pred = self.predict()
         lines = []
+        # Nadi marriage date prediction integration
+        nadi_result = ""
+        try:
+            nadi_kundali = {
+                "planets": self.data.get("planets_full_long", {}),
+                "lagna": self.data.get("lagna_deg", 0.0),
+                "lord7": self.data.get("lord7_full", ""),
+                "birth_date": self.data.get("birth_datetime"),
+                "dasha_periods": self.data.get("dasha_periods_for_marriage", []),
+            }
+            date_pred = find_marriage_date(
+                nadi_kundali,
+                start_age=21,
+                end_age=45,
+                future_only=True,
+                gender=self.gender,
+                use_real_transits=ASTROPY_AVAILABLE,
+                show_all_periods=True,
+            )
+            nadi_result = f"\n\n📅 NADI MARRIAGE DATE PREDICTION:\n{date_pred}"
+        except Exception as e:
+            nadi_result = f"\n\n⚠️ Nadi prediction failed: {e}"
         lines.append("=" * 90)
-        lines.append("  ADVANCED FUTURE SPOUSE PREDICTION - PROFESSIONAL 2025-26 EDITION")
-        lines.append("  (25+ Vedic Layers: Functional Nature + Integrity + Aspects + Dashas + Transits)")
+        lines.append(
+            "  ADVANCED FUTURE SPOUSE PREDICTION - PROFESSIONAL 2025-26 EDITION"
+        )
+        lines.append(
+            "  (25+ Vedic Layers: Functional Nature + Integrity + Aspects + Dashas + Transits)"
+        )
         lines.append("=" * 90)
         lines.append(f"\nGender: {self.gender} | Lagna: {self.lagna_sign}")
         lines.append(f"Spouse Karaka: {SHORT_TO_FULL[self.spouse_karaka]}")
@@ -859,7 +1386,9 @@ class AdvancedSpousePredictor:
         lines.append(f"Face: {appearance.get('face', 'N/A')}")
         lines.append(f"Complexion: {appearance.get('complexion', 'N/A')}")
         if "dk_planet" in appearance:
-            lines.append(f"Darakaraka {appearance['dk_planet']} adds: {appearance.get('dk_influence', '')}")
+            lines.append(
+                f"Darakaraka {appearance['dk_planet']} adds: {appearance.get('dk_influence', '')}"
+            )
             lines.append(f"DK sign modifier: {appearance.get('dk_sign_adds', '')}")
             lines.append(f"D9 refinement: {appearance.get('d9_refinement', '')}")
 
@@ -898,8 +1427,12 @@ class AdvancedSpousePredictor:
         lines.append("🏠 UPAPADA LAGNA (Marriage House)")
         lines.append("─" * 90)
         ul = pred["upapada"]
-        lines.append(f"Upapada Sign: {ul['sign']} (Lord {ul['lord']}, Dignity {ul['dignity']})")
-        lines.append(f"Strength: {'Strong - Stable marriage' if ul['strong'] else 'Moderate - needs effort'}")
+        lines.append(
+            f"Upapada Sign: {ul['sign']} (Lord {ul['lord']}, Dignity {ul['dignity']})"
+        )
+        lines.append(
+            f"Strength: {'Strong - Stable marriage' if ul['strong'] else 'Moderate - needs effort'}"
+        )
         lines.append(f"2nd from UL: {ul['2nd_meaning']}")
         lines.append(f"8th from UL: {ul['8th_meaning']}")
 
@@ -909,9 +1442,13 @@ class AdvancedSpousePredictor:
         lines.append("─" * 90)
         d9_7 = pred["d9_seventh_house"]
         lines.append(f"D9 7th House Sign: {d9_7['d9_7th_sign']}")
-        lines.append(f"D9 7th Lord: {SHORT_TO_FULL[d9_7['d9_7th_lord']]} in {d9_7['d9_7th_lord_sign']} ({d9_7['d9_7th_lord_dignity']})")
+        lines.append(
+            f"D9 7th Lord: {SHORT_TO_FULL[d9_7['d9_7th_lord']]} in {d9_7['d9_7th_lord_sign']} ({d9_7['d9_7th_lord_dignity']})"
+        )
         if d9_7["planets_in_d9_7th"]:
-            lines.append(f"Planets in D9 7th: {', '.join([SHORT_TO_FULL[p] for p in d9_7['planets_in_d9_7th']])}")
+            lines.append(
+                f"Planets in D9 7th: {', '.join([SHORT_TO_FULL[p] for p in d9_7['planets_in_d9_7th']])}"
+            )
         lines.append(f"Interpretation: {d9_7['interpretation']}")
 
         # Aspects on 7th
@@ -930,11 +1467,17 @@ class AdvancedSpousePredictor:
         lines.append("─" * 90)
         lords = pred["lord_placements"]
         if lords["seventh_house"]:
-            lines.append(f"7th House Lord: {lords['seventh_house'].get('interpretation', 'N/A')}")
+            lines.append(
+                f"7th House Lord: {lords['seventh_house'].get('interpretation', 'N/A')}"
+            )
         if lords["second_house"]:
-            lines.append(f"2nd House Lord: {lords['second_house'].get('interpretation', 'N/A')}")
+            lines.append(
+                f"2nd House Lord: {lords['second_house'].get('interpretation', 'N/A')}"
+            )
         if lords["fifth_house"]:
-            lines.append(f"5th House Lord: {lords['fifth_house'].get('interpretation', 'N/A')}")
+            lines.append(
+                f"5th House Lord: {lords['fifth_house'].get('interpretation', 'N/A')}"
+            )
 
         # Marriage Type
         lines.append("\n" + "─" * 90)
@@ -955,7 +1498,9 @@ class AdvancedSpousePredictor:
         manglik = pred["manglik_dosha"]
         if manglik["present"]:
             lines.append(f"Status: PRESENT ({manglik['severity']})")
-            lines.append(f"Mars in {manglik['mars_house']}th house ({manglik['mars_sign']}) - {manglik['mars_dignity']}")
+            lines.append(
+                f"Mars in {manglik['mars_house']}th house ({manglik['mars_sign']}) - {manglik['mars_dignity']}"
+            )
             if manglik["cancellations"]:
                 lines.append("Cancellations:")
                 for c in manglik["cancellations"]:
@@ -986,7 +1531,9 @@ class AdvancedSpousePredictor:
         nav = pred["navamsa_strength"]
         lines.append(f"Vargottama Planets: {nav['count']}")
         if nav["vargottama"]:
-            lines.append(f"  → {', '.join([SHORT_TO_FULL[p] for p in nav['vargottama']])}")
+            lines.append(
+                f"  → {', '.join([SHORT_TO_FULL[p] for p in nav['vargottama']])}"
+            )
 
         # Dasha Timing
         lines.append("\n" + "─" * 90)
@@ -996,16 +1543,19 @@ class AdvancedSpousePredictor:
         if dashas["upcoming"]:
             lines.append("Upcoming High-Probability Periods:")
             for p in dashas["upcoming"]:
-                lines.append(f"  • {p['maha']}/{p['antara']} ({p['start']}-{p['end']}) - Score {p['score']}/10")
+                lines.append(
+                    f"  • {p['maha']}/{p['antara']} ({p['start']}-{p['end']}) - Score {p['score']}/10"
+                )
         else:
             lines.append("No high-score upcoming periods found.")
-
 
         lines.append("🌍 CURRENT TRANSIT EFFECTS")
         lines.append("─" * 90)
         transits = pred["current_transits"]
         if transits["transiting_7th"]:
-            lines.append(f"Planets transiting 7th house: {', '.join(transits['transiting_7th'])}")
+            lines.append(
+                f"Planets transiting 7th house: {', '.join(transits['transiting_7th'])}"
+            )
         else:
             lines.append("No current transit activation of 7th house.")
 
@@ -1015,7 +1565,9 @@ class AdvancedSpousePredictor:
             lines.append("🌙 NAKSHATRA INSIGHTS")
             lines.append("─" * 90)
             for p, info in pred["nakshatra_insights"].items():
-                lines.append(f"• {SHORT_TO_FULL[p]} in {info['nakshatra']} (ruled by {info['lord']}, deity {info['deity']})")
+                lines.append(
+                    f"• {SHORT_TO_FULL[p]} in {info['nakshatra']} (ruled by {info['lord']}, deity {info['deity']})"
+                )
                 lines.append(f"  → {info['meaning']}")
 
         # Planetary War
@@ -1044,4 +1596,4 @@ class AdvancedSpousePredictor:
         lines.append(f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
         lines.append("=" * 90)
 
-        return "\n".join(lines)
+        return "\n".join(lines) + nadi_result

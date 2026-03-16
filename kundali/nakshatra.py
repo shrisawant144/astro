@@ -5,17 +5,63 @@ Used for refining spouse descriptions and general nakshatra analysis.
 """
 
 NAKSHATRAS = [
-    "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
-    "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni",
-    "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha",
-    "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana",
-    "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
+    "Ashwini",
+    "Bharani",
+    "Krittika",
+    "Rohini",
+    "Mrigashira",
+    "Ardra",
+    "Punarvasu",
+    "Pushya",
+    "Ashlesha",
+    "Magha",
+    "Purva Phalguni",
+    "Uttara Phalguni",
+    "Hasta",
+    "Chitra",
+    "Swati",
+    "Vishakha",
+    "Anuradha",
+    "Jyeshtha",
+    "Mula",
+    "Purva Ashadha",
+    "Uttara Ashadha",
+    "Shravana",
+    "Dhanishta",
+    "Shatabhisha",
+    "Purva Bhadrapada",
+    "Uttara Bhadrapada",
+    "Revati",
 ]
 
 NAKSHATRA_LORDS = [
-    "Ke", "Ve", "Su", "Mo", "Ma", "Ra", "Ju", "Sa", "Me",
-    "Ke", "Ve", "Su", "Mo", "Ma", "Ra", "Ju", "Sa", "Me",
-    "Ke", "Ve", "Su", "Mo", "Ma", "Ra", "Ju", "Sa", "Me"
+    "Ke",
+    "Ve",
+    "Su",
+    "Mo",
+    "Ma",
+    "Ra",
+    "Ju",
+    "Sa",
+    "Me",
+    "Ke",
+    "Ve",
+    "Su",
+    "Mo",
+    "Ma",
+    "Ra",
+    "Ju",
+    "Sa",
+    "Me",
+    "Ke",
+    "Ve",
+    "Su",
+    "Mo",
+    "Ma",
+    "Ra",
+    "Ju",
+    "Sa",
+    "Me",
 ]
 
 NAKSHATRA_DEITIES = {
@@ -49,34 +95,143 @@ NAKSHATRA_DEITIES = {
 }
 
 NAKSHATRA_QUALITIES = {
-    "Ashwini": {"animal": "Horse (male)", "guna": "Sattvic", "temperament": "Swift, healing, initiating"},
-    "Bharani": {"animal": "Elephant (male)", "guna": "Rajasic", "temperament": "Intense, transformative, creative"},
-    "Krittika": {"animal": "Sheep (female)", "guna": "Rajasic", "temperament": "Sharp, fiery, purifying"},
-    "Rohini": {"animal": "Serpent (male)", "guna": "Rajasic", "temperament": "Creative, nurturing, fertile"},
-    "Mrigashira": {"animal": "Serpent (female)", "guna": "Sattvic", "temperament": "Searching, gentle, curious"},
-    "Ardra": {"animal": "Dog (female)", "guna": "Tamasic", "temperament": "Stormy, passionate, transformative"},
-    "Punarvasu": {"animal": "Cat (female)", "guna": "Sattvic", "temperament": "Renewal, optimistic, returning"},
-    "Pushya": {"animal": "Goat (male)", "guna": "Sattvic", "temperament": "Nourishing, protective, generous"},
-    "Ashlesha": {"animal": "Cat (male)", "guna": "Tamasic", "temperament": "Cunning, wise, serpentine"},
-    "Magha": {"animal": "Rat (male)", "guna": "Tamasic", "temperament": "Regal, ancestral, proud"},
-    "Purva Phalguni": {"animal": "Rat (female)", "guna": "Rajasic", "temperament": "Romantic, creative, pleasure-seeking"},
-    "Uttara Phalguni": {"animal": "Cow (male)", "guna": "Rajasic", "temperament": "Stable, contractual, reliable"},
-    "Hasta": {"animal": "Buffalo (female)", "guna": "Sattvic", "temperament": "Skillful, dexterous, crafty"},
-    "Chitra": {"animal": "Tiger (female)", "guna": "Rajasic", "temperament": "Artistic, brilliant, charismatic"},
-    "Swati": {"animal": "Buffalo (male)", "guna": "Sattvic", "temperament": "Independent, flexible, scattered"},
-    "Vishakha": {"animal": "Tiger (male)", "guna": "Rajasic", "temperament": "Determined, competitive, goal-driven"},
-    "Anuradha": {"animal": "Deer (female)", "guna": "Sattvic", "temperament": "Devoted, friendly, successful"},
-    "Jyeshtha": {"animal": "Deer (male)", "guna": "Tamasic", "temperament": "Senior, authoritative, protective"},
-    "Mula": {"animal": "Dog (male)", "guna": "Tamasic", "temperament": "Investigative, destructive, rooted"},
-    "Purva Ashadha": {"animal": "Monkey (male)", "guna": "Rajasic", "temperament": "Victorious, influential, invigorating"},
-    "Uttara Ashadha": {"animal": "Mongoose (male)", "guna": "Sattvic", "temperament": "Enduring, universal, righteous"},
-    "Shravana": {"animal": "Monkey (female)", "guna": "Sattvic", "temperament": "Learned, listening, connected"},
-    "Dhanishta": {"animal": "Lion (female)", "guna": "Rajasic", "temperament": "Musical, wealthy, ambitious"},
-    "Shatabhisha": {"animal": "Horse (female)", "guna": "Tamasic", "temperament": "Healing, secretive, philosophical"},
-    "Purva Bhadrapada": {"animal": "Lion (male)", "guna": "Rajasic", "temperament": "Spiritual, eccentric, fiery"},
-    "Uttara Bhadrapada": {"animal": "Cow (female)", "guna": "Sattvic", "temperament": "Grounded, deep, watery"},
-    "Revati": {"animal": "Elephant (female)", "guna": "Sattvic", "temperament": "Nurturing, compassionate, journeying"},
+    "Ashwini": {
+        "animal": "Horse (male)",
+        "guna": "Sattvic",
+        "temperament": "Swift, healing, initiating",
+    },
+    "Bharani": {
+        "animal": "Elephant (male)",
+        "guna": "Rajasic",
+        "temperament": "Intense, transformative, creative",
+    },
+    "Krittika": {
+        "animal": "Sheep (female)",
+        "guna": "Rajasic",
+        "temperament": "Sharp, fiery, purifying",
+    },
+    "Rohini": {
+        "animal": "Serpent (male)",
+        "guna": "Rajasic",
+        "temperament": "Creative, nurturing, fertile",
+    },
+    "Mrigashira": {
+        "animal": "Serpent (female)",
+        "guna": "Sattvic",
+        "temperament": "Searching, gentle, curious",
+    },
+    "Ardra": {
+        "animal": "Dog (female)",
+        "guna": "Tamasic",
+        "temperament": "Stormy, passionate, transformative",
+    },
+    "Punarvasu": {
+        "animal": "Cat (female)",
+        "guna": "Sattvic",
+        "temperament": "Renewal, optimistic, returning",
+    },
+    "Pushya": {
+        "animal": "Goat (male)",
+        "guna": "Sattvic",
+        "temperament": "Nourishing, protective, generous",
+    },
+    "Ashlesha": {
+        "animal": "Cat (male)",
+        "guna": "Tamasic",
+        "temperament": "Cunning, wise, serpentine",
+    },
+    "Magha": {
+        "animal": "Rat (male)",
+        "guna": "Tamasic",
+        "temperament": "Regal, ancestral, proud",
+    },
+    "Purva Phalguni": {
+        "animal": "Rat (female)",
+        "guna": "Rajasic",
+        "temperament": "Romantic, creative, pleasure-seeking",
+    },
+    "Uttara Phalguni": {
+        "animal": "Cow (male)",
+        "guna": "Rajasic",
+        "temperament": "Stable, contractual, reliable",
+    },
+    "Hasta": {
+        "animal": "Buffalo (female)",
+        "guna": "Sattvic",
+        "temperament": "Skillful, dexterous, crafty",
+    },
+    "Chitra": {
+        "animal": "Tiger (female)",
+        "guna": "Rajasic",
+        "temperament": "Artistic, brilliant, charismatic",
+    },
+    "Swati": {
+        "animal": "Buffalo (male)",
+        "guna": "Sattvic",
+        "temperament": "Independent, flexible, scattered",
+    },
+    "Vishakha": {
+        "animal": "Tiger (male)",
+        "guna": "Rajasic",
+        "temperament": "Determined, competitive, goal-driven",
+    },
+    "Anuradha": {
+        "animal": "Deer (female)",
+        "guna": "Sattvic",
+        "temperament": "Devoted, friendly, successful",
+    },
+    "Jyeshtha": {
+        "animal": "Deer (male)",
+        "guna": "Tamasic",
+        "temperament": "Senior, authoritative, protective",
+    },
+    "Mula": {
+        "animal": "Dog (male)",
+        "guna": "Tamasic",
+        "temperament": "Investigative, destructive, rooted",
+    },
+    "Purva Ashadha": {
+        "animal": "Monkey (male)",
+        "guna": "Rajasic",
+        "temperament": "Victorious, influential, invigorating",
+    },
+    "Uttara Ashadha": {
+        "animal": "Mongoose (male)",
+        "guna": "Sattvic",
+        "temperament": "Enduring, universal, righteous",
+    },
+    "Shravana": {
+        "animal": "Monkey (female)",
+        "guna": "Sattvic",
+        "temperament": "Learned, listening, connected",
+    },
+    "Dhanishta": {
+        "animal": "Lion (female)",
+        "guna": "Rajasic",
+        "temperament": "Musical, wealthy, ambitious",
+    },
+    "Shatabhisha": {
+        "animal": "Horse (female)",
+        "guna": "Tamasic",
+        "temperament": "Healing, secretive, philosophical",
+    },
+    "Purva Bhadrapada": {
+        "animal": "Lion (male)",
+        "guna": "Rajasic",
+        "temperament": "Spiritual, eccentric, fiery",
+    },
+    "Uttara Bhadrapada": {
+        "animal": "Cow (female)",
+        "guna": "Sattvic",
+        "temperament": "Grounded, deep, watery",
+    },
+    "Revati": {
+        "animal": "Elephant (female)",
+        "guna": "Sattvic",
+        "temperament": "Nurturing, compassionate, journeying",
+    },
 }
+
 
 def get_nakshatra_lord(nakshatra):
     """Return the planet code ruling the given nakshatra."""
@@ -86,9 +241,11 @@ def get_nakshatra_lord(nakshatra):
     except ValueError:
         return ""
 
+
 def get_nakshatra_deity(nakshatra):
     """Return the deity associated with a nakshatra."""
     return NAKSHATRA_DEITIES.get(nakshatra, "Unknown")
+
 
 def get_nakshatra_meaning(nakshatra, planet):
     """Return spouse-related meaning for a given nakshatra, enriched with animal symbol and guna."""

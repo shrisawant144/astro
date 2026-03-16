@@ -63,7 +63,8 @@ def check_neecha_bhanga(planet_code, planet_data, house_planets, lagna_idx, moon
 
     def planet_aspects_house(aspecting_code, aspecting_house, target_house):
         """Return True if aspecting planet (from its house) aspects the target house.
-        All planets have 7th aspect. Mars also 4th & 8th. Jupiter 5th & 9th. Saturn 3rd & 10th."""
+        All planets have 7th aspect. Mars also 4th & 8th. Jupiter 5th & 9th. Saturn 3rd & 10th.
+        """
         if aspecting_house is None or target_house is None:
             return False
         diff = (target_house - aspecting_house) % 12

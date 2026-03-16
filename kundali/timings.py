@@ -92,9 +92,7 @@ def generate_timings(result, birth_year, birth_jd):
             status = (
                 "[PAST]"
                 if md_end_y < current_year
-                else "[NOW]"
-                if md_start_y <= current_year <= md_end_y
-                else "[FUTURE]"
+                else "[NOW]" if md_start_y <= current_year <= md_end_y else "[FUTURE]"
             )
             # Calculate age at period start
             start_age = md_start_y - birth_year
@@ -124,9 +122,11 @@ def generate_timings(result, birth_year, birth_jd):
                         ad_status = (
                             "[PAST]"
                             if ad_end_y < current_year
-                            else "[NOW]"
-                            if ad_start_y <= current_year <= ad_end_y
-                            else "[FUTURE]"
+                            else (
+                                "[NOW]"
+                                if ad_start_y <= current_year <= ad_end_y
+                                else "[FUTURE]"
+                            )
                         )
                         # Calculate age for this period
                         ad_age_str = (
@@ -164,9 +164,11 @@ def generate_timings(result, birth_year, birth_jd):
         output[event] = (
             sorted(
                 periods,
-                key=lambda x: int(re.search(r"\((\d{4})", x).group(1))
-                if re.search(r"\((\d{4})", x)
-                else 0,
+                key=lambda x: (
+                    int(re.search(r"\((\d{4})", x).group(1))
+                    if re.search(r"\((\d{4})", x)
+                    else 0
+                ),
             )[:20]
             if periods
             else []
