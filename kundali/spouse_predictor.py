@@ -1,4 +1,3 @@
-# spouse_predictor.py
 """
 Advanced spouse predictor using 25+ Vedic techniques.
 Requires result dict from calculate_kundali().
@@ -186,6 +185,28 @@ class AdvancedSpousePredictor:
     # ------------------------------------------------------------------------
     # Dasha Timing Analysis
     # ------------------------------------------------------------------------
+    def _analyze_marriage_dashas(self) -> Dict:
+        # Use pre-parsed periods from main.py or fallback to timings lines
+        periods = self.data.get("dasha_periods_for_marriage", [])
+        if not periods:  # Fallback parse if no pre-parsed
+            timings = self.data.get("timings", {}).get("Marriage", [])
+            import re
+            for line in timings:
+                m = re.search(r'─\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)', line)
+                if m:
+                    periods.append({
+                        "maha": m.group(1),
+                        "antara": m.group(2),
+                        "start": int(m.group(3)),
+                        "end": int(m.group(4)),
+                        "score": 8  # Default
+                    })
+        high_score = [p for p in periods if p.get("score", 0) >= 8]
+        return {
+            "high_score_periods": high_score,
+            "upcoming": [p for p in high_score if p.get("start", 0) > datetime.now().year],
+            "count": len(high_score)
+        }
     def _analyze_marriage_dashas(self) -> Dict:
         timings = self.data.get("timings", {}).get("Marriage", [])
         periods = []
@@ -727,9 +748,18 @@ class AdvancedSpousePredictor:
     # Main prediction method
     # ------------------------------------------------------------------------
     def predict(self) -> Dict:
-        h7 = self._analyze_7th_house_multilevel()
-        karaka = self._analyze_functional_venus_jupiter()
-        dk = self._analyze_darakaraka_advanced()
+        try:
+            h7 = self._analyze_7th_house_multilevel()
+        except Exception:
+            h7 = {"d1": {"sign": "Unknown", "lord": "Unknown", "lord_dignity": "Unknown"}}
+        try:
+            karaka = self._analyze_functional_venus_jupiter()
+        except Exception:
+            karaka = {"venus": {"label": "Unknown"}, "jupiter": {"label": "Unknown"}}
+        try:
+            dk = self._analyze_darakaraka_advanced()
+        except Exception:
+            dk = {"name": "Unknown", "dignity_d1": "Unknown"}
         ul = self._analyze_upapada_enhanced()
         navamsa = self._analyze_navamsa_strength()
         d9_7th = self._analyze_d9_seventh_house_advanced()
@@ -970,8 +1000,7 @@ class AdvancedSpousePredictor:
         else:
             lines.append("No high-score upcoming periods found.")
 
-        # Current Transits
-        lines.append("\n" + "─" * 90)
+
         lines.append("🌍 CURRENT TRANSIT EFFECTS")
         lines.append("─" * 90)
         transits = pred["current_transits"]

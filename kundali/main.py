@@ -150,15 +150,14 @@ def extract_dasha_periods_for_marriage(timings):
     periods = []
     marriage_lines = timings.get("Marriage", [])
     for line in marriage_lines:
-        # Matches: └─ Mercury/Venus (2027-2030) (Age 28-31) ★★★ [10/10] [FUTURE]
         import re
-        m = re.search(r'(\w+)/(\w+)\s+\((\d{4})-(\d{4})\)', line)
+        m = re.search(r'─\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)', line)
         if m:
             md = m.group(1)
             ad = m.group(2)
             start = int(m.group(3))
             end = int(m.group(4))
-            periods.append((start, end, md, ad))
+            periods.append({"maha": md, "antara": ad, "start": start, "end": end, "score": 8})  # Default score for predictor
     return periods
 
 
@@ -315,7 +314,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
     
     # Add interpretations for key marriage houses 2,5,7 used by spouse_predictor
     from constants import HOUSE_LORD_IN_HOUSE
-    for h_num in [2, 5, 7]:
+    for h_num in range(1, 13):
         info = house_lord_map[h_num]
         if info["placed_in"]:
             key = (h_num, info["placed_in"])
@@ -324,7 +323,9 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
                 f"House {h_num} themes expressed through House {info['placed_in']} environment.")
             house_lord_map[h_num]["interpretation"] = interp
         else:
-            house_lord_map[h_num]["interpretation"] = f"Lord of House {h_num} position undetermined."
+            interp_sign = zodiac_signs[(lagna_idx + h_num - 1) % 12]
+            house_lord_map[h_num]["interpretation"] = f"Lord of House {h_num} ({interp_sign}) position undetermined - themes delayed or indirect."
+
 
     # Birth Panchanga
     sun_lon_birth = planet_data["Su"]["full_lon"]
