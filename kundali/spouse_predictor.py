@@ -339,7 +339,14 @@ def find_marriage_date(
         # Dasha match
         dasha_ok = False
         matching_period, dasha_score = None, 0
-        for start, end, md, ad in kundali["dasha_periods"]:
+        for period in kundali["dasha_periods"]:
+            if isinstance(period, dict):
+                start = period["start"]
+                end = period["end"]
+                md = period["maha"]
+                ad = period["antara"]
+            else:
+                start, end, md, ad = period
             if start <= year <= end and ad in significators_ad:
                 dasha_ok = True
                 matching_period = f"{md}/{ad} ({start}-{end})"
@@ -485,12 +492,122 @@ class AdvancedSpousePredictor:
             else 0
         )
 
+        # Jaimini data (if available)
+        self.jaimini = self.data.get("jaimini", {})
+        self.atmakaraka = self.jaimini.get("atmakaraka")
+        self.karakamsa_lagna = self.jaimini.get("karakamsa_lagna")
+
         # Confidence tracking
         self.confidence_factors = []
 
     # ------------------------------------------------------------------------
     # Core House Analysis
     # ------------------------------------------------------------------------
+    def _analyze_atmakaraka_for_spouse(self) -> Dict:
+        """Analyze Atmakaraka (soul's significator) and its D9 position."""
+        if not self.atmakaraka:
+            return {"error": "Atmakaraka not available"}
+
+        d9 = self.data.get("navamsa", {})
+        ak = self.atmakaraka
+        ak_full = SHORT_TO_FULL.get(ak, ak)
+
+        # D9 sign of Atmakaraka
+        ak_d9_sign = d9.get(ak, {}).get("sign", "Unknown") if ak in d9 else "Unknown"
+        ak_d9_dignity = get_dignity(ak, ak_d9_sign) if ak_d9_sign != "Unknown" else ""
+
+        # Relationship to 7th house in D9
+        d9_7th_house_idx = (self.d9_lagna_idx + 6) % 12
+        d9_7th_sign = ZODIAC_SIGNS[d9_7th_house_idx]
+        ak_in_7th_d9 = ak_d9_sign == d9_7th_sign
+
+        interpretation = []
+        if ak_in_7th_d9:
+            interpretation.append(
+                f"Your Atmakaraka {ak_full} is in the 7th house of D9 – your spouse is deeply connected to your soul's purpose. Marriage is karmic and transformative."
+            )
+            self.confidence_factors.append("Atmakaraka in D9 7th – soulmate connection")
+        else:
+            interpretation.append(
+                f"Your Atmakaraka {ak_full} resides in {ak_d9_sign} in D9. Your spouse will help you grow in areas ruled by this sign."
+            )
+
+        # Dignity remark
+        if ak_d9_dignity in ("Exalt", "Own"):
+            interpretation.append(
+                f"Atmakaraka is {ak_d9_dignity} in D9 – your soul's strength is well‑supported; marriage will be a source of spiritual growth."
+            )
+            self.confidence_factors.append(f"Atmakaraka {ak_d9_dignity} in D9")
+        elif ak_d9_dignity == "Debilitated":
+            interpretation.append(
+                f"Atmakaraka is debilitated in D9 – you may need to work through karmic challenges in marriage, but overcoming them brings great wisdom."
+            )
+
+        return {
+            "atmakaraka": ak,
+            "atmakaraka_full": ak_full,
+            "d9_sign": ak_d9_sign,
+            "d9_dignity": ak_d9_dignity,
+            "in_7th_d9": ak_in_7th_d9,
+            "interpretation": " ".join(interpretation),
+        }
+
+    def _analyze_karakamsa_lagna(self) -> Dict:
+        """Analyze Karakamsa Lagna (sign of Atmakaraka in D9)."""
+        if not self.karakamsa_lagna:
+            return {"error": "Karakamsa Lagna not available"}
+
+        kl = self.karakamsa_lagna
+        kl_idx = ZODIAC_SIGNS.index(kl) if kl in ZODIAC_SIGNS else -1
+        d9 = self.data.get("navamsa", {})
+
+        # 7th house from Karakamsa Lagna in D9
+        if kl_idx != -1:
+            kl_7th_idx = (kl_idx + 6) % 12
+            kl_7th_sign = ZODIAC_SIGNS[kl_7th_idx]
+        else:
+            kl_7th_sign = "Unknown"
+
+        # Planets in Karakamsa Lagna or its 7th in D9
+        planets_in_kl = []
+        planets_in_kl_7th = []
+        for pl, data in d9.items():
+            sign = data.get("sign", "")
+            if sign == kl:
+                planets_in_kl.append(pl)
+            if sign == kl_7th_sign:
+                planets_in_kl_7th.append(pl)
+
+        # Interpretation
+        lines = []
+        lines.append(
+            f"Karakamsa Lagna = {kl} – the sign of your soul's ultimate focus."
+        )
+        lines.append(
+            f"Its 7th house (spouse) in D9 is {kl_7th_sign}. Planets here colour the spouse's role in your spiritual evolution."
+        )
+        if planets_in_kl_7th:
+            pl_names = [SHORT_TO_FULL.get(p, p) for p in planets_in_kl_7th]
+            lines.append(
+                f"✨ Planets in Karakamsa 7th: {', '.join(pl_names)} – they strongly influence your marriage at the soul level."
+            )
+            self.confidence_factors.append(
+                f"Planets in Karakamsa 7th: {', '.join(pl_names)}"
+            )
+        if planets_in_kl:
+            pl_names = [SHORT_TO_FULL.get(p, p) for p in planets_in_kl]
+            lines.append(
+                f"Planets conjunct Karakamsa Lagna: {', '.join(pl_names)} – they amplify the soul's mission and may manifest through the spouse."
+            )
+
+        return {
+            "karakamsa_lagna": kl,
+            "kl_7th_sign": kl_7th_sign,
+            "planets_in_kl": planets_in_kl,
+            "planets_in_kl_7th": planets_in_kl_7th,
+            "interpretation": "\n      ".join(lines),
+        }
+
     def _analyze_7th_house_multilevel(self) -> Dict:
         h7_idx = (self.lagna_idx + 6) % 12
         h7_sign = ZODIAC_SIGNS[h7_idx]
@@ -669,31 +786,6 @@ class AdvancedSpousePredictor:
             "upcoming": [
                 p for p in high_score if p.get("start", 0) > datetime.now().year
             ],
-            "count": len(high_score),
-        }
-
-    def _analyze_marriage_dashas(self) -> Dict:
-        timings = self.data.get("timings", {}).get("Marriage", [])
-        periods = []
-        for line in timings:
-            # Parse line like: " └─ Mercury/Venus (2027-2030) (Age 28-31) ★★★ [10/10] [FUTURE]"
-            import re
-
-            m = re.search(r"(\w+)/(\w+)\s+\((\d+)-(\d+)\).*?★.*?\[(\d+)/10\]", line)
-            if m:
-                periods.append(
-                    {
-                        "maha": m.group(1),
-                        "antara": m.group(2),
-                        "start": int(m.group(3)),
-                        "end": int(m.group(4)),
-                        "score": int(m.group(5)),
-                    }
-                )
-        high_score = [p for p in periods if p["score"] >= 8]
-        return {
-            "high_score_periods": high_score,
-            "upcoming": [p for p in high_score if p["start"] > datetime.now().year],
             "count": len(high_score),
         }
 
@@ -1318,6 +1410,10 @@ class AdvancedSpousePredictor:
         graha_yuddha = self._detect_planetary_war()
         integrity_summary = self._summarize_integrity()
 
+        # NEW: Atmakaraka & Karakamsa
+        atmakaraka_analysis = self._analyze_atmakaraka_for_spouse()
+        karakamsa_analysis = self._analyze_karakamsa_lagna()
+
         return {
             "spouse_profile": self._consolidate_profile(h7, karaka, dk),
             "appearance": appearance,
@@ -1342,6 +1438,8 @@ class AdvancedSpousePredictor:
             "integrity_summary": integrity_summary,
             "nakshatra_insights": nakshatra,
             "graha_yuddha": graha_yuddha,
+            "atmakaraka_analysis": atmakaraka_analysis,  # new
+            "karakamsa_analysis": karakamsa_analysis,  # new
             "confidence_factors": self.confidence_factors,
             "confidence_score": self._calculate_confidence(),
         }
@@ -1405,6 +1503,26 @@ class AdvancedSpousePredictor:
         lines.append(f"DK in D9 {dk['d9_house']}th house: {dk['d9_house_meaning']}")
         lines.append(f"Integrity Score: {dk['integrity']}%")
         lines.append(f"Functional Nature: {dk['functional']}")
+
+        # NEW: Atmakaraka Analysis
+        lines.append("\n" + "─" * 90)
+        lines.append("🔮 ATMAKARAKA FOR SPOUSE (Soul Connection)")
+        lines.append("─" * 90)
+        ak_analysis = pred["atmakaraka_analysis"]
+        if "error" not in ak_analysis:
+            lines.append(ak_analysis["interpretation"])
+        else:
+            lines.append(f"Note: {ak_analysis.get('error', 'Data unavailable')}")
+
+        # NEW: Karakamsa Lagna
+        lines.append("\n" + "─" * 90)
+        lines.append("🌌 KARAKAMSA LAGNA (Soul Marriage)")
+        lines.append("─" * 90)
+        kl_analysis = pred["karakamsa_analysis"]
+        if "error" not in kl_analysis:
+            lines.append(kl_analysis["interpretation"])
+        else:
+            lines.append(f"Note: {kl_analysis.get('error', 'Data unavailable')}")
 
         # Personality & Appearance
         lines.append("\n" + "─" * 90)

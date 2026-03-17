@@ -15,39 +15,61 @@ from timezonefinder import TimezoneFinder
 
 # Import all modules
 from constants import (
-    zodiac_signs, planets, sign_lords, short_to_full, dasha_lords,
-    dasha_periods, nakshatra_lord_index, COMBUSTION_ORBS, NEECHA_BHANGA_INFO,
-    FUNCTIONAL_QUALITY, NATURAL_BENEFICS, NATURAL_MALEFICS, HOUSE_SIGNIFICATIONS,
-    ASHTAKAVARGA_REKHAS, DIGNITY_SIGNS, CHART_WEIGHTS,
-    AYANAMSA_OPTIONS, DEFAULT_AYANAMSA
+    zodiac_signs,
+    planets,
+    sign_lords,
+    short_to_full,
+    dasha_lords,
+    dasha_periods,
+    nakshatra_lord_index,
+    COMBUSTION_ORBS,
+    NEECHA_BHANGA_INFO,
+    FUNCTIONAL_QUALITY,
+    NATURAL_BENEFICS,
+    NATURAL_MALEFICS,
+    HOUSE_SIGNIFICATIONS,
+    ASHTAKAVARGA_REKHAS,
+    DIGNITY_SIGNS,
+    CHART_WEIGHTS,
+    AYANAMSA_OPTIONS,
+    DEFAULT_AYANAMSA,
 )
 from utils import (
-    get_sign, get_nakshatra, get_nakshatra_progress, get_dignity,
-    get_lat_lon, is_retrograde, get_house_from_sign, datetime_to_jd,
-    check_combustion, get_panchanga, get_sade_sati_status,
-    get_navamsa_sign_and_deg, get_d7_sign_and_deg, get_d10_sign_and_deg,
-    get_d60_sign_and_deg
-)
-from utils import (
-    get_sign, get_nakshatra, get_nakshatra_progress, get_dignity,
-    get_lat_lon, is_retrograde, get_house_from_sign, datetime_to_jd,
-    check_combustion, get_panchanga, get_sade_sati_status,
-    get_navamsa_sign_and_deg, get_d7_sign_and_deg, get_d10_sign_and_deg,
-    get_d2_sign_and_deg, get_d60_sign_and_deg
+    get_sign,
+    get_nakshatra,
+    get_nakshatra_progress,
+    get_dignity,
+    get_lat_lon,
+    is_retrograde,
+    get_house_from_sign,
+    datetime_to_jd,
+    check_combustion,
+    get_panchanga,
+    get_sade_sati_status,
+    get_navamsa_sign_and_deg,
+    get_d7_sign_and_deg,
+    get_d10_sign_and_deg,
+    get_d60_sign_and_deg,
 )
 from neecha_bhanga import check_neecha_bhanga
 from yoga_detection import detect_yogas
 from dosha_detection import detect_problems
 from dasha import (
-    calculate_vimshottari_dasha, calculate_antardashas,
-    find_current_dasha, get_current_pratyantar
+    calculate_vimshottari_dasha,
+    calculate_antardashas,
+    find_current_dasha,
+    get_current_pratyantar,
 )
 from marriage_scoring import calculate_marriage_score
 from timings import generate_timings
 from ashtakavarga import calculate_ashtakavarga
 from interpretations import (
-    interpret_aspects, interpret_navamsa, interpret_d7, interpret_d10,
-    calculate_functional_strength_index, get_aspect_quality_score
+    interpret_aspects,
+    interpret_navamsa,
+    interpret_d7,
+    interpret_d10,
+    calculate_functional_strength_index,
+    get_aspect_quality_score,
 )
 from printing import print_kundali
 
@@ -58,7 +80,9 @@ from printing import print_kundali
 _EPHE_DIR = os.path.dirname(os.path.abspath(__file__)) or "."
 swe.set_ephe_path(_EPHE_DIR)
 _REQUIRED_FILES = ["sepl_18.se1", "semo_18.se1"]
-_missing = [f for f in _REQUIRED_FILES if not os.path.isfile(os.path.join(_EPHE_DIR, f))]
+_missing = [
+    f for f in _REQUIRED_FILES if not os.path.isfile(os.path.join(_EPHE_DIR, f))
+]
 if _missing:
     warnings.warn(
         f"Swiss Ephemeris data files missing from '{_EPHE_DIR}': {', '.join(_missing)}. "
@@ -160,17 +184,22 @@ def extract_dasha_periods_for_marriage(timings):
     marriage_lines = timings.get("Marriage", [])
     for line in marriage_lines:
         import re
-        m = re.search(r'─\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)', line)
+
+        m = re.search(r"─\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)", line)
         if m:
             md = m.group(1)
             ad = m.group(2)
             start = int(m.group(3))
             end = int(m.group(4))
-            periods.append({"maha": md, "antara": ad, "start": start, "end": end, "score": 8})  # Default score for predictor
+            periods.append(
+                {"maha": md, "antara": ad, "start": start, "end": end, "score": 8}
+            )  # Default score for predictor
     return periods
 
 
-def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayanamsa_name=DEFAULT_AYANAMSA):
+def calculate_kundali(
+    birth_date_str, birth_time_str, place, gender="Male", ayanamsa_name=DEFAULT_AYANAMSA
+):
     """
     Calculate the complete Vedic kundali for given birth details.
 
@@ -201,7 +230,6 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
     # Set ayanamsa
     ayanamsa_code = AYANAMSA_OPTIONS.get(ayanamsa_name, swe.SIDM_LAHIRI)
     swe.set_sid_mode(ayanamsa_code)
-
 
     # Houses & Lagna
     house_data = swe.houses_ex(birth_jd, lat, lon, b"W", swe.FLG_SIDEREAL)
@@ -275,7 +303,9 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
     for code in list(planet_data.keys()):
         if code in ("Su", "Ra", "Ke"):
             continue
-        nb = check_neecha_bhanga(code, planet_data, house_planets, lagna_idx, moon_house_nb)
+        nb = check_neecha_bhanga(
+            code, planet_data, house_planets, lagna_idx, moon_house_nb
+        )
         planet_data[code]["neecha_bhanga"] = nb
         if nb:
             neecha_bhanga_planets.append(code)
@@ -314,7 +344,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
     seventh_sign = zodiac_signs[seventh_idx]
     seventh_lord = sign_lords[seventh_sign]
 
-# House Lord Placements
+    # House Lord Placements
     house_lord_map = {}  # house_num → (lord_code, lord_in_house)
     for h_num in range(1, 13):
         h_sign = zodiac_signs[(lagna_idx + h_num - 1) % 12]
@@ -326,21 +356,25 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
                 lord_in_house = ph
                 break
         house_lord_map[h_num] = {"lord": h_lord, "placed_in": lord_in_house}
-    
+
     # Add interpretations for key marriage houses 2,5,7 used by spouse_predictor
     from constants import HOUSE_LORD_IN_HOUSE
+
     for h_num in range(1, 13):
         info = house_lord_map[h_num]
         if info["placed_in"]:
             key = (h_num, info["placed_in"])
-            interp = HOUSE_LORD_IN_HOUSE.get(key, 
+            interp = HOUSE_LORD_IN_HOUSE.get(
+                key,
                 f"Lord of House {h_num} ({zodiac_signs[(lagna_idx + h_num - 1) % 12]}) placed in House {info['placed_in']}: "
-                f"House {h_num} themes expressed through House {info['placed_in']} environment.")
+                f"House {h_num} themes expressed through House {info['placed_in']} environment.",
+            )
             house_lord_map[h_num]["interpretation"] = interp
         else:
             interp_sign = zodiac_signs[(lagna_idx + h_num - 1) % 12]
-            house_lord_map[h_num]["interpretation"] = f"Lord of House {h_num} ({interp_sign}) position undetermined - themes delayed or indirect."
-
+            house_lord_map[h_num][
+                "interpretation"
+            ] = f"Lord of House {h_num} ({interp_sign}) position undetermined - themes delayed or indirect."
 
     # Birth Panchanga
     sun_lon_birth = planet_data["Su"]["full_lon"]
@@ -354,7 +388,9 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
         elif code == "Ke":
             p_lon = ke_lon
         else:
-            p_lon = (zodiac_signs.index(planet_data[code]["sign"]) * 30) + planet_data[code]["deg"]
+            p_lon = (zodiac_signs.index(planet_data[code]["sign"]) * 30) + planet_data[
+                code
+            ]["deg"]
         ns, nd = get_navamsa_sign_and_deg(p_lon)
         d7s, d7d = get_d7_sign_and_deg(p_lon)
         d10s, d10d = get_d10_sign_and_deg(p_lon)
@@ -383,7 +419,9 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
 
     # Aspects
     aspects = {h: [] for h in range(1, 13)}
-    planet_houses = {p: h for h, plist in house_planets.items() for p in plist if p != "Asc"}
+    planet_houses = {
+        p: h for h, plist in house_planets.items() for p in plist if p != "Asc"
+    }
     for planet, ph in planet_houses.items():
         aspect_h = ((ph - 1 + 6) % 12) + 1
         aspects[aspect_h].append(f"{planet}-7th")
@@ -403,6 +441,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
 
     # Transits
     from constants import gochara_effects
+
     transits = {}
     for pcode, pid in planets.items():
         lon = swe.calc_ut(current_jd, pid, swe.FLG_SIDEREAL)[0][0]
@@ -433,7 +472,9 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
 
     # Sade Sati / Dhaiya
     sa_transit_sign = transits.get("Sa", {}).get("sign", None)
-    sade_sati_status = get_sade_sati_status(moon_sign, sa_transit_sign) if sa_transit_sign else None
+    sade_sati_status = (
+        get_sade_sati_status(moon_sign, sa_transit_sign) if sa_transit_sign else None
+    )
 
     # Build result dictionary
     result = {
@@ -467,7 +508,8 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
         },
         "d60": {
             p: {"sign": d["d60_sign"], "deg": d["d60_deg"]}
-            for p, d in planet_data.items() if "d60_sign" in d
+            for p, d in planet_data.items()
+            if "d60_sign" in d
         },
         "transits": transits,
         "birth_year": y,
@@ -490,6 +532,21 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
         "neecha_bhanga_planets": neecha_bhanga_planets,
     }
 
+    # Jaimini Charakaraka (moved here after result dict exists)
+    from jaimini import calculate_charakaraka, get_karakamsa_lagna
+
+    charakaraka = calculate_charakaraka(planet_data, result["navamsa"])
+    atmakaraka = charakaraka.get("Atmakaraka")
+    karakamsa_lagna = (
+        get_karakamsa_lagna(atmakaraka, result["navamsa"]) if atmakaraka else None
+    )
+
+    result["jaimini"] = {
+        "charakaraka": charakaraka,
+        "atmakaraka": atmakaraka,
+        "karakamsa_lagna": karakamsa_lagna,
+    }
+
     # Add yogas, timings, problems, and ashtakavarga
     result["yogas"] = detect_yogas(result)
     result["timings"] = generate_timings(result, y, birth_jd)
@@ -499,7 +556,9 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayan
     # Additional fields for spouse predictor
     result["functional_nature"] = calculate_functional_nature(result)
     result["integrity"] = calculate_integrity_index(result)
-    result["dasha_periods_for_marriage"] = extract_dasha_periods_for_marriage(result["timings"])
+    result["dasha_periods_for_marriage"] = extract_dasha_periods_for_marriage(
+        result["timings"]
+    )
     result["lord7_full"] = short_to_full.get(seventh_lord, seventh_lord)
     # Planets with full names and longitudes for marriage date prediction
     result["planets_full_long"] = {}
@@ -555,13 +614,18 @@ def generate_final_analysis(result):
         if _periods:
             first_event = _event
             import re
-            _m = re.search(r'\((\d{4}-\d{4})\)', _periods[0])
+
+            _m = re.search(r"\((\d{4}-\d{4})\)", _periods[0])
             first_range = _m.group(1) if _m else "upcoming years"
             break
 
     # --- Dynamic: current dasha description ---
-    current_md_full = short_to_full.get(current_md, current_md) if current_md else "Unknown"
-    current_ad_full = short_to_full.get(current_ad, current_ad) if current_ad else "Unknown"
+    current_md_full = (
+        short_to_full.get(current_md, current_md) if current_md else "Unknown"
+    )
+    current_ad_full = (
+        short_to_full.get(current_ad, current_ad) if current_ad else "Unknown"
+    )
     dasha_desc = f"{current_md_full}/{current_ad_full} Antardasha"
 
     # --- Dynamic: planet qualities for current MD ---
@@ -576,7 +640,9 @@ def generate_final_analysis(result):
         "Rahu": "ambition, foreign exposure, and unconventional paths open",
         "Ketu": "detachment, spirituality, and past-karma resolution dominate",
     }
-    md_quality = md_qualities.get(current_md_full, "the dasha lord's significations are active")
+    md_quality = md_qualities.get(
+        current_md_full, "the dasha lord's significations are active"
+    )
 
     # --- Build analysis ---
     analysis = "### Final Analysis: Overall Chart Balance, Active Doshas, and Direct Life Outcomes\n"
@@ -631,8 +697,10 @@ def main():
         date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
         time_str = input("Birth Time (HH:MM 24h) : ").strip()
         place = input("Birth Place (City, Country) : ").strip()
-        
-        print("\nAyanamsa options: Lahiri, Raman, KP (Krishnamurti), True Chitra, Yukteshwar, Djwhal Khul")
+
+        print(
+            "\nAyanamsa options: Lahiri, Raman, KP (Krishnamurti), True Chitra, Yukteshwar, Djwhal Khul"
+        )
         ayanamsa_choice = input("Choose ayanamsa (default Lahiri): ").strip()
         if not ayanamsa_choice:
             ayanamsa_choice = "Lahiri"
@@ -641,9 +709,12 @@ def main():
             print("Invalid choice, using Lahiri.")
             ayanamsa_choice = "Lahiri"
         try:
-            result = calculate_kundali(date_str, time_str, place, gender=gender, ayanamsa_name=ayanamsa_choice)
+            result = calculate_kundali(
+                date_str, time_str, place, gender=gender, ayanamsa_name=ayanamsa_choice
+            )
             result["name"] = name  # Store name in result
             import os
+
             outputs_dir = os.path.join(os.path.dirname(__file__), "outputs")
             os.makedirs(outputs_dir, exist_ok=True)
             filename = os.path.join(outputs_dir, f"{name}_kundali_report.txt")
@@ -653,43 +724,55 @@ def main():
 
             # Full spouse + marriage date prediction
             from datetime import datetime as dt
+
             try:
-                from spouse_predictor import AdvancedSpousePredictor, extract_marriage_data, find_marriage_date
-                
+                from spouse_predictor import (
+                    AdvancedSpousePredictor,
+                    extract_marriage_data,
+                    find_marriage_date,
+                )
+
                 # Spouse analysis
                 predictor = AdvancedSpousePredictor(result)
                 spouse_report = predictor.generate_report()
-                
+
                 # Marriage date prediction (Nadi method)
                 marriage_data = extract_marriage_data(result)
                 marriage_result = find_marriage_date(
-                    marriage_data, 
-                    gender=result["gender"].lower(), 
-                    show_all_periods=True
+                    marriage_data,
+                    gender=result["gender"].lower(),
+                    show_all_periods=True,
                 )
-                
+
                 # Combine reports
                 spouse_report += f"\n\n{'='*90}"
                 spouse_report += f"\n📅 MARRIAGE DATE PREDICTION (ENHANCED NADI METHOD)"
                 spouse_report += f"\n{'='*90}"
                 spouse_report += f"\nMethod: Jupiter progression + Real transits + Dasha + Moon triggers"
                 spouse_report += f"\n{marriage_result}"
-                spouse_report += f"\n\n📅 Birth Date: {result.get('birth_date', 'Unknown')}"
-                spouse_report += f"\n⏰ Generated: {dt.now().strftime('%Y-%m-%d %H:%M')}"
+                spouse_report += (
+                    f"\n\n📅 Birth Date: {result.get('birth_date', 'Unknown')}"
+                )
+                spouse_report += (
+                    f"\n⏰ Generated: {dt.now().strftime('%Y-%m-%d %H:%M')}"
+                )
                 spouse_report += f"\n{'='*90}"
-                
+
                 # Match outer filename pattern: input_basename.replace(".txt", "_spouse_prediction.txt")
                 # Since we generate {name}_kundali_report.txt first:
                 report_base = f"{name}_kundali_report"
-                spouse_filename = os.path.join(outputs_dir, f"{report_base}_spouse_prediction.txt")
-                
+                spouse_filename = os.path.join(
+                    outputs_dir, f"{report_base}_spouse_prediction.txt"
+                )
+
                 with open(spouse_filename, "w", encoding="utf-8") as f:
                     f.write(spouse_report)
                 print(f"Full spouse + marriage prediction saved as '{spouse_filename}'")
-                
+
             except Exception as e:
                 print(f"Spouse predictor error: {e}")
                 import traceback
+
                 traceback.print_exc()
                 print("Continuing with basic kundali report...")
 
