@@ -1,6 +1,7 @@
 # marriage_date_prediction.py
 """
 Nadi-style marriage date prediction using Jupiter progression, transits, and dasha.
+Enhanced with Panchanga-based day scoring.
 """
 
 import math
@@ -8,9 +9,16 @@ from datetime import datetime, timezone
 from math import floor
 from typing import Dict, List, Optional, Tuple
 
-from constants import SHORT_TO_FULL, ZODIAC_SIGNS, SIGN_LORDS
+from constants import (
+    SHORT_TO_FULL,
+    ZODIAC_SIGNS,
+    SIGN_LORDS,
+    MARRIAGE_AUSPICIOUS_TITHIS,
+    MARRIAGE_AUSPICIOUS_NAKSHATRAS,
+)
 from utils import (
     get_sign,
+    get_nakshatra,
     get_seventh_sign,
     signs_have_nadi_relation,
     get_progressed_jupiter_sign,
@@ -84,22 +92,10 @@ def get_moon_transit_days(year, month, seventh_sign, sig_sign, use_jpl=False):
     """
     Find days in the given month when Moon transits 7th sign or significator sign.
     Filters out Amavasya (new moon) and Ashtami (8th tithi) as inauspicious.
-    Favorable tithis: 2,3,5,7,10,11,13 (classical marriage tithis).
     Returns list of day numbers (1-31).
     """
     if not ASTROPY_AVAILABLE:
         return []
-
-    FAVORABLE_TITHIS = {
-        1,
-        2,
-        4,
-        6,
-        9,
-        10,
-        12,
-        14,
-    }  # 0-indexed (tithi 2,3,5,7,10,11,13,Purnima)
 
     favorable_days = []
     try:
@@ -158,6 +154,88 @@ def check_nadi_promise(planets, gender="male"):
         return f"★ DELAYED BUT ASSURED (Saturn in {sign_names[sat_sign]} relates to {sig_key}) - Late marriage but will happen"
     else:
         return f"⚠️ WEAK PROMISE (Neither Jupiter nor Saturn strongly relate to {sig_key}) - May face delays or challenges"
+
+
+def evaluate_marriage_date(date, natal_data, gender):
+    """
+    Score a specific date (datetime) for marriage suitability.
+    Returns a score 0-100 based on multiple Vedic factors.
+    """
+    score = 50  # baseline
+    factors = []
+
+    # --- Tithi ---
+    sun_lon = get_sidereal_lon("sun", date)
+    moon_lon = get_sidereal_lon("moon", date)
+    if sun_lon is not None and moon_lon is not None:
+        tithi_num = int(((moon_lon - sun_lon) % 360) / 12)
+        if tithi_num in MARRIAGE_AUSPICIOUS_TITHIS:
+            score += 15
+            factors.append("Auspicious tithi")
+        elif tithi_num in (4, 6, 9, 12):  # Chaturthi, Shashthi, Navami, Dwadashi are neutral
+            score += 5
+        else:
+            score -= 10  # e.g., Amavasya, Ashtami
+
+    # --- Nakshatra of Moon ---
+    if moon_lon is not None:
+        moon_nak = get_nakshatra(moon_lon)
+        if moon_nak in MARRIAGE_AUSPICIOUS_NAKSHATRAS:
+            score += 15
+            factors.append(f"Moon in {moon_nak}")
+        else:
+            # some nakshatras are mildly inauspicious
+            avoid = {"Bharani", "Krittika", "Ashlesha", "Magha", "Purva Phalguni",
+                     "Purva Ashadha", "Purva Bhadrapada", "Jyeshtha", "Mula"}
+            if moon_nak in avoid:
+                score -= 10
+
+    # --- Vara (day of week) ---
+    weekday = date.weekday()  # 0=Monday, 6=Sunday
+    if weekday in (0, 2, 3, 4):  # Monday, Wednesday, Thursday, Friday are good
+        score += 10
+        factors.append("Good weekday")
+    elif weekday in (5, 6):  # Saturday, Sunday – less ideal
+        score -= 5
+
+    # --- Yoga (using Panchanga) ---
+    if sun_lon is not None and moon_lon is not None:
+        yoga_idx = int((sun_lon + moon_lon) % 360 / (360 / 27)) % 27
+        # Auspicious yogas: Vriddhi, Dhruva, Harshana, Vajra, Siddhi, Shiva, Siddha, Shubha, Brahma, Mahendra
+        auspicious_yogas = {10, 11, 13, 14, 15, 19, 20, 22, 24, 25}  # 0-indexed
+        if yoga_idx in auspicious_yogas:
+            score += 10
+            factors.append("Auspicious yoga")
+
+    # --- Karana (half-tithi) ---
+    if sun_lon is not None and moon_lon is not None:
+        half_idx = int(((moon_lon - sun_lon) % 360) / 6)
+        # Avoid Vishti (Bhadra) which is index 6 in repeating cycle
+        if half_idx % 7 != 6:  # Vishti corresponds to 6 in 0-indexed repeating cycle
+            score += 5
+        else:
+            score -= 10
+
+    # --- Transiting Jupiter aspects ---
+    jup_lon = get_sidereal_lon("jupiter", date)
+    if jup_lon is not None:
+        jup_sign = get_sign(jup_lon)
+        # Check if Jupiter aspects 7th house from Lagna or Moon
+        lagna_sign = get_sign(natal_data["lagna"])
+        seventh_lagna_sign = (lagna_sign + 6) % 12
+        if jup_sign == seventh_lagna_sign or signs_have_nadi_relation(jup_sign, seventh_lagna_sign):
+            score += 15
+            factors.append("Jupiter aspects 7th house")
+
+    # --- Transiting Saturn aspects ---
+    sat_lon = get_sidereal_lon("saturn", date)
+    if sat_lon is not None:
+        sat_sign = get_sign(sat_lon)
+        if signs_have_nadi_relation(sat_sign, seventh_lagna_sign):
+            score += 10
+            factors.append("Saturn aspects 7th house")
+
+    return min(100, max(0, score)), factors
 
 
 def find_marriage_date(
@@ -228,11 +306,18 @@ def find_marriage_date(
         if future_only and year < today.year:
             continue
 
-        # Dasha check
+        # Dasha check – handle both tuple and dict formats
         dasha_ok = False
         matching_period = None
         dasha_score = 0
-        for start, end, md, ad in kundali.get("dasha_periods", []):
+        for period in kundali.get("dasha_periods", []):
+            if isinstance(period, dict):
+                start = period["start"]
+                end = period["end"]
+                md = period["maha"]
+                ad = period["antara"]
+            else:
+                start, end, md, ad = period
             if start <= year <= end and ad in significators_ad:
                 dasha_ok = True
                 matching_period = f"{md}/{ad} ({start}-{end})"
@@ -319,55 +404,48 @@ def find_marriage_date(
         if not probable_months:
             continue
 
-        # Moon transit days
-        all_favorable_dates = []
-        for pm in probable_months:
-            if use_real_transits and ASTROPY_AVAILABLE and seventh_sign is not None:
-                days = get_moon_transit_days(year, pm, seventh_sign, natal_sig_sign)
-                for d in days:
-                    all_favorable_dates.append((year, pm, d))
+        # ------------------------------------------------------------------
+        # New: evaluate each day in the candidate months and pick the best
+        # ------------------------------------------------------------------
+        best_score = -1
+        best_date = None
+        best_factors = []
+        for month in probable_months:
+            for day in range(1, 32):
+                try:
+                    check_date = datetime(year, month, day, 12, 0, tzinfo=timezone.utc)
+                    if future_only and check_date < datetime.now(timezone.utc):
+                        continue
+                    score, factors = evaluate_marriage_date(check_date, kundali, gender)
+                    if score > best_score:
+                        best_score = score
+                        best_date = check_date
+                        best_factors = factors
+                except ValueError:
+                    break  # invalid day (e.g., Feb 30)
 
-        # Choose best date
-        best_date_str = None
-        if all_favorable_dates:
-            peak_saturn_dates = [
-                (y, m, d)
-                for y, m, d in all_favorable_dates
-                if m in peak_months and m in saturn_months
-            ]
-            peak_dates = [
-                (y, m, d) for y, m, d in all_favorable_dates if m in peak_months
-            ]
-            saturn_dates = [
-                (y, m, d) for y, m, d in all_favorable_dates if m in saturn_months
-            ]
-
-            if peak_saturn_dates:
-                by, bm, bd = peak_saturn_dates[0]
-            elif peak_dates:
-                by, bm, bd = peak_dates[0]
-            elif saturn_dates:
-                by, bm, bd = saturn_dates[0]
-            else:
-                by, bm, bd = all_favorable_dates[0]
-            best_date_str = f"{by}-{bm:02d}-{bd:02d}"
+        if best_date:
+            best_date_str = best_date.strftime("%Y-%m-%d")
+            favorable_dates = [best_date_str]  # we only show the best
         else:
-            target_month = peak_months[0] if peak_months else probable_months[0]
-            best_date_str = f"{year}-{target_month:02d} (exact day needs Moon transit)"
+            best_date_str = f"{year}-{probable_months[0]:02d} (no ideal day found)"
+            favorable_dates = []
 
         has_saturn = any(m in saturn_months for m in probable_months)
 
-        if dasha_score >= 8 and has_saturn and all_favorable_dates:
+        # Adjust confidence based on score
+        if best_score >= 85:
             confidence = "VERY HIGH"
-        elif dasha_score >= 8 and (has_saturn or all_favorable_dates):
+        elif best_score >= 70:
             confidence = "HIGH"
-        elif dasha_score >= 7:
+        elif best_score >= 50:
             confidence = "MEDIUM"
         else:
             confidence = "MODERATE"
+        if has_saturn:
+            confidence += " [Saturn confirms]"
 
-        saturn_note = " [Saturn confirms]" if has_saturn else ""
-        date_strings = [f"{y}-{m:02d}-{d:02d}" for y, m, d in all_favorable_dates[:15]]
+        date_strings = [f"{y}-{m:02d}-{d:02d}" for y, m, d in favorable_dates[:15]]
 
         result = {
             "date": best_date_str,
@@ -381,9 +459,10 @@ def find_marriage_date(
             "probable_months": probable_months,
             "peak_months": peak_months,
             "favorable_dates": date_strings,
-            "confidence": confidence + saturn_note,
+            "confidence": confidence,
             "promise": promise,
             "has_saturn_transit": has_saturn,
+            "score": best_score,
         }
         results.append(result)
 
@@ -395,6 +474,7 @@ def find_marriage_date(
             key=lambda x: (
                 -x.get("has_saturn_transit", False),
                 -x["dasha_score"],
+                -x.get("score", 0),
                 x["age"],
             )
         )
@@ -407,10 +487,10 @@ def find_marriage_date(
             )
         return output
     elif results:
-        best = max(results, key=lambda x: (x["dasha_score"], -x["age"]))
+        best = max(results, key=lambda x: (x["dasha_score"], x.get("score", 0), -x["age"]))
         return format_prediction_result(best)
 
-    return f"No suitable period found (age {start_age}-{end_age}). Marriage Promise: {promise}. Consider wider age range or partner compatibility analysis."
+    return f"No suitable period found (age {start_age}-{end_age}). Marriage Promise: {promise}."
 
 
 def format_prediction_result(result, include_date=True):

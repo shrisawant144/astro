@@ -726,40 +726,13 @@ def main():
             from datetime import datetime as dt
 
             try:
-                from spouse_predictor import (
-                    AdvancedSpousePredictor,
-                    extract_marriage_data,
-                    find_marriage_date,
-                )
+                from spouse_predictor import AdvancedSpousePredictor
 
                 # Spouse analysis
                 predictor = AdvancedSpousePredictor(result)
                 spouse_report = predictor.generate_report()
 
-                # Marriage date prediction (Nadi method)
-                marriage_data = extract_marriage_data(result)
-                marriage_result = find_marriage_date(
-                    marriage_data,
-                    gender=result["gender"].lower(),
-                    show_all_periods=True,
-                )
-
-                # Combine reports
-                spouse_report += f"\n\n{'='*90}"
-                spouse_report += f"\n📅 MARRIAGE DATE PREDICTION (ENHANCED NADI METHOD)"
-                spouse_report += f"\n{'='*90}"
-                spouse_report += f"\nMethod: Jupiter progression + Real transits + Dasha + Moon triggers"
-                spouse_report += f"\n{marriage_result}"
-                spouse_report += (
-                    f"\n\n📅 Birth Date: {result.get('birth_date', 'Unknown')}"
-                )
-                spouse_report += (
-                    f"\n⏰ Generated: {dt.now().strftime('%Y-%m-%d %H:%M')}"
-                )
-                spouse_report += f"\n{'='*90}"
-
                 # Match outer filename pattern: input_basename.replace(".txt", "_spouse_prediction.txt")
-                # Since we generate {name}_kundali_report.txt first:
                 report_base = f"{name}_kundali_report"
                 spouse_filename = os.path.join(
                     outputs_dir, f"{report_base}_spouse_prediction.txt"
