@@ -1,44 +1,36 @@
-# Kundali Import Compatibility Fix - TODO Steps
+# Multi-Ayanamsa + D60 Implementation TODO
 
-## Current Status
-- ✅ Analyzed all 11 Python modules in `/home/shrikrishna/astro/kundali/`
-- ✅ Identified root cause: `printing.py` imports missing constants from `constants.py`
-- ✅ Confirmed other modules import existing constants successfully
-- ✅ Extracted exact definitions for missing constants
+## Status: In Progress
 
-## Approved Plan Steps (Breakdown)
+### [ ] 1. Update constants.py
+- Add AYANAMSA_OPTIONS dict
+- Add DEFAULT_AYANAMSA = "Lahiri"
 
-**Step 1: [PENDING] Update constants.py**
-- Add 4 missing constants at the end of file
-- Definitions ready from printing.py analysis
+### [x] 2. Update utils.py
+- Add get_d60_sign_and_deg(full_lon) function (complete implementation)
 
-**Step 2: [PENDING] Clean printing.py**
-- Remove failed import lines (DIGNITY_SIGNS, CHART_WEIGHTS, LAGNA_REMEDIES, SEVENTH_LORD_REMEDIES)
-- Delete hardcoded duplicates (DIGNITY_SIGNS block ~252-261, CHART_WEIGHTS ~263)
+### [x] 3. Update main.py
+- Import AYANAMSA_OPTIONS/DEFAULT_AYANAMSA ✓
+- Add ayanamsa_name param to calculate_kundali() ✓
+- CLI input for ayanamsa_choice + validation ✓
+- swe.set_sid_mode(ayanamsa_code) in calculate_kundali ✓
+- result["ayanamsa"] = ayanamsa_name ✓
+- Import get_d60_sign_and_deg ✓
+- Compute D60 for all planets (after D9/D7/D10 loop) ✓
+- Add result["d60"] dict ✓
 
-**Step 3: [PENDING] Test Compatibility**
-```
-cd /home/shrikrishna/astro/kundali && python3 main.py
-```
-- Expect: No ImportError, full report generates
-- Check: All modules interoperate cleanly
+### [x] 4. Update interpretations.py
+- Add complete interpret_d60(result) function (full task code) ✓
 
-**Step 4: [PENDING] Verify & Complete**
-- Run `python3 -m pylint *.py` (optional)
-- Test interactive input flow
-- attempt_completion()
+### [x] 5. Update printing.py
+- Header: add Ayanamsa line ✓
+- div loop: add ("d60", "Shashtiamsa (D60 – Past Life Karma)", interpret_d60) ✓
+- Imports: add interpret_d60 to interpretations import ✓
 
-## Missing Constants to Add (Verified from printing.py)
-```
-DIGNITY_SIGNS = { ... }  # Matches dignity_table format
-CHART_WEIGHTS = {'D1':1.0, 'D9':2.0, 'D10':1.0, 'D7':1.0}
-LAGNA_REMEDIES = { ... }  # Lagna-specific remedies
-SEVENTH_LORD_REMEDIES = { ... }  # 7th lord remedies
-```
+### [ ] 6. Test
+- cd /home/miko/astro/kundali && python3 main.py
+- Verify: Ayanamsa prompt/options, Lahiri default works, D60 table/interpretations print, no errors
 
-## Completion Criteria
-- `python3 main.py` runs without ImportError
-- Full kundali report prints/saves
-- All modules compatible ✅
+### [ ] 7. Complete
+- attempt_completion
 
-**Next Action: Proceed with Step 1 (constants.py edits)**

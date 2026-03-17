@@ -306,3 +306,26 @@ def get_progressed_jupiter_sign(natal_jup_lon, age_floor):
     """
     progressed_lon = (natal_jup_lon + age_floor * 30) % 360
     return get_sign(progressed_lon)
+
+
+def get_d60_sign_and_deg(full_lon):
+    """
+    Return (sign, degree) in D60 Shashtiamsa for a given full longitude.
+    """
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    # Each sign is divided into 60 parts of 0.5°
+    d60_part = int(deg_in_rasi / 0.5)  # 0..59
+    # Mapping of part to sign is complex: for odd/even signs the sequence differs.
+    # Starting sign for odd signs = rasi_idx itself; for even signs = rasi_idx + 6
+    if rasi_idx % 2 == 0:  # even rasi_idx (odd signs Aries=0, Gemini=2): start=rasi_idx
+        start_idx = rasi_idx
+    else:  # odd rasi_idx (even signs Taurus=1, Cancer=3): start=(rasi_idx + 6) %12
+        start_idx = (rasi_idx + 6) % 12
+    new_idx = (start_idx + (d60_part // 5)) % 12  # every 5 parts move next sign
+    sub_part = d60_part % 5
+    remainder = (deg_in_rasi % 0.5) / 0.5  # 0..1 fraction
+    deg_in_d60 = sub_part * 6 + remainder * 6  # 30°/5 =6° per sub-part
+    return zodiac_signs[new_idx], round(deg_in_d60, 2)
+

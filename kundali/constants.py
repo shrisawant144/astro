@@ -1371,3 +1371,15 @@ FUNCTIONAL_LABELS = {
     "Conditional Malefic": -1,
     "Functional Malefic": -2,
 }
+
+# Ayanamsa options for Swiss Ephemeris
+AYANAMSA_OPTIONS = {
+    "Lahiri": swe.SIDM_LAHIRI,
+    "Raman": swe.SIDM_RAMAN,
+    "KP (Krishnamurti)": swe.SIDM_KRISHNAMURTI,
+    "True Chitra": swe.SIDM_TRUE_CITRA,
+    "Yukteshwar": swe.SIDM_YUKTESHWAR,
+    "Djwhal Khul": swe.SIDM_DJWHAL_KHUL
+}
+DEFAULT_AYANAMSA = "Lahiri"
+
