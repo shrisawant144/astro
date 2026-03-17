@@ -72,6 +72,7 @@ from interpretations import (
     get_aspect_quality_score,
 )
 from printing import print_kundali
+from rectification import rectify_birth_time
 
 
 # -------------------------------------------------------------------
@@ -216,6 +217,9 @@ def calculate_kundali(
     y, m, d = map(int, birth_date_str.split("-"))
     hh, mm = map(int, birth_time_str.split(":"))
     lat, lon = get_lat_lon(place)
+    result = {}
+    result["lat"] = lat
+    result["lon"] = lon
     tf = TimezoneFinder()
     tz_name = tf.timezone_at(lat=lat, lng=lon)
     if not tz_name:
@@ -748,6 +752,61 @@ def main():
 
                 traceback.print_exc()
                 print("Continuing with basic kundali report...")
+
+            # Optional: Birth Time Rectification
+            rectify_choice = input("\nWould you like to rectify birth time using life events? (y/n): ").strip().lower()
+            if rectify_choice == 'y':
+                print("\nEnter 3+ major life events.")
+                events = []
+                while len(events) < 10:  # Max 10
+                    event_date = input(f"Event {len(events)+1} date (YYYY-MM-DD) [enter to finish]: ").strip()
+                    if not event_date:
+                        break
+                    try:
+                        ev_dt = datetime.datetime.strptime(event_date, "%Y-%m-%d")
+                    except ValueError:
+                        print("Invalid date. Skipping.")
+                        continue
+                    event_desc = input("Description (e.g. 'marriage'): ").strip()
+                    event_house = input("House (1-12): ").strip()
+                    try:
+                        house_num = int(event_house)
+                        if not 1 <= house_num <= 12:
+                            raise ValueError
+                    except ValueError:
+                        print("Invalid house. Skipping.")
+                        continue
+                    planets_input = input("Planets (e.g. Ve,Ju,Mo) [skip]: ").strip()
+                    planets = [p.strip().upper() for p in planets_input.split(',') if p.strip()] if planets_input else []
+                    events.append({
+                        'date': ev_dt,
+                        'house': house_num,
+                        'description': event_desc,
+                        'planets': planets
+                    })
+                    print(f"Added event {len(events)}.")
+                if len(events) >= 3:
+                    rect_result = rectify_birth_time(result, events)
+                    print("\n" + "="*60)
+                    print("BIRTH TIME RECTIFICATION RESULT (KP + Prenatal Epoch)")
+                    print("="*60)
+                    print(f"Original: {rect_result['original_birth_time']}")
+                    print(f"Corrected: {rect_result['corrected_birth_time']}")
+                    print(f"Offset: {rect_result['offset_minutes']:+d} minutes")
+                    print(f"Confidence: {rect_result['confidence_score']} (based on {rect_result['events_used']} events)")
+                    regen = input("\nRegenerate kundali with corrected time? (y/n): ").strip().lower()
+                    if regen == 'y':
+                        corr_dt = datetime.datetime.strptime(rect_result['corrected_birth_time'], '%Y-%m-%d %H:%M')
+                        corr_date_str = corr_dt.strftime("%Y-%m-%d")
+                        corr_time_str = corr_dt.strftime("%H:%M")
+                        result = calculate_kundali(corr_date_str, corr_time_str, place, gender=gender, ayanamsa_name=ayanamsa_choice)
+                        result["name"] = name
+                        rect_filename = os.path.join(outputs_dir, f"{name}_kundali_rectified.txt")
+                        with open(rect_filename, "w", encoding="utf-8") as f:
+                            print_kundali(result, file=f)
+                        print(f"Rectified report: '{rect_filename}'")
+                else:
+                    print("Need 3+ events for rectification.")
 
             break
         except Exception as e:
