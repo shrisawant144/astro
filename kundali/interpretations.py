@@ -711,8 +711,12 @@ def interpret_d60(result):
     planets_data = result.get("planets", {})
 
     out = []
-    out.append("(D60 reveals the accumulated karma from past lives. A strong planet in D60 indicates")
-    out.append("good karma and effortless results in that planet's domains; a weak planet shows")
+    out.append(
+        "(D60 reveals the accumulated karma from past lives. A strong planet in D60 indicates"
+    )
+    out.append(
+        "good karma and effortless results in that planet's domains; a weak planet shows"
+    )
     out.append("karmic debts that must be worked through consciously in this life.)")
 
     # Order of planets for display
@@ -725,7 +729,7 @@ def interpret_d60(result):
         "Friend": "Good supporting karma – you can rely on this planet's help.",
         "Neutral": "Mixed karma – results depend on your current choices.",
         "Enemy": "Karmic friction – you must overcome inner resistance here.",
-        "Debilitated": "Karmic debt – conscious effort and discipline are required to transform this area."
+        "Debilitated": "Karmic debt – conscious effort and discipline are required to transform this area.",
     }
 
     # Additional notes for specific planets
@@ -738,7 +742,7 @@ def interpret_d60(result):
         "Ve": "Venus in D60: past-life relationships, art, and values. Strong Venus attracts love and beauty; weak Venus teaches through heartbreak or materialism.",
         "Sa": "Saturn in D60: past-life discipline, service, and karmic lessons. Strong Saturn gives perseverance; weak Saturn brings delays and fear, requiring patience.",
         "Ra": "Rahu in D60: past-life ambitions, desires, and foreign connections. Strong Rahu grants worldly success; weak Rahu creates confusion and obsession.",
-        "Ke": "Ketu in D60: past-life spiritual attainments and detachment. Strong Ketu gives intuition; weak Ketu causes disinterest in material life without wisdom."
+        "Ke": "Ketu in D60: past-life spiritual attainments and detachment. Strong Ketu gives intuition; weak Ketu causes disinterest in material life without wisdom.",
     }
 
     for pl in order:
@@ -764,15 +768,23 @@ def interpret_d60(result):
 
         # Additional remarks for exaltation/debilitation in D60
         if dig == "Exalt":
-            out.append("      ✓ This planet's exaltation in D60 indicates you have earned exceptional grace in this area; you can manifest its gifts effortlessly.")
+            out.append(
+                "      ✓ This planet's exaltation in D60 indicates you have earned exceptional grace in this area; you can manifest its gifts effortlessly."
+            )
         elif dig == "Own":
-            out.append("      ✓ Own sign in D60 shows you are a master of this energy; you understand its lessons deeply.")
+            out.append(
+                "      ✓ Own sign in D60 shows you are a master of this energy; you understand its lessons deeply."
+            )
         elif dig == "Debilitated":
-            out.append("      ⚠ Debilitation in D60 is a karmic challenge. You will need to consciously work on this planet's themes – but overcoming it brings great spiritual growth.")
+            out.append(
+                "      ⚠ Debilitation in D60 is a karmic challenge. You will need to consciously work on this planet's themes – but overcoming it brings great spiritual growth."
+            )
 
         # Check if same sign as D1 (Vargottama) – extra strength
         if pl in planets_data and planets_data[pl]["sign"] == sign:
-            out.append("      ✦ Vargottama (same sign in D1 and D60) – this planet's karma is doubly reinforced; its results are highly reliable and destiny-driven.")
+            out.append(
+                "      ✦ Vargottama (same sign in D1 and D60) – this planet's karma is doubly reinforced; its results are highly reliable and destiny-driven."
+            )
 
     # Overall summary: count strong vs weak planets
     strong = []
@@ -789,12 +801,21 @@ def interpret_d60(result):
 
     out.append("\n  Karmic Summary:")
     if strong:
-        out.append(f"    Strong positive karma: {', '.join(strong[:5])}" + (" ..." if len(strong)>5 else ""))
+        out.append(
+            f"    Strong positive karma: {', '.join(strong[:5])}"
+            + (" ..." if len(strong) > 5 else "")
+        )
     if weak:
-        out.append(f"    Karmic challenges to overcome: {', '.join(weak[:5])}" + (" ..." if len(weak)>5 else ""))
+        out.append(
+            f"    Karmic challenges to overcome: {', '.join(weak[:5])}"
+            + (" ..." if len(weak) > 5 else "")
+        )
     if not strong and not weak:
-        out.append("    Most planets are neutrally placed – your karma is balanced and flexible.")
+        out.append(
+            "    Most planets are neutrally placed – your karma is balanced and flexible."
+        )
 
-    out.append("\n  (Note: D60 does not override D1 – it shows the karmic background. Strong D1 + strong D60 = effortless success; strong D1 + weak D60 = you must work to maintain blessings; weak D1 + strong D60 = slow but steady improvement.)")
+    out.append(
+        "\n  (Note: D60 does not override D1 – it shows the karmic background. Strong D1 + strong D60 = effortless success; strong D1 + weak D60 = you must work to maintain blessings; weak D1 + strong D60 = slow but steady improvement.)"
+    )
     return out
-

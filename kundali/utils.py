@@ -328,4 +328,3 @@ def get_d60_sign_and_deg(full_lon):
     remainder = (deg_in_rasi % 0.5) / 0.5  # 0..1 fraction
     deg_in_d60 = sub_part * 6 + remainder * 6  # 30°/5 =6° per sub-part
     return zodiac_signs[new_idx], round(deg_in_d60, 2)
-

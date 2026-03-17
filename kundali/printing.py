@@ -19,10 +19,14 @@ from constants import (
 )
 from utils import get_dignity
 from interpretations import (
-    interpret_aspects, interpret_navamsa, interpret_d7, interpret_d10, interpret_d60,
-    calculate_functional_strength_index, get_aspect_quality_score
+    interpret_aspects,
+    interpret_navamsa,
+    interpret_d7,
+    interpret_d10,
+    interpret_d60,
+    calculate_functional_strength_index,
+    get_aspect_quality_score,
 )
-
 
 
 def print_kundali(result, file=None):
@@ -233,6 +237,65 @@ def print_kundali(result, file=None):
 
     # D9 (Navamsa) gets double weight since it is the primary marriage/dharma divisional chart.
     # CHART_WEIGHTS is now imported from constants
+
+    for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
+        if pl not in result["planets"]:
+            continue
+
+        integrity_score = 50
+        positions = {"D1": result["planets"][pl]["sign"]}
+        strong_count = 0
+        weak_count = 0
+
+    write("")
+
+    # House Lord Placements
+    write("\nHouse Lord Placements:")
+    write("-" * 85)
+    hl_map = result.get("house_lords", {})
+    lagna_idx_p = zodiac_signs.index(result["lagna_sign"])
+    for h_num in range(1, 13):
+        h_sign = zodiac_signs[(lagna_idx_p + h_num - 1) % 12]
+        info = hl_map.get(h_num, {})
+        lord = info.get("lord", "?")
+        placed = info.get("placed_in")
+        lord_full = short_to_full.get(lord, lord)
+        placed_sign = zodiac_signs[(lagna_idx_p + placed - 1) % 12] if placed else "?"
+        key = (h_num, placed)
+        if key in HOUSE_LORD_IN_HOUSE:
+            meaning = HOUSE_LORD_IN_HOUSE[key]
+        else:
+            meaning = (
+                f"Lord of House {h_num} ({h_sign}) placed in House {placed} ({placed_sign}): "
+                f"House {h_num} themes expressed through the environment of House {placed}."
+            )
+        write(
+            f"  H{h_num:02d} ({h_sign:11}) lord {lord_full:9} → H{placed:02d} ({placed_sign:11}): "
+            f"{meaning.split(':')[-1].strip()}"
+        )
+
+    # Jaimini Charakaraka
+    write("\nJaimini Charakaraka (The Seven Significators):")
+    write("-" * 85)
+    write("(Based on highest planetary longitude – nodes excluded)")
+    jai = result.get("jaimini", {})
+    karakas = jai.get("charakaraka", {})
+    if karakas:
+        for role, planet in karakas.items():
+            write(f"  {role:14} : {short_to_full.get(planet, planet)}")
+        atm = jai.get("atmakaraka")
+        kl = jai.get("karakamsa_lagna")
+        if atm and kl:
+            write(f"\n  Karakamsa Lagna (Atmakaraka in D9) : {kl}")
+            write(
+                f"    → The soul's ultimate direction; planets conjunct or aspecting {kl} in D9 gain immense power."
+            )
+    else:
+        write("  Could not determine karakas.")
+
+    write("\nVimshottari Dasha:")
+    write("-" * 85)
+    vim = result["vimshottari"]
 
     for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
         if pl not in result["planets"]:
