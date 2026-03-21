@@ -172,7 +172,12 @@ def evaluate_marriage_date(date, natal_data, gender):
         if tithi_num in MARRIAGE_AUSPICIOUS_TITHIS:
             score += 15
             factors.append("Auspicious tithi")
-        elif tithi_num in (4, 6, 9, 12):  # Chaturthi, Shashthi, Navami, Dwadashi are neutral
+        elif tithi_num in (
+            4,
+            6,
+            9,
+            12,
+        ):  # Chaturthi, Shashthi, Navami, Dwadashi are neutral
             score += 5
         else:
             score -= 10  # e.g., Amavasya, Ashtami
@@ -185,8 +190,17 @@ def evaluate_marriage_date(date, natal_data, gender):
             factors.append(f"Moon in {moon_nak}")
         else:
             # some nakshatras are mildly inauspicious
-            avoid = {"Bharani", "Krittika", "Ashlesha", "Magha", "Purva Phalguni",
-                     "Purva Ashadha", "Purva Bhadrapada", "Jyeshtha", "Mula"}
+            avoid = {
+                "Bharani",
+                "Krittika",
+                "Ashlesha",
+                "Magha",
+                "Purva Phalguni",
+                "Purva Ashadha",
+                "Purva Bhadrapada",
+                "Jyeshtha",
+                "Mula",
+            }
             if moon_nak in avoid:
                 score -= 10
 
@@ -223,7 +237,9 @@ def evaluate_marriage_date(date, natal_data, gender):
         # Check if Jupiter aspects 7th house from Lagna or Moon
         lagna_sign = get_sign(natal_data["lagna"])
         seventh_lagna_sign = (lagna_sign + 6) % 12
-        if jup_sign == seventh_lagna_sign or signs_have_nadi_relation(jup_sign, seventh_lagna_sign):
+        if jup_sign == seventh_lagna_sign or signs_have_nadi_relation(
+            jup_sign, seventh_lagna_sign
+        ):
             score += 15
             factors.append("Jupiter aspects 7th house")
 
@@ -487,7 +503,9 @@ def find_marriage_date(
             )
         return output
     elif results:
-        best = max(results, key=lambda x: (x["dasha_score"], x.get("score", 0), -x["age"]))
+        best = max(
+            results, key=lambda x: (x["dasha_score"], x.get("score", 0), -x["age"])
+        )
         return format_prediction_result(best)
 
     return f"No suitable period found (age {start_age}-{end_age}). Marriage Promise: {promise}."
