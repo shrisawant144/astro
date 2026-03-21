@@ -1384,10 +1384,27 @@ AYANAMSA_OPTIONS = {
 DEFAULT_AYANAMSA = "Lahiri"
 
 # Auspicious tithis for marriage (classical texts) – 0‑indexed
-MARRIAGE_AUSPICIOUS_TITHIS = {2, 3, 5, 7, 10, 11, 13}  # Dwitiya, Tritiya, Panchami, Saptami, Dashami, Ekadashi, Trayodashi
+MARRIAGE_AUSPICIOUS_TITHIS = {
+    2,
+    3,
+    5,
+    7,
+    10,
+    11,
+    13,
+}  # Dwitiya, Tritiya, Panchami, Saptami, Dashami, Ekadashi, Trayodashi
 
 # Auspicious nakshatras for marriage (based on classical muhurta)
 MARRIAGE_AUSPICIOUS_NAKSHATRAS = {
-    "Rohini", "Uttara Phalguni", "Hasta", "Swati", "Anuradha", "Revati",
-    "Mrigashira", "Chitra", "Vishakha", "Dhanishta", "Shatabhisha"
+    "Rohini",
+    "Uttara Phalguni",
+    "Hasta",
+    "Swati",
+    "Anuradha",
+    "Revati",
+    "Mrigashira",
+    "Chitra",
+    "Vishakha",
+    "Dhanishta",
+    "Shatabhisha",
 }
