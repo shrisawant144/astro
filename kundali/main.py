@@ -35,11 +35,22 @@ from constants import (
     DEFAULT_AYANAMSA,
 )
 from utils import (
-    get_sign, get_nakshatra, get_nakshatra_progress, get_dignity,
-    get_lat_lon, is_retrograde, get_house_from_sign, datetime_to_jd,
-    check_combustion, get_panchanga, get_sade_sati_status,
-    get_navamsa_sign_and_deg, get_d7_sign_and_deg, get_d10_sign_and_deg,
-    get_d2_sign_and_deg, get_d60_sign_and_deg
+    get_sign,
+    get_nakshatra,
+    get_nakshatra_progress,
+    get_dignity,
+    get_lat_lon,
+    is_retrograde,
+    get_house_from_sign,
+    datetime_to_jd,
+    check_combustion,
+    get_panchanga,
+    get_sade_sati_status,
+    get_navamsa_sign_and_deg,
+    get_d7_sign_and_deg,
+    get_d10_sign_and_deg,
+    get_d2_sign_and_deg,
+    get_d60_sign_and_deg,
 )
 from neecha_bhanga import check_neecha_bhanga
 from yoga_detection import detect_yogas
@@ -505,11 +516,13 @@ def calculate_kundali(
         },
         "d2": {
             p: {"sign": d["d2_sign"], "deg": d["d2_deg"]}
-            for p, d in planet_data.items() if "d2_sign" in d
+            for p, d in planet_data.items()
+            if "d2_sign" in d
         },
         "d60": {
             p: {"sign": d["d60_sign"], "deg": d["d60_deg"]}
-            for p, d in planet_data.items() if "d60_sign" in d
+            for p, d in planet_data.items()
+            if "d60_sign" in d
         },
         "transits": transits,
         "birth_year": y,

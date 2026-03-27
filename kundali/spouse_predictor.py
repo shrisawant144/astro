@@ -198,7 +198,7 @@ except ImportError:
 def approximate_lahiri_ayanamsa(jd):
     """Rough Lahiri ayanamsa approximation."""
     t = (jd - 2451545.0) / 36525.0
-    precess = 5029.0966 * t + 1.11161 * t**2
+    precess = 5029.0966 * t + 1.11161 * t ** 2
     return (23.853 + precess / 3600.0) % 360
 
 
@@ -390,7 +390,9 @@ def find_marriage_date(
         conf = (
             "VERY HIGH"
             if dasha_score >= 8 and has_sat
-            else "HIGH" if dasha_score >= 8 else "MEDIUM"
+            else "HIGH"
+            if dasha_score >= 8
+            else "MEDIUM"
         )
 
         results.append(
@@ -436,9 +438,27 @@ def format_prediction_result(result):
 
 
 class AdvancedSpousePredictor:
+
     """
     Ultra-detailed spouse prediction using 25+ Vedic techniques.
     """
+
+    def _calculate_arudha_lagna(self) -> Dict:
+        """Compute Arudha Lagna (AL) – the image of the ascendant."""
+        d1 = self.data["planets"]
+        lagna_lord = SIGN_LORDS[self.lagna_sign]
+        if lagna_lord not in d1:
+            return {"sign": "Unknown", "index": 0}
+        lagna_lord_sign = d1[lagna_lord]["sign"]
+        lagna_lord_idx = ZODIAC_SIGNS.index(lagna_lord_sign)
+        lagna_idx = self.lagna_idx
+        distance = (lagna_lord_idx - lagna_idx) % 12
+        al_idx = (lagna_lord_idx + distance) % 12
+        # Exception: if AL falls in the same sign as lagna or 7th from lagna, move it to the 10th from that sign
+        if al_idx == lagna_idx or al_idx == (lagna_idx + 6) % 12:
+            al_idx = (al_idx + 9) % 12
+        al_sign = ZODIAC_SIGNS[al_idx]
+        return {"sign": al_sign, "index": al_idx}
 
     def __init__(self, chart_data: Dict):
         self.data = chart_data
@@ -806,20 +826,20 @@ class AdvancedSpousePredictor:
 
         effects = {}
         if h7_lord in nb_planets:
-            effects["seventh_lord"] = (
-                "Neecha Bhanga - debilitation cancelled, becomes powerful after maturity"
-            )
+            effects[
+                "seventh_lord"
+            ] = "Neecha Bhanga - debilitation cancelled, becomes powerful after maturity"
             self.confidence_factors.append(
                 "7th lord has Neecha Bhanga - delayed but strong marriage"
             )
         if dk in nb_planets:
-            effects["darakaraka"] = (
-                "Neecha Bhanga - spouse-related planet gains strength over time"
-            )
+            effects[
+                "darakaraka"
+            ] = "Neecha Bhanga - spouse-related planet gains strength over time"
         if "Ve" in nb_planets:
-            effects["venus"] = (
-                "Neecha Bhanga - Venus strengthens with age, spouse quality improves"
-            )
+            effects[
+                "venus"
+            ] = "Neecha Bhanga - Venus strengthens with age, spouse quality improves"
         return effects
 
     # ------------------------------------------------------------------------
@@ -1127,7 +1147,9 @@ class AdvancedSpousePredictor:
             severity = (
                 "Mild"
                 if mars_house in [2, 12]
-                else "Moderate" if mars_house in [1, 4] else "Strong"
+                else "Moderate"
+                if mars_house in [1, 4]
+                else "Strong"
             )
         return {
             "present": True,
@@ -1553,6 +1575,27 @@ class AdvancedSpousePredictor:
         )
         lines.append(f"2nd from UL: {ul['2nd_meaning']}")
         lines.append(f"8th from UL: {ul['8th_meaning']}")
+
+        # AL-UL Relationship
+        lines.append("\n" + "─" * 90)
+        lines.append("🔶 ARUDHA LAGNA (AL) – Social Image of Marriage")
+        lines.append("─" * 90)
+        al = self._calculate_arudha_lagna()
+        ul_idx = ZODIAC_SIGNS.index(ul["sign"]) if ul["sign"] in ZODIAC_SIGNS else -1
+        al_idx = al["index"]
+        if al_idx != -1 and ul_idx != -1:
+            diff = (ul_idx - al_idx) % 12
+            if diff in [1, 11]:
+                al_ul_relation = "2/12 from AL – marriage will be expensive, lavish, or involve foreign elements."
+            elif diff in [5, 7]:
+                al_ul_relation = "6/8 from AL – marriage may face societal opposition, be hidden, or unconventional."
+            else:
+                al_ul_relation = "Neutral – marriage will be socially accepted."
+            lines.append(
+                f"AL: {al['sign']} | UL: {ul['sign']} | Relationship: {al_ul_relation}"
+            )
+        else:
+            lines.append("Unable to compute AL-UL relationship.")
 
         # D9 7th House
         lines.append("\n" + "─" * 90)

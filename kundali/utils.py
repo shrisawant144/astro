@@ -259,7 +259,7 @@ def get_d2_sign_and_deg(full_lon):
     rasi_idx = int(full_lon // 30)
     deg_in_rasi = full_lon % 30
     hora_idx = 0 if deg_in_rasi < 15 else 1
-    odd_signs = [0,2,4,6,8,10]  # Aries, Gemini, Leo, Libra, Sagittarius, Aquarius
+    odd_signs = [0, 2, 4, 6, 8, 10]  # Aries, Gemini, Leo, Libra, Sagittarius, Aquarius
     if rasi_idx in odd_signs:
         sign_idx = rasi_idx if hora_idx == 0 else (rasi_idx + 1) % 12
     else:

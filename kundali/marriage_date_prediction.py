@@ -42,7 +42,7 @@ def approximate_lahiri_ayanamsa(jd):
     For higher accuracy, use pyswisseph in production.
     """
     t = (jd - 2451545.0) / 36525.0  # centuries from J2000
-    precess = 5029.0966 * t + 1.11161 * t**2 - 0.000060 * t**3
+    precess = 5029.0966 * t + 1.11161 * t ** 2 - 0.000060 * t ** 3
     ayan = 23.853 + (precess / 3600.0)
     return ayan % 360
 

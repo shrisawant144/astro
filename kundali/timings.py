@@ -92,7 +92,9 @@ def generate_timings(result, birth_year, birth_jd):
             status = (
                 "[PAST]"
                 if md_end_y < current_year
-                else "[NOW]" if md_start_y <= current_year <= md_end_y else "[FUTURE]"
+                else "[NOW]"
+                if md_start_y <= current_year <= md_end_y
+                else "[FUTURE]"
             )
             # Calculate age at period start
             start_age = md_start_y - birth_year

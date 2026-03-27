@@ -11,11 +11,13 @@ TARA_NAMES = {
     9: "Parama Mitra (Best Friend)",
 }
 
+
 def get_tara_relation(nak1_idx, nak2_idx):
     """Return tara type (1-9) and name for two nakshatra indices (0-26)."""
     diff = (nak2_idx - nak1_idx) % 27
     tara = diff % 9 + 1
     return tara, TARA_NAMES[tara]
+
 
 def get_tara_description(tara):
     """Return brief description of tara type."""
@@ -31,6 +33,8 @@ def get_tara_description(tara):
         9: "Parama Mitra – Best friend; ideal compatibility.",
     }
     return descriptions.get(tara, "Neutral.")
+
+
 # nakshatra.py
 """
 Nakshatra (lunar mansion) constants and helper functions.
