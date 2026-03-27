@@ -767,13 +767,53 @@ class AdvancedSpousePredictor:
                             "score": 8,  # Default
                         }
                     )
-        high_score = [p for p in periods if p.get("score", 0) >= 8]
+
+        # Dasha Sandhi detection
+        vimshottari = self.data.get("vimshottari", {})
+        mahadashas = vimshottari.get("mahadasas", [])
+        birth_year = self.data.get("birth_year", 0)
+        md_boundaries = []
+        for md in mahadashas:
+            md_start = int(
+                birth_year + (md["start_jd"] - self.data["birth_jd"]) / 365.25
+            )
+            md_end = int(birth_year + (md["end_jd"] - self.data["birth_jd"]) / 365.25)
+            md_boundaries.append({"start": md_start, "end": md_end})
+
+        high_score = []
+        for p in periods:
+            p_score = p.get("score", 0)
+            # Check Sandhi: period start/end within ±1 year of MD boundary
+            is_sandhi = False
+            for boundary in md_boundaries:
+                if (
+                    abs(p["start"] - boundary["start"]) <= 1
+                    or abs(p["end"] - boundary["end"]) <= 1
+                    or abs(p["start"] - boundary["end"]) <= 1
+                ):
+                    is_sandhi = True
+                    break
+
+            if is_sandhi:
+                p_score = min(10, p_score + 2)  # Sandhi boost
+                p["sandhi"] = True
+                self.confidence_factors.append(
+                    f"{p['maha']}/{p['antara']} near Dasha Sandhi - high probability"
+                )
+            else:
+                p["sandhi"] = False
+
+            p["score"] = p_score
+            if p_score >= 8:
+                high_score.append(p)
+
         return {
             "high_score_periods": high_score,
             "upcoming": [
                 p for p in high_score if p.get("start", 0) > datetime.now().year
             ],
             "count": len(high_score),
+            "sandhi_periods": [p for p in high_score if p.get("sandhi", False)],
         }
 
     # ------------------------------------------------------------------------
@@ -791,6 +831,49 @@ class AdvancedSpousePredictor:
         return {
             "transiting_7th": transiting_7th,
             "gochara": transits,
+        }
+
+    def _check_double_transit(self) -> Dict:
+        """Check Jupiter+Saturn double transit activation of marriage houses."""
+        transits = self.data.get("transits", {})
+        if not transits.get("Ju") or not transits.get("Sa"):
+            return {"active": False, "reason": "Missing transit data"}
+
+        # Get current house positions from Lagna (not Moon)
+        ju_sign = transits["Ju"]["sign"]
+        sa_sign = transits["Sa"]["sign"]
+        ju_house = ((ZODIAC_SIGNS.index(ju_sign) - self.lagna_idx) % 12) + 1
+        sa_house = ((ZODIAC_SIGNS.index(sa_sign) - self.lagna_idx) % 12) + 1
+
+        # Key targets: Lagna(1), 7th, 7th lord house, UL house
+        h7_num = 7
+        h7_lord = SIGN_LORDS[ZODIAC_SIGNS[(self.lagna_idx + 6) % 12]]
+        h7_lord_house = self._get_house(h7_lord)
+        ul = self._analyze_upapada_enhanced()
+        ul_sign_idx = ZODIAC_SIGNS.index(ul["sign"]) if ul["sign"] else -1
+        ul_house = ((ul_sign_idx - self.lagna_idx) % 12) + 1 if ul_sign_idx >= 0 else 0
+
+        targets = [1, h7_num, h7_lord_house]
+        if ul_house > 0:
+            targets.append(ul_house)
+
+        # Jupiter aspects (5th,7th,9th ahead)
+        jup_activates = any(has_aspect(ju_house, target, "Ju") for target in targets)
+
+        # Saturn aspects (3rd,7th,10th ahead)
+        sat_activates = any(has_aspect(sa_house, target, "Sa") for target in targets)
+
+        active = jup_activates and sat_activates
+        if active:
+            self.confidence_factors.append("Double Transit active – marriage imminent")
+
+        return {
+            "active": active,
+            "jupiter_activates": jup_activates,
+            "saturn_activates": sat_activates,
+            "ju_house": ju_house,
+            "sa_house": sa_house,
+            "targets": targets,
         }
 
     # ------------------------------------------------------------------------
@@ -966,6 +1049,99 @@ class AdvancedSpousePredictor:
             ),
         }
 
+    def _analyze_d2_financial_integration(self) -> Dict:
+        """D2 Hora analysis for spouse family financial support."""
+        d2 = self.data.get("d2", {})
+        if not d2:
+            return {"available": False}
+
+        h7_lord = SIGN_LORDS[ZODIAC_SIGNS[(self.lagna_idx + 6) % 12]]
+        h7_lord_d2_data = d2.get(h7_lord, {})
+        h7_lord_d2_sign = h7_lord_d2_data.get("sign", "Unknown")
+        h7_lord_d2_dignity = get_dignity(h7_lord, h7_lord_d2_sign)
+
+        # UL 2nd in D2 (family sustenance via spouse)
+        ul = self._analyze_upapada_enhanced()
+        ul_sign = ul.get("sign", "")
+        if ul_sign in ZODIAC_SIGNS:
+            ul_idx = ZODIAC_SIGNS.index(ul_sign)
+            ul2_idx = (ul_idx + 1) % 12
+            ul2_sign = ZODIAC_SIGNS[ul2_idx]
+            planets_ul2_d2 = [
+                p for p, data in d2.items() if data.get("sign") == ul2_sign
+            ]
+            malefics = {"Ma", "Sa", "Ra", "Ke"}
+            has_malefic_ul2 = any(p in malefics for p in planets_ul2_d2)
+
+            financial_strength = (
+                "Weak (malefics in UL-2nd D2)" if has_malefic_ul2 else "Strong"
+            )
+            family_note = (
+                "Spouse family financial support limited; self-earned wealth primary"
+                if has_malefic_ul2
+                else "Excellent family support post-marriage; joint wealth accumulation"
+            )
+        else:
+            financial_strength = "Unknown"
+            family_note = "UL unavailable for D2 analysis"
+
+        return {
+            "available": True,
+            "h7_lord_d2_sign": h7_lord_d2_sign,
+            "h7_lord_d2_dignity": h7_lord_d2_dignity,
+            "ul2_d2_sign": ul2_sign if "ul2_sign" in locals() else "Unknown",
+            "financial_strength": financial_strength,
+            "family_note": family_note,
+        }
+
+    def _analyze_d60_karma(self) -> Dict:
+        """D60 Shashtiamsa for deep marriage karma."""
+        d60 = self.data.get("d60", {})
+        if not d60:
+            return {"available": False}
+
+        h7_lord = SIGN_LORDS[ZODIAC_SIGNS[(self.lagna_idx + 6) % 12]]
+        h7_lord_d60_data = d60.get(h7_lord, {})
+        h7_lord_d60_sign = h7_lord_d60_data.get("sign", "Unknown")
+        h7_lord_d60_dignity = get_dignity(h7_lord, h7_lord_d60_sign)
+
+        # Venus D60
+        ve_d60_data = d60.get("Ve", {})
+        ve_d60_sign = ve_d60_data.get("sign", "Unknown")
+        ve_d60_dignity = get_dignity("Ve", ve_d60_sign)
+
+        # DK D60
+        dk = self._find_darakaraka_planet()
+        dk_d60_data = d60.get(dk, {})
+        dk_d60_sign = dk_d60_data.get("sign", "Unknown")
+
+        karma_notes = []
+        dusthana_signs = {"Virgo", "Scorpio", "Pisces"}  # Simplified dusthana proxy
+
+        if h7_lord_d60_dignity in ["Debilitated", "Enemy"]:
+            karma_notes.append("7L weak in D60: Karmic marriage obstacles")
+        if ve_d60_dignity in ["Debilitated", "Enemy"]:
+            karma_notes.append("Venus afflicted D60: Relationship karma needs work")
+        if dk_d60_sign in dusthana_signs:
+            karma_notes.append("DK in D60 dusthana: Soul-level marriage lessons")
+
+        if not karma_notes:
+            karma_notes.append("Clean D60 marriage karma - minimal past life baggage")
+
+        severe_karma = len(karma_notes) >= 2
+
+        return {
+            "available": True,
+            "h7_lord_d60": h7_lord_d60_sign,
+            "venus_d60": ve_d60_sign,
+            "dk_d60": dk_d60_sign,
+            "karma_notes": karma_notes,
+            "severe_karma": severe_karma,
+            "remedy_note": "D60 remedies advised"
+            if severe_karma
+            else "Karma manageable",
+        }
+
     # ------------------------------------------------------------------------
     # House Helpers
     # ------------------------------------------------------------------------
@@ -989,28 +1165,45 @@ class AdvancedSpousePredictor:
     # Base methods (Upapada, Manglik, Marriage type, etc.)
     # ------------------------------------------------------------------------
     def _analyze_upapada_enhanced(self) -> Dict:
+        """Complete Upapada Lagna with BPHS exception rules (Apavada)."""
         h12_idx = (self.lagna_idx + 11) % 12
         h12_sign = ZODIAC_SIGNS[h12_idx]
         h12_lord = SIGN_LORDS[h12_sign]
         d1 = self.data["planets"]
         if h12_lord not in d1:
-            return {"sign": "", "strong": False}
+            return {"sign": "", "strong": False, "method": "Data missing"}
+
         h12_lord_sign = d1[h12_lord]["sign"]
+        h12_lord_house = self._get_house(h12_lord)  # House where 12L sits
         h12_lord_idx = ZODIAC_SIGNS.index(h12_lord_sign)
         distance = (h12_lord_idx - h12_idx) % 12
+
+        # Standard UL calculation
         ul_idx = (h12_lord_idx + distance) % 12
-        if ul_idx == h12_idx:
-            ul_idx = (h12_idx + 9) % 12
-        elif ul_idx == (h12_idx + 6) % 12:
-            ul_idx = ((h12_idx + 6) + 9) % 12
+
+        # BPHS Exception Rules (Apavada - 26.17-18)
+        # Rule 1: If 12th lord is in 12th house (same sign)
+        if h12_lord_idx == h12_idx:
+            ul_idx = (h12_lord_idx + 9) % 12  # 10th from 12L position
+            method = "12L in 12H → UL=10th from there"
+        # Rule 2: If 12th lord is in 7th from 12th house
+        elif h12_lord_house == ((h12_idx + 6) % 12) + 1:  # 7th house from 12th
+            ul_idx = (h12_lord_idx + 9) % 12
+            method = "12L in 7th from 12H → UL=10th from there"
+        else:
+            method = "Standard (equal distance from 12L)"
+
         ul_sign = ZODIAC_SIGNS[ul_idx]
         ul_lord = SIGN_LORDS[ul_sign]
         ul_lord_sign = d1.get(ul_lord, {}).get("sign", "")
         ul_dignity = get_dignity(ul_lord, ul_lord_sign)
         strong = ul_dignity in ["Exalted", "Own", "Friendly"]
+
         if strong:
             self.confidence_factors.append("Upapada Lagna strong - stable marriage")
+        self.confidence_factors.append(f"UL method: {method}")
 
+        # 2nd from UL (family sustenance)
         ul_2nd_idx = (ul_idx + 1) % 12
         ul_2nd_sign = ZODIAC_SIGNS[ul_2nd_idx]
         planets_in_2nd = [
@@ -1020,11 +1213,12 @@ class AdvancedSpousePredictor:
         ]
         has_malefic_2nd = any(p in ["Ma", "Sa", "Ra", "Ke"] for p in planets_in_2nd)
         meaning_2nd = (
-            "Challenges in family harmony, possible financial strain"
+            "Challenges in family harmony/finances"
             if has_malefic_2nd
-            else "Supportive family after marriage, good sustenance, happiness"
+            else "Supportive family, good sustenance"
         )
 
+        # 8th from UL (marital longevity/transformation)
         ul_8th_idx = (ul_idx + 7) % 12
         ul_8th_sign = ZODIAC_SIGNS[ul_8th_idx]
         planets_in_8th = [
@@ -1034,9 +1228,9 @@ class AdvancedSpousePredictor:
         ]
         has_malefic_8th = any(p in ["Ma", "Sa", "Ra", "Ke"] for p in planets_in_8th)
         meaning_8th = (
-            "Possible transformations, in-law issues, or obstacles"
+            "Transformations/in-law issues"
             if has_malefic_8th
-            else "Stable long-term marriage, good in-laws relations"
+            else "Stable long-term marriage"
         )
 
         return {
@@ -1044,6 +1238,7 @@ class AdvancedSpousePredictor:
             "lord": ul_lord,
             "dignity": ul_dignity,
             "strong": strong,
+            "calculation_method": method,
             "2nd_sign": ul_2nd_sign,
             "2nd_meaning": meaning_2nd,
             "8th_sign": ul_8th_sign,
@@ -1242,7 +1437,32 @@ class AdvancedSpousePredictor:
         h7_lord = SIGN_LORDS[ZODIAC_SIGNS[h7_idx]]
         h7_lord_house = self._get_house(h7_lord)
         circumstance = MEETING_CIRCUMSTANCES.get(h7_lord_house, "Various circumstances")
-        return {"primary": circumstance, "7th_lord_house": h7_lord_house}
+
+        # Rahu unconventional meeting enhancement
+        rahu_house = self._get_house("Ra")
+        rahu_modifier = ""
+        rahu_conditions = {
+            7: " (unconventional: online, foreign, sudden)",
+            5: " (romance through unconventional networks)",
+            3: " (through communication/tech/media)",
+            12: " (foreign land/spiritual place)",
+            11: " (social networks/large groups)",
+            9: " (travel/pilgrimage/long distance)",
+        }
+        if rahu_house in rahu_conditions:
+            rahu_modifier = rahu_conditions[rahu_house]
+            self.confidence_factors.append(
+                f"Rahu in {rahu_house}th enhances meeting context"
+            )
+        elif has_aspect(rahu_house, h7_lord_house, "Ra"):
+            rahu_modifier = " (Rahu influences 7L: unexpected circumstances)"
+
+        return {
+            "primary": circumstance + rahu_modifier,
+            "7th_lord_house": h7_lord_house,
+            "rahu_house": rahu_house,
+            "rahu_modifier": rahu_modifier.strip(),
+        }
 
     def _predict_profession(self) -> Dict:
         dk_planet = self._find_darakaraka_planet()
@@ -1316,6 +1536,60 @@ class AdvancedSpousePredictor:
         if insights:
             self.confidence_factors.append("Nakshatra-level spouse refinement applied")
         return insights
+
+    def _analyze_nakshatra_tara(self) -> Dict:
+        """Nakshatra Tara compatibility between native Moon and spouse karakas."""
+        from nakshatra import NAKSHATRAS, get_tara_relation, get_tara_description
+
+        nakshatras = self.data.get("nakshatras_d1", {})
+        if "Mo" not in nakshatras:
+            return {"error": "Moon nakshatra unavailable"}
+
+        nak_to_idx = {nak: idx for idx, nak in enumerate(NAKSHATRAS)}
+        moon_nak = nakshatras["Mo"]
+        moon_idx = nak_to_idx.get(moon_nak, -1)
+        if moon_idx == -1:
+            return {"error": f"Unknown Moon nakshatra: {moon_nak}"}
+
+        # Spouse karakas
+        h7_lord = SIGN_LORDS[ZODIAC_SIGNS[(self.lagna_idx + 6) % 12]]
+        dk_planet = self._find_darakaraka_planet()
+        karakas = ["Ve", h7_lord, dk_planet]
+        seen = set()
+        karakas = [p for p in karakas if p and not (p in seen or seen.add(p))]
+
+        tara_results = {}
+        beneficial_taras = [
+            2,
+            4,
+            6,
+            8,
+            9,
+        ]  # Sampat, Kshema, Sadhana, Mitra, Parama Mitra
+
+        for planet in karakas:
+            if planet not in nakshatras:
+                continue
+            karaka_nak = nakshatras[planet]
+            karaka_idx = nak_to_idx.get(karaka_nak, -1)
+            if karaka_idx == -1:
+                continue
+
+            tara_num, tara_name = get_tara_relation(moon_idx, karaka_idx)
+            desc = get_tara_description(tara_num)
+            tara_results[planet] = {
+                "nakshatra": karaka_nak,
+                "tara": tara_num,
+                "name": tara_name,
+                "description": desc,
+            }
+
+            if tara_num in beneficial_taras:
+                self.confidence_factors.append(
+                    f"{SHORT_TO_FULL[planet]}-Moon Tara {tara_name}: Excellent compatibility"
+                )
+
+        return tara_results
 
     # ------------------------------------------------------------------------
     # Planetary War Detection
@@ -1395,6 +1669,12 @@ class AdvancedSpousePredictor:
         graha_yuddha = self._detect_planetary_war()
         integrity_summary = self._summarize_integrity()
 
+        # NEW LAYERS
+        double_transit = self._check_double_transit()
+        tara_analysis = self._analyze_nakshatra_tara()
+        d2_analysis = self._analyze_d2_financial_integration()
+        d60_analysis = self._analyze_d60_karma()
+
         # NEW: Atmakaraka & Karakamsa
         atmakaraka_analysis = self._analyze_atmakaraka_for_spouse()
         karakamsa_analysis = self._analyze_karakamsa_lagna()
@@ -1418,13 +1698,17 @@ class AdvancedSpousePredictor:
             "lord_placements": lord_placements,
             "dasha_timing": dashas,
             "current_transits": transits,
+            "double_transit": double_transit,  # NEW
+            "tara_analysis": tara_analysis,  # NEW
+            "d2_analysis": d2_analysis,  # NEW
+            "d60_analysis": d60_analysis,  # NEW
             "marriage_yogas": marriage_yogas,
             "neecha_bhanga_effects": neecha,
             "integrity_summary": integrity_summary,
             "nakshatra_insights": nakshatra,
             "graha_yuddha": graha_yuddha,
-            "atmakaraka_analysis": atmakaraka_analysis,  # new
-            "karakamsa_analysis": karakamsa_analysis,  # new
+            "atmakaraka_analysis": atmakaraka_analysis,
+            "karakamsa_analysis": karakamsa_analysis,
             "confidence_factors": self.confidence_factors,
             "confidence_score": self._calculate_confidence(),
         }
@@ -1719,6 +2003,63 @@ class AdvancedSpousePredictor:
             )
         else:
             lines.append("No current transit activation of 7th house.")
+
+        # NEW: Double Transit
+        lines.append("\n" + "─" * 90)
+        lines.append("⚡ DOUBLE TRANSIT (Ju+Sa Marriage Window)")
+        lines.append("─" * 90)
+        dt = pred["double_transit"]
+        if dt["active"]:
+            lines.append(
+                "✅ **HIGHLY ACTIVE** - Jupiter + Saturn both aspecting marriage houses"
+            )
+            lines.append(f"Ju House {dt['ju_house']}, Sa House {dt['sa_house']}")
+            lines.append("Marriage **imminent** in this window!")
+        else:
+            lines.append("⏳ Not currently active")
+
+        # NEW: Nakshatra Tara
+        lines.append("\n" + "─" * 90)
+        lines.append("🌙 NAKSHATRA TARA COMPATIBILITY")
+        lines.append("─" * 90)
+        tara = pred["tara_analysis"]
+        if "error" not in tara:
+            for planet, tdata in tara.items():
+                lines.append(
+                    f"{SHORT_TO_FULL[planet]}-Moon: {tdata['name']} (#{tdata['tara']})"
+                )
+                lines.append(f"  {tdata['description']}")
+        else:
+            lines.append(f"⚠️ {tara.get('error')}")
+
+        # NEW: D2 Financial
+        lines.append("\n" + "─" * 90)
+        lines.append("💰 D2 HORA - SPOUSE FAMILY FINANCES")
+        lines.append("─" * 90)
+        d2 = pred["d2_analysis"]
+        if d2.get("available"):
+            lines.append(f"7L D2: {d2['h7_lord_d2_sign']} ({d2['h7_lord_d2_dignity']})")
+            lines.append(f"UL-2nd D2 Strength: **{d2['financial_strength']}**")
+            lines.append(f"Family Note: {d2['family_note']}")
+        else:
+            lines.append("D2 data unavailable")
+
+        # NEW: D60 Karma
+        lines.append("\n" + "─" * 90)
+        lines.append("🔮 D60 SHASH TIAMSA - MARRIAGE KARMA")
+        lines.append("─" * 90)
+        d60 = pred["d60_analysis"]
+        if d60.get("available"):
+            lines.append(f"7L D60: {d60['h7_lord_d60']}")
+            lines.append(f"Venus D60: {d60['venus_d60']}")
+            for note in d60["karma_notes"]:
+                lines.append(f"• {note}")
+            if d60["severe_karma"]:
+                lines.append(f"⚠️ **Severe**: {d60['remedy_note']}")
+            else:
+                lines.append(f"✅ {d60['remedy_note']}")
+        else:
+            lines.append("D60 data unavailable")
 
         # Nakshatra Insights
         if pred["nakshatra_insights"]:
