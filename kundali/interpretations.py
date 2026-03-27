@@ -695,3 +695,106 @@ def calculate_functional_strength_index(result, planet):
         "effective_class": effective_class,
         "modifiers": modifiers,
     }
+
+
+def interpret_d60(result):
+    """
+    Full D60 Shashtiamsa analysis – past life karma, planetary strength,
+    and karmic lessons for this incarnation.
+    """
+    d60 = result.get("d60", {})
+    if not d60:
+        return ["(D60 data not available)"]
+
+    lagna_sign = result["lagna_sign"]
+    lagna_idx = zodiac_signs.index(lagna_sign)
+    planets_data = result.get("planets", {})
+
+    out = []
+    out.append("(D60 reveals the accumulated karma from past lives. A strong planet in D60 indicates")
+    out.append("good karma and effortless results in that planet's domains; a weak planet shows")
+    out.append("karmic debts that must be worked through consciously in this life.)")
+
+    # Order of planets for display
+    order = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]
+
+    # Dignity interpretations for D60
+    dignity_meanings = {
+        "Exalt": "Excellent past-life karma – this planet's blessings flow naturally.",
+        "Own": "Strong positive karma – you have earned mastery in this area.",
+        "Friend": "Good supporting karma – you can rely on this planet's help.",
+        "Neutral": "Mixed karma – results depend on your current choices.",
+        "Enemy": "Karmic friction – you must overcome inner resistance here.",
+        "Debilitated": "Karmic debt – conscious effort and discipline are required to transform this area."
+    }
+
+    # Additional notes for specific planets
+    planet_specific = {
+        "Su": "Sun in D60: past-life authority, father, or leadership roles. If strong, you naturally command respect; if weak, you may struggle with ego or paternal issues.",
+        "Mo": "Moon in D60: past-life emotional patterns, mother, and public life. Strong Moon indicates emotional security; weak Moon suggests karmic need to nurture yourself.",
+        "Ma": "Mars in D60: past-life courage, conflict, and energy. Strong Mars gives fearless action; weak Mars requires learning to channel anger constructively.",
+        "Me": "Mercury in D60: past-life communication, intellect, and trade. Strong Mercury brings quick wit; weak Mercury demands careful speech and study.",
+        "Ju": "Jupiter in D60: past-life wisdom, dharma, and guru. Strong Jupiter blesses you with optimism and guidance; weak Jupiter asks you to develop faith and generosity.",
+        "Ve": "Venus in D60: past-life relationships, art, and values. Strong Venus attracts love and beauty; weak Venus teaches through heartbreak or materialism.",
+        "Sa": "Saturn in D60: past-life discipline, service, and karmic lessons. Strong Saturn gives perseverance; weak Saturn brings delays and fear, requiring patience.",
+        "Ra": "Rahu in D60: past-life ambitions, desires, and foreign connections. Strong Rahu grants worldly success; weak Rahu creates confusion and obsession.",
+        "Ke": "Ketu in D60: past-life spiritual attainments and detachment. Strong Ketu gives intuition; weak Ketu causes disinterest in material life without wisdom."
+    }
+
+    for pl in order:
+        if pl not in d60:
+            continue
+        d = d60[pl]
+        sign = d["sign"]
+        deg = d["deg"]
+        pl_full = short_to_full.get(pl, pl)
+
+        # Determine dignity in D60 (using same function as for D1)
+        dig = get_dignity(pl, sign)
+        dig_note = f" [{dig}]" if dig else ""
+
+        out.append(f"\n  {pl_full:9} in {sign:12} {deg:5.2f}°{dig_note}")
+
+        # Base meaning from dignity
+        meaning = dignity_meanings.get(dig, "Karmic signature.")
+        out.append(f"    → {meaning}")
+
+        # Add planet-specific insight
+        out.append(f"      {planet_specific.get(pl, '')}")
+
+        # Additional remarks for exaltation/debilitation in D60
+        if dig == "Exalt":
+            out.append("      ✓ This planet's exaltation in D60 indicates you have earned exceptional grace in this area; you can manifest its gifts effortlessly.")
+        elif dig == "Own":
+            out.append("      ✓ Own sign in D60 shows you are a master of this energy; you understand its lessons deeply.")
+        elif dig == "Debilitated":
+            out.append("      ⚠ Debilitation in D60 is a karmic challenge. You will need to consciously work on this planet's themes – but overcoming it brings great spiritual growth.")
+
+        # Check if same sign as D1 (Vargottama) – extra strength
+        if pl in planets_data and planets_data[pl]["sign"] == sign:
+            out.append("      ✦ Vargottama (same sign in D1 and D60) – this planet's karma is doubly reinforced; its results are highly reliable and destiny-driven.")
+
+    # Overall summary: count strong vs weak planets
+    strong = []
+    weak = []
+    for pl in order:
+        if pl not in d60:
+            continue
+        sign = d60[pl]["sign"]
+        dig = get_dignity(pl, sign)
+        if dig in ("Exalt", "Own", "Friend"):
+            strong.append(short_to_full[pl])
+        elif dig in ("Debilitated", "Enemy"):
+            weak.append(short_to_full[pl])
+
+    out.append("\n  Karmic Summary:")
+    if strong:
+        out.append(f"    Strong positive karma: {', '.join(strong[:5])}" + (" ..." if len(strong)>5 else ""))
+    if weak:
+        out.append(f"    Karmic challenges to overcome: {', '.join(weak[:5])}" + (" ..." if len(weak)>5 else ""))
+    if not strong and not weak:
+        out.append("    Most planets are neutrally placed – your karma is balanced and flexible.")
+
+    out.append("\n  (Note: D60 does not override D1 – it shows the karmic background. Strong D1 + strong D60 = effortless success; strong D1 + weak D60 = you must work to maintain blessings; weak D1 + strong D60 = slow but steady improvement.)")
+    return out
+

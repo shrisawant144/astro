@@ -19,12 +19,10 @@ from constants import (
 )
 from utils import get_dignity
 from interpretations import (
-    interpret_aspects,
-    interpret_navamsa,
-    interpret_d7,
-    interpret_d10,
-    calculate_functional_strength_index,
+    interpret_aspects, interpret_navamsa, interpret_d7, interpret_d10, interpret_d60,
+    calculate_functional_strength_index, get_aspect_quality_score
 )
+
 
 
 def print_kundali(result, file=None):
@@ -46,6 +44,7 @@ def print_kundali(result, file=None):
     write(f"Lagna        : {result['lagna_sign']} {result['lagna_deg']}°")
     write(f"Moon (Rasi)  : {result['moon_sign']} – {result['moon_nakshatra']}")
     write(f"7th Lord     : {result['seventh_lord']}")
+    write(f"Ayanamsa    : {result.get('ayanamsa', 'Lahiri')}")
     # Panchanga
     pan = result.get("panchanga", {})
     if pan:
@@ -82,6 +81,7 @@ def print_kundali(result, file=None):
         ("navamsa", "Navamsa (D9 – Marriage/Spouse/Dharma)", interpret_navamsa),
         ("d7", "Saptamsa (D7 – Children/Progeny)", interpret_d7),
         ("d10", "Dasamsa (D10 – Career/Profession)", interpret_d10),
+        ("d60", "Shashtiamsa (D60 – Past Life Karma)", interpret_d60),
     ]:
         write(f"\n{title}:")
         write("-" * 85)

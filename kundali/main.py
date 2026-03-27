@@ -18,7 +18,15 @@ from constants import (
     zodiac_signs, planets, sign_lords, short_to_full, dasha_lords,
     dasha_periods, nakshatra_lord_index, COMBUSTION_ORBS, NEECHA_BHANGA_INFO,
     FUNCTIONAL_QUALITY, NATURAL_BENEFICS, NATURAL_MALEFICS, HOUSE_SIGNIFICATIONS,
-    ASHTAKAVARGA_REKHAS, DIGNITY_SIGNS, CHART_WEIGHTS
+    ASHTAKAVARGA_REKHAS, DIGNITY_SIGNS, CHART_WEIGHTS,
+    AYANAMSA_OPTIONS, DEFAULT_AYANAMSA
+)
+from utils import (
+    get_sign, get_nakshatra, get_nakshatra_progress, get_dignity,
+    get_lat_lon, is_retrograde, get_house_from_sign, datetime_to_jd,
+    check_combustion, get_panchanga, get_sade_sati_status,
+    get_navamsa_sign_and_deg, get_d7_sign_and_deg, get_d10_sign_and_deg,
+    get_d60_sign_and_deg
 )
 from utils import (
     get_sign, get_nakshatra, get_nakshatra_progress, get_dignity,
@@ -162,7 +170,7 @@ def extract_dasha_periods_for_marriage(timings):
     return periods
 
 
-def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
+def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male", ayanamsa_name=DEFAULT_AYANAMSA):
     """
     Calculate the complete Vedic kundali for given birth details.
 
@@ -171,6 +179,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
         birth_time_str (str): Time in HH:MM 24-hour format.
         place (str): Birth place (city, country).
         gender (str): "Male" or "Female".
+        ayanamsa_name (str): Ayanamsa choice like "Lahiri", "Raman" etc. (default DEFAULT_AYANAMSA).
 
     Returns:
         dict: Complete kundali result with all calculated data.
@@ -188,6 +197,11 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
     birth_jd = swe.julday(
         utc_dt.year, utc_dt.month, utc_dt.day, utc_dt.hour + utc_dt.minute / 60.0
     )
+
+    # Set ayanamsa
+    ayanamsa_code = AYANAMSA_OPTIONS.get(ayanamsa_name, swe.SIDM_LAHIRI)
+    swe.set_sid_mode(ayanamsa_code)
+
 
     # Houses & Lagna
     house_data = swe.houses_ex(birth_jd, lat, lon, b"W", swe.FLG_SIDEREAL)
@@ -344,7 +358,6 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
         ns, nd = get_navamsa_sign_and_deg(p_lon)
         d7s, d7d = get_d7_sign_and_deg(p_lon)
         d10s, d10d = get_d10_sign_and_deg(p_lon)
-        d2s, d2d = get_d2_sign_and_deg(p_lon)
         d60s, d60d = get_d60_sign_and_deg(p_lon)
         planet_data[code]["navamsa_sign"] = ns
         planet_data[code]["navamsa_deg"] = nd
@@ -352,8 +365,6 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
         planet_data[code]["d7_deg"] = d7d
         planet_data[code]["d10_sign"] = d10s
         planet_data[code]["d10_deg"] = d10d
-        planet_data[code]["d2_sign"] = d2s
-        planet_data[code]["d2_deg"] = d2d
         planet_data[code]["d60_sign"] = d60s
         planet_data[code]["d60_deg"] = d60d
 
@@ -454,10 +465,6 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
             p: {"sign": d["d10_sign"], "deg": d["d10_deg"]}
             for p, d in planet_data.items()
         },
-        "d2": {
-            p: {"sign": d["d2_sign"], "deg": d["d2_deg"]}
-            for p, d in planet_data.items() if "d2_sign" in d
-        },
         "d60": {
             p: {"sign": d["d60_sign"], "deg": d["d60_deg"]}
             for p, d in planet_data.items() if "d60_sign" in d
@@ -472,6 +479,7 @@ def calculate_kundali(birth_date_str, birth_time_str, place, gender="Male"):
         "birth_jd": birth_jd,
         "panchanga": panchanga,
         "house_lords": house_lord_map,
+        "ayanamsa": ayanamsa_name,
         "sade_sati": sade_sati_status,
         "vimshottari_pd": {
             "current_pd": current_pd,
@@ -623,8 +631,17 @@ def main():
         date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
         time_str = input("Birth Time (HH:MM 24h) : ").strip()
         place = input("Birth Place (City, Country) : ").strip()
+        
+        print("\nAyanamsa options: Lahiri, Raman, KP (Krishnamurti), True Chitra, Yukteshwar, Djwhal Khul")
+        ayanamsa_choice = input("Choose ayanamsa (default Lahiri): ").strip()
+        if not ayanamsa_choice:
+            ayanamsa_choice = "Lahiri"
+        # validate (optional)
+        if ayanamsa_choice not in AYANAMSA_OPTIONS:
+            print("Invalid choice, using Lahiri.")
+            ayanamsa_choice = "Lahiri"
         try:
-            result = calculate_kundali(date_str, time_str, place, gender=gender)
+            result = calculate_kundali(date_str, time_str, place, gender=gender, ayanamsa_name=ayanamsa_choice)
             result["name"] = name  # Store name in result
             import os
             outputs_dir = os.path.join(os.path.dirname(__file__), "outputs")

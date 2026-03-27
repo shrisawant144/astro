@@ -885,12 +885,16 @@ class AdvancedSpousePredictor:
             return {"sign": "", "strong": False}
         h12_lord_sign = d1[h12_lord]["sign"]
         h12_lord_idx = ZODIAC_SIGNS.index(h12_lord_sign)
-        distance = (h12_lord_idx - h12_idx) % 12
-        ul_idx = (h12_lord_idx + distance) % 12
-        if ul_idx == h12_idx:
-            ul_idx = (h12_idx + 9) % 12
-        elif ul_idx == (h12_idx + 6) % 12:
-            ul_idx = ((h12_idx + 6) + 9) % 12
+        # Exception rules (BPHS 26.17-18)
+        # If 12th lord is in same sign as 12th house, UL is 10th from that position
+        # If 12th lord is in 7th from 12th house, UL is 10th from that position
+        if h12_lord_idx == h12_idx:
+            ul_idx = (h12_lord_idx + 9) % 12
+        elif h12_lord_idx == (h12_idx + 6) % 12:
+            ul_idx = (h12_lord_idx + 9) % 12
+        else:
+            distance = (h12_lord_idx - h12_idx) % 12
+            ul_idx = (h12_lord_idx + distance) % 12
         ul_sign = ZODIAC_SIGNS[ul_idx]
         ul_lord = SIGN_LORDS[ul_sign]
         ul_lord_sign = d1.get(ul_lord, {}).get("sign", "")
