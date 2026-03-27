@@ -1063,12 +1063,15 @@ class AdvancedSpousePredictor:
         # UL 2nd in D2 (family sustenance via spouse)
         ul = self._analyze_upapada_enhanced()
         ul_sign = ul.get("sign", "")
+        ul2_d2_sign = "Unknown"
+        financial_strength = "Unknown"
+        family_note = "UL unavailable for D2 analysis"
         if ul_sign in ZODIAC_SIGNS:
             ul_idx = ZODIAC_SIGNS.index(ul_sign)
             ul2_idx = (ul_idx + 1) % 12
-            ul2_sign = ZODIAC_SIGNS[ul2_idx]
+            ul2_d2_sign = ZODIAC_SIGNS[ul2_idx]
             planets_ul2_d2 = [
-                p for p, data in d2.items() if data.get("sign") == ul2_sign
+                p for p, data in d2.items() if data.get("sign") == ul2_d2_sign
             ]
             malefics = {"Ma", "Sa", "Ra", "Ke"}
             has_malefic_ul2 = any(p in malefics for p in planets_ul2_d2)
@@ -1081,15 +1084,12 @@ class AdvancedSpousePredictor:
                 if has_malefic_ul2
                 else "Excellent family support post-marriage; joint wealth accumulation"
             )
-        else:
-            financial_strength = "Unknown"
-            family_note = "UL unavailable for D2 analysis"
 
         return {
             "available": True,
             "h7_lord_d2_sign": h7_lord_d2_sign,
             "h7_lord_d2_dignity": h7_lord_d2_dignity,
-            "ul2_d2_sign": ul2_sign if "ul2_sign" in locals() else "Unknown",
+            "ul2_d2_sign": ul2_d2_sign,
             "financial_strength": financial_strength,
             "family_note": family_note,
         }
