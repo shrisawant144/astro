@@ -334,6 +334,3 @@ def get_progressed_jupiter_sign(natal_jup_lon, age_floor):
     """
     progressed_lon = (natal_jup_lon + age_floor * 30) % 360
     return get_sign(progressed_lon)
-
-
-
