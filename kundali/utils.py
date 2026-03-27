@@ -252,6 +252,34 @@ def get_d10_sign_and_deg(full_lon):
     return zodiac_signs[new_idx], round(deg_in_d10, 2)
 
 
+# D2 (Hora) calculation
+def get_d2_sign_and_deg(full_lon):
+    """Return (sign, degree) in D2 Hora (1/2 of a sign)."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    hora_idx = 0 if deg_in_rasi < 15 else 1
+    odd_signs = [0,2,4,6,8,10]  # Aries, Gemini, Leo, Libra, Sagittarius, Aquarius
+    if rasi_idx in odd_signs:
+        sign_idx = rasi_idx if hora_idx == 0 else (rasi_idx + 1) % 12
+    else:
+        sign_idx = (rasi_idx + 1) % 12 if hora_idx == 0 else rasi_idx
+    deg_in_hora = (deg_in_rasi % 15) * 2
+    return zodiac_signs[sign_idx], round(deg_in_hora, 2)
+
+
+# D60 (Shashtiamsa) calculation
+def get_d60_sign_and_deg(full_lon):
+    """Return (sign, degree) in D60 Shashtiamsa (1/60 of a sign)."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    shashtiamsa_index = int(deg_in_rasi / 0.5)  # 0-59
+    sign_idx = (rasi_idx + shashtiamsa_index * 5) % 12
+    deg_in_d60 = (deg_in_rasi % 0.5) * 60
+    return zodiac_signs[sign_idx], round(deg_in_d60, 2)
+
+
 # Add to utils.py
 
 
