@@ -1201,7 +1201,6 @@ class AdvancedSpousePredictor:
 
         if strong:
             self.confidence_factors.append("Upapada Lagna strong - stable marriage")
-        self.confidence_factors.append(f"UL method: {method}")
 
         # 2nd from UL (family sustenance)
         ul_2nd_idx = (ul_idx + 1) % 12
@@ -1452,10 +1451,11 @@ class AdvancedSpousePredictor:
         if rahu_house in rahu_conditions:
             rahu_modifier = rahu_conditions[rahu_house]
             self.confidence_factors.append(
-                f"Rahu in {rahu_house}th enhances meeting context"
+                f"Rahu {rahu_conditions[rahu_house].strip(' ()')} - unique meeting"
             )
         elif has_aspect(rahu_house, h7_lord_house, "Ra"):
             rahu_modifier = " (Rahu influences 7L: unexpected circumstances)"
+            self.confidence_factors.append("Rahu aspects 7L - unconventional marriage trigger")
 
         return {
             "primary": circumstance + rahu_modifier,
@@ -1534,7 +1534,7 @@ class AdvancedSpousePredictor:
                 "meaning": meaning,
             }
         if insights:
-            self.confidence_factors.append("Nakshatra-level spouse refinement applied")
+            self.confidence_factors.append(f"Nakshatra insights - {len(insights)} spouse karakas analyzed")
         return insights
 
     def _analyze_nakshatra_tara(self) -> Dict:
