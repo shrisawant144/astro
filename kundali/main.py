@@ -35,21 +35,11 @@ from constants import (
     DEFAULT_AYANAMSA,
 )
 from utils import (
-    get_sign,
-    get_nakshatra,
-    get_nakshatra_progress,
-    get_dignity,
-    get_lat_lon,
-    is_retrograde,
-    get_house_from_sign,
-    datetime_to_jd,
-    check_combustion,
-    get_panchanga,
-    get_sade_sati_status,
-    get_navamsa_sign_and_deg,
-    get_d7_sign_and_deg,
-    get_d10_sign_and_deg,
-    get_d60_sign_and_deg,
+    get_sign, get_nakshatra, get_nakshatra_progress, get_dignity,
+    get_lat_lon, is_retrograde, get_house_from_sign, datetime_to_jd,
+    check_combustion, get_panchanga, get_sade_sati_status,
+    get_navamsa_sign_and_deg, get_d7_sign_and_deg, get_d10_sign_and_deg,
+    get_d2_sign_and_deg, get_d60_sign_and_deg
 )
 from neecha_bhanga import check_neecha_bhanga
 from yoga_detection import detect_yogas
@@ -398,6 +388,7 @@ def calculate_kundali(
         ns, nd = get_navamsa_sign_and_deg(p_lon)
         d7s, d7d = get_d7_sign_and_deg(p_lon)
         d10s, d10d = get_d10_sign_and_deg(p_lon)
+        d2s, d2d = get_d2_sign_and_deg(p_lon)
         d60s, d60d = get_d60_sign_and_deg(p_lon)
         planet_data[code]["navamsa_sign"] = ns
         planet_data[code]["navamsa_deg"] = nd
@@ -405,6 +396,8 @@ def calculate_kundali(
         planet_data[code]["d7_deg"] = d7d
         planet_data[code]["d10_sign"] = d10s
         planet_data[code]["d10_deg"] = d10d
+        planet_data[code]["d2_sign"] = d2s
+        planet_data[code]["d2_deg"] = d2d
         planet_data[code]["d60_sign"] = d60s
         planet_data[code]["d60_deg"] = d60d
 
@@ -510,10 +503,13 @@ def calculate_kundali(
             p: {"sign": d["d10_sign"], "deg": d["d10_deg"]}
             for p, d in planet_data.items()
         },
+        "d2": {
+            p: {"sign": d["d2_sign"], "deg": d["d2_deg"]}
+            for p, d in planet_data.items() if "d2_sign" in d
+        },
         "d60": {
             p: {"sign": d["d60_sign"], "deg": d["d60_deg"]}
-            for p, d in planet_data.items()
-            if "d60_sign" in d
+            for p, d in planet_data.items() if "d60_sign" in d
         },
         "transits": transits,
         "birth_year": y,

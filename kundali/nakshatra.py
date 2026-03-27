@@ -1,3 +1,36 @@
+# Tara relationship names
+TARA_NAMES = {
+    1: "Janma (Birth)",
+    2: "Sampat (Wealth)",
+    3: "Vipat (Danger)",
+    4: "Kshema (Well-being)",
+    5: "Pratyak (Obstacle)",
+    6: "Sadhana (Achievement)",
+    7: "Naidhana (Death)",
+    8: "Mitra (Friend)",
+    9: "Parama Mitra (Best Friend)",
+}
+
+def get_tara_relation(nak1_idx, nak2_idx):
+    """Return tara type (1-9) and name for two nakshatra indices (0-26)."""
+    diff = (nak2_idx - nak1_idx) % 27
+    tara = diff % 9 + 1
+    return tara, TARA_NAMES[tara]
+
+def get_tara_description(tara):
+    """Return brief description of tara type."""
+    descriptions = {
+        1: "Janma – Intense, karmic bond; can be overwhelming if afflicted.",
+        2: "Sampat – Wealth and growth; very auspicious for romance.",
+        3: "Vipat – Danger; may bring challenges but can be overcome.",
+        4: "Kshema – Well-being; harmonious and stable.",
+        5: "Pratyak – Obstacles; requires effort to overcome.",
+        6: "Sadhana – Achievement; through effort, success.",
+        7: "Naidhana – Endings; may indicate karmic debt.",
+        8: "Mitra – Friendly; good understanding.",
+        9: "Parama Mitra – Best friend; ideal compatibility.",
+    }
+    return descriptions.get(tara, "Neutral.")
 # nakshatra.py
 """
 Nakshatra (lunar mansion) constants and helper functions.
