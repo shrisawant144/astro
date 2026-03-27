@@ -1,3 +1,19 @@
+    def _calculate_arudha_lagna(self) -> Dict:
+        """Compute Arudha Lagna (AL) – the image of the ascendant."""
+        d1 = self.data["planets"]
+        lagna_lord = SIGN_LORDS[self.lagna_sign]
+        if lagna_lord not in d1:
+            return {"sign": "Unknown", "index": 0}
+        lagna_lord_sign = d1[lagna_lord]["sign"]
+        lagna_lord_idx = ZODIAC_SIGNS.index(lagna_lord_sign)
+        lagna_idx = self.lagna_idx
+        distance = (lagna_lord_idx - lagna_idx) % 12
+        al_idx = (lagna_lord_idx + distance) % 12
+        # Exception: if AL falls in the same sign as lagna or 7th from lagna, move it to the 10th from that sign
+        if al_idx == lagna_idx or al_idx == (lagna_idx + 6) % 12:
+            al_idx = (al_idx + 9) % 12
+        al_sign = ZODIAC_SIGNS[al_idx]
+        return {"sign": al_sign, "index": al_idx}
 """
 Advanced spouse predictor using 25+ Vedic techniques.
 Requires result dict from calculate_kundali().
@@ -429,6 +445,23 @@ def format_prediction_result(result):
 
 
 class AdvancedSpousePredictor:
+
+        def _calculate_arudha_lagna(self) -> Dict:
+            """Compute Arudha Lagna (AL) – the image of the ascendant."""
+            d1 = self.data["planets"]
+            lagna_lord = SIGN_LORDS[self.lagna_sign]
+            if lagna_lord not in d1:
+                return {"sign": "Unknown", "index": 0}
+            lagna_lord_sign = d1[lagna_lord]["sign"]
+            lagna_lord_idx = ZODIAC_SIGNS.index(lagna_lord_sign)
+            lagna_idx = self.lagna_idx
+            distance = (lagna_lord_idx - lagna_idx) % 12
+            al_idx = (lagna_lord_idx + distance) % 12
+            # Exception: if AL falls in the same sign as lagna or 7th from lagna, move it to the 10th from that sign
+            if al_idx == lagna_idx or al_idx == (lagna_idx + 6) % 12:
+                al_idx = (al_idx + 9) % 12
+            al_sign = ZODIAC_SIGNS[al_idx]
+            return {"sign": al_sign, "index": al_idx}
     """
     Ultra-detailed spouse prediction using 25+ Vedic techniques.
     """
