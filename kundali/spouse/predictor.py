@@ -5,6 +5,9 @@ Main predictor class that orchestrates all analysis modules.
 
 from . import analysis
 from . import report
+import sys
+sys.path.append('..')
+from utils import get_navamsa_sign_and_deg
 from constants import SHORT_TO_FULL, ZODIAC_SIGNS, SIGN_LORDS
 
 
@@ -14,12 +17,8 @@ class AdvancedSpousePredictor:
         self.gender = chart_data.get("gender", "Male")
         self.lagna_sign = chart_data.get("lagna_sign", "Aries")
         self.lagna_idx = ZODIAC_SIGNS.index(self.lagna_sign)
-        self.d9_lagna_sign = chart_data.get("d9_lagna_sign", "Aries")
-        self.d9_lagna_idx = (
-            ZODIAC_SIGNS.index(self.d9_lagna_sign)
-            if self.d9_lagna_sign in ZODIAC_SIGNS
-            else 0
-        )
+        self.d9_lagna_sign = get_navamsa_sign_and_deg(chart_data["lagna_deg"])[0]
+        self.d9_lagna_idx = ZODIAC_SIGNS.index(self.d9_lagna_sign)
         self.spouse_karaka = "Ju" if self.gender == "Female" else "Ve"
         self.spouse_term = "husband" if self.gender == "Female" else "wife"
         self.jaimini = chart_data.get("jaimini", {})
@@ -83,8 +82,8 @@ class AdvancedSpousePredictor:
         pred["dasha_timing"] = analysis.analyze_marriage_dashas(
             self.data,
             self.lagna_idx,
-            self.data.get("birth_jd", 0),
-            self.data.get("birth_year", 0),
+            self.data["birth_jd"],
+            self.data["birth_year"],
         )
         pred["current_transits"] = analysis.analyze_current_transits(
             self.data, self.lagna_idx

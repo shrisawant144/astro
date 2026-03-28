@@ -1,6 +1,7 @@
-# spouse/analysis.py
 import re
 from datetime import datetime
+from kundali.utils import datetime_to_jd
+import pytz
 
 from constants import (
     ZODIAC_SIGNS,
@@ -327,8 +328,8 @@ def analyze_marriage_dashas(chart_data, lagna_idx, birth_jd, birth_year):
     mahadashas = vim.get("mahadasas", [])
     md_boundaries = []
     for md in mahadashas:
-        md_start = int(birth_year + (md["start_jd"] - birth_jd) / 365.25)
-        md_end = int(birth_year + (md["end_jd"] - birth_jd) / 365.25)
+        md_start = int(birth_year + (md.get("start_jd", birth_jd) - birth_jd) / 365.25)
+        md_end = int(birth_year + (md.get("end_jd", birth_jd) - birth_jd) / 365.25)
         md_boundaries.append({"start": md_start, "end": md_end})
 
     high_score = []
@@ -352,9 +353,12 @@ def analyze_marriage_dashas(chart_data, lagna_idx, birth_jd, birth_year):
         if p_score >= 8:
             high_score.append(p)
 
+    from kundali.utils import datetime_to_jd
+    import pytz
+    current_jd = datetime_to_jd(datetime.now(pytz.utc))
     return {
         "high_score_periods": high_score,
-        "upcoming": [p for p in high_score if p.get("start", 0) > datetime.now().year],
+        "upcoming": [p for p in high_score if p.get("start_jd", 0) > current_jd],
         "count": len(high_score),
         "sandhi_periods": [p for p in high_score if p.get("sandhi", False)],
     }
@@ -389,7 +393,7 @@ def check_double_transit(chart_data, lagna_idx):
     ul_sign_idx = ZODIAC_SIGNS.index(ul["sign"]) if ul["sign"] else -1
     ul_house = ((ul_sign_idx - lagna_idx) % 12) + 1 if ul_sign_idx >= 0 else 0
 
-    targets = [1, h7_num, h7_lord_house]
+    targets = [h7_num, h7_lord_house]
     if ul_house > 0:
         targets.append(ul_house)
 
@@ -558,13 +562,14 @@ def analyze_d60_karma(chart_data, lagna_idx):
     dk_d60_sign = dk_d60_data.get("sign", "Unknown")
 
     karma_notes = []
-    dusthana_signs = {"Virgo", "Scorpio", "Pisces"}  # simplified proxy
+    # Relative dusthana houses 6,8,12 from D60 lagna (proxy since no D60 lagna)
+    dk_house_proxy = 6  # simplistic
     if h7_lord_d60_dignity in ["Debilitated", "Enemy"]:
         karma_notes.append("7L weak in D60: Karmic marriage obstacles")
     if ve_d60_dignity in ["Debilitated", "Enemy"]:
         karma_notes.append("Venus afflicted D60: Relationship karma needs work")
-    if dk_d60_sign in dusthana_signs:
-        karma_notes.append("DK in D60 dusthana: Soul-level marriage lessons")
+    if dk_d60_sign in ["Virgo", "Scorpio", "Pisces"]:  # keep proxy but note
+        karma_notes.append("DK in proxy dusthana signs: Soul-level marriage lessons")
     if not karma_notes:
         karma_notes.append("Clean D60 marriage karma - minimal past life baggage")
 

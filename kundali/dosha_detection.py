@@ -160,7 +160,7 @@ def detect_problems(result):
             severity_reduction += 2
 
         # Factor 6: Check D9 Venus dignity from result (if available)
-        d9_data = result.get("d9", {})
+        d9_data = result.get("navamsa", {})
         d9_venus_info = d9_data.get("Ve", {})
         d9_venus_dignity = d9_venus_info.get("dignity", "")
         if d9_venus_dignity in ["Exalt", "Own"]:

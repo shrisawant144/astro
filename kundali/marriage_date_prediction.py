@@ -278,7 +278,7 @@ def find_marriage_date(
         - lagna: lagna longitude
         - lord7: 7th lord name
         - birth_date: datetime object
-        - dasha_periods: list of (start, end, md, ad) – can be extracted from vimshottari
+        - dasha_periods_for_marriage: list of dicts with marriage periods from timings
     """
     planets = kundali["planets"]
     significator_key = "Venus" if gender.lower() == "male" else "Mars"
@@ -293,7 +293,7 @@ def find_marriage_date(
     natal_jup_sign = get_sign(jup_lon)
     seventh_sign = get_seventh_sign(lagna_lon) if lagna_lon else None
 
-    birth_date = kundali.get("birth_date")
+    birth_date = kundali.get("birth_datetime").date() if kundali.get("birth_datetime") else None
     if not birth_date:
         return "Birth date not available"
     birth_year = birth_date.year
@@ -304,8 +304,8 @@ def find_marriage_date(
 
     # Significators for Antardasha
     significators_ad = {"Venus", "Moon", "Jupiter"}
-    if kundali.get("lord7"):
-        significators_ad.add(kundali["lord7"])
+    if kundali.get("lord7_full"):
+        significators_ad.add(kundali.get("lord7_full", ""))
 
     sign_names = ZODIAC_SIGNS
 
@@ -326,7 +326,7 @@ def find_marriage_date(
         dasha_ok = False
         matching_period = None
         dasha_score = 0
-        for period in kundali.get("dasha_periods", []):
+        for period in kundali.get("dasha_periods_for_marriage", []):
             if isinstance(period, dict):
                 start = period["start"]
                 end = period["end"]
