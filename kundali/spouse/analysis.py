@@ -355,10 +355,14 @@ def analyze_marriage_dashas(chart_data, lagna_idx, birth_jd, birth_year):
 
     from kundali.utils import datetime_to_jd
     import pytz
+
     current_jd = datetime_to_jd(datetime.now(pytz.utc))
+    # Always include all high-score periods as 'upcoming' if their end year is >= current year
+    current_year = datetime.now(pytz.utc).year
+    upcoming = [p for p in high_score if p.get("end", 0) >= current_year]
     return {
         "high_score_periods": high_score,
-        "upcoming": [p for p in high_score if p.get("start_jd", 0) > current_jd],
+        "upcoming": upcoming,
         "count": len(high_score),
         "sandhi_periods": [p for p in high_score if p.get("sandhi", False)],
     }

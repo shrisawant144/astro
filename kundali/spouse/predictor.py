@@ -6,7 +6,8 @@ Main predictor class that orchestrates all analysis modules.
 from . import analysis
 from . import report
 import sys
-sys.path.append('..')
+
+sys.path.append("..")
 from utils import get_navamsa_sign_and_deg
 from constants import SHORT_TO_FULL, ZODIAC_SIGNS, SIGN_LORDS
 
@@ -79,12 +80,33 @@ class AdvancedSpousePredictor:
         )
         pred["ashtakavarga"] = analysis.analyze_ashtakavarga(self.data)
         pred["navamsa_strength"] = analysis.analyze_navamsa_strength(self.data)
-        pred["dasha_timing"] = analysis.analyze_marriage_dashas(
+        # Always include high-score marriage periods from main report if available
+        dasha_timing = analysis.analyze_marriage_dashas(
             self.data,
             self.lagna_idx,
             self.data["birth_jd"],
             self.data["birth_year"],
         )
+        # If high-score periods missing but present in timings, add them
+        if not dasha_timing.get("high_score_periods") and self.data.get(
+            "timings", {{}}
+        ).get("Marriage"):
+            timings = self.data["timings"]["Marriage"]
+            import re
+
+            for line in timings:
+                m = re.search(r"─\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)", line)
+                if m:
+                    dasha_timing.setdefault("high_score_periods", []).append(
+                        {
+                            "maha": m.group(1),
+                            "antara": m.group(2),
+                            "start": int(m.group(3)),
+                            "end": int(m.group(4)),
+                            "score": 8,
+                        }
+                    )
+        pred["dasha_timing"] = dasha_timing
         pred["current_transits"] = analysis.analyze_current_transits(
             self.data, self.lagna_idx
         )
@@ -102,7 +124,9 @@ class AdvancedSpousePredictor:
             self.data, self.lagna_idx
         )
         pred["graha_yuddha"] = analysis.detect_planetary_war(self.data)
-        pred["integrity_summary"] = analysis.summarize_integrity(self.data, self.lagna_idx)
+        pred["integrity_summary"] = analysis.summarize_integrity(
+            self.data, self.lagna_idx
+        )
         # Add functional_karaka for confidence
         pred["functional_karaka"] = analysis.analyze_functional_venus_jupiter(
             self.data, self.lagna_idx
