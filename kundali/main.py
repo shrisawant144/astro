@@ -189,8 +189,7 @@ def extract_dasha_periods_for_marriage(timings):
     marriage_lines = timings.get("Marriage", [])
     for line in marriage_lines:
         import re
-
-        m = re.search(r"─\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)", line)
+        m = re.search(r"[└─]\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)", line)
         if m:
             md = m.group(1)
             ad = m.group(2)
