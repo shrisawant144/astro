@@ -1,0 +1,27 @@
+# Python bytecode and cache
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Compiled Python
+*.so
+
+# Text files and outputs
+*.txt
+
+# Directories (recursive ignore)
+kundali/outputs/
+__pycache__/
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
