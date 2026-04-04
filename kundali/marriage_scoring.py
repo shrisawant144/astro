@@ -4,8 +4,8 @@ Marriage probability scoring based on Parashari principles.
 Computes a score (0-10) for a given dasha period indicating likelihood of marriage.
 """
 
-from constants import short_to_full, sign_lords, zodiac_signs, FUNCTIONAL_QUALITY
-from utils import get_dignity, get_house_from_sign
+from .constants import short_to_full, sign_lords, zodiac_signs, FUNCTIONAL_QUALITY
+from .utils import get_dignity, get_house_from_sign
 
 
 def calculate_marriage_score(result, md_lord, ad_lord=None):

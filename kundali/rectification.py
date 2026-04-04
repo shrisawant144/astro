@@ -6,14 +6,14 @@ Requires the full kundali result and a list of life events with dates.
 import swisseph as swe
 from datetime import datetime, timedelta
 from math import floor
-from constants import (
+from .constants import (
     ZODIAC_SIGNS,
     nakshatras,
     nakshatra_lord_index,
     dasha_lords,
     AYANAMSA_OPTIONS,
 )
-from utils import get_sign, get_nakshatra, datetime_to_jd
+from .utils import get_sign, get_nakshatra, datetime_to_jd
 
 
 # -------------------------------------------------------------------

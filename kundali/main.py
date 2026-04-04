@@ -1,6 +1,3 @@
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # main.py (updated with spouse prediction support)
 """
 Main orchestration module for Vedic kundali generation.
@@ -8,7 +5,6 @@ Coordinates all calculations and provides the primary API.
 """
 
 import os
-import sys
 import datetime
 import warnings
 import swisseph as swe
@@ -16,8 +12,7 @@ import pytz
 from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
 
-# Import all modules
-from constants import (
+from .constants import (
     zodiac_signs,
     planets,
     sign_lords,
@@ -37,7 +32,7 @@ from constants import (
     AYANAMSA_OPTIONS,
     DEFAULT_AYANAMSA,
 )
-from utils import (
+from .utils import (
     get_sign,
     get_nakshatra,
     get_nakshatra_progress,
@@ -55,19 +50,19 @@ from utils import (
     get_d2_sign_and_deg,
     get_d60_sign_and_deg,
 )
-from neecha_bhanga import check_neecha_bhanga
-from yoga_detection import detect_yogas
-from dosha_detection import detect_problems
-from dasha import (
+from .neecha_bhanga import check_neecha_bhanga
+from .yoga_detection import detect_yogas
+from .dosha_detection import detect_problems
+from .dasha import (
     calculate_vimshottari_dasha,
     calculate_antardashas,
     find_current_dasha,
     get_current_pratyantar,
 )
-from marriage_scoring import calculate_marriage_score
-from timings import generate_timings
-from ashtakavarga import calculate_ashtakavarga
-from interpretations import (
+from .marriage_scoring import calculate_marriage_score
+from .timings import generate_timings
+from .ashtakavarga import calculate_ashtakavarga
+from .interpretations import (
     interpret_aspects,
     interpret_navamsa,
     interpret_d7,
@@ -75,8 +70,8 @@ from interpretations import (
     calculate_functional_strength_index,
     get_aspect_quality_score,
 )
-from printing import print_kundali
-from rectification import rectify_birth_time
+from .printing import print_kundali
+from .rectification import rectify_birth_time
 
 
 # -------------------------------------------------------------------
@@ -365,7 +360,7 @@ def calculate_kundali(
         house_lord_map[h_num] = {"lord": h_lord, "placed_in": lord_in_house}
 
     # Add interpretations for key marriage houses 2,5,7 used by spouse_predictor
-    from constants import HOUSE_LORD_IN_HOUSE
+    from .constants import HOUSE_LORD_IN_HOUSE
 
     for h_num in range(1, 13):
         info = house_lord_map[h_num]
@@ -450,7 +445,7 @@ def calculate_kundali(
                 aspects[ah].append(f"{node}-5/9")
 
     # Transits
-    from constants import gochara_effects
+    from .constants import gochara_effects
 
     transits = {}
     for pcode, pid in planets.items():
@@ -741,7 +736,7 @@ def main():
             from datetime import datetime as dt
 
             try:
-                from spouse.predictor import AdvancedSpousePredictor
+                from .spouse.predictor import AdvancedSpousePredictor
 
                 # Spouse analysis
                 predictor = AdvancedSpousePredictor(result)

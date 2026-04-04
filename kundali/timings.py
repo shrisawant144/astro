@@ -6,8 +6,8 @@ based on Vimshottari Dasha periods and planetary significations.
 
 import re
 import datetime
-from constants import short_to_full, sign_lords, zodiac_signs
-from marriage_scoring import calculate_marriage_score
+from .constants import short_to_full, sign_lords, zodiac_signs
+from .marriage_scoring import calculate_marriage_score
 
 
 def lord_of(house_no, lagna_sign):

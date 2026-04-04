@@ -4,7 +4,7 @@ Interpretation functions for divisional charts (D9, D7, D10) and aspects.
 Provides detailed textual analysis of planetary placements and their implications.
 """
 
-from constants import (
+from .constants import (
     short_to_full,
     zodiac_signs,
     sign_lords,
@@ -14,7 +14,7 @@ from constants import (
     NATURAL_BENEFICS,
     NATURAL_MALEFICS,
 )
-from utils import get_dignity
+from .utils import get_dignity
 
 
 def get_aspect_quality_score(

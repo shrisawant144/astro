@@ -4,8 +4,8 @@ Vimshottari Dasha calculations: Mahadasha, Antardasha, Pratyantar Dasha.
 """
 
 import swisseph as swe
-from constants import dasha_lords, dasha_periods, nakshatra_lord_index
-from utils import get_nakshatra_progress
+from .constants import dasha_lords, dasha_periods, nakshatra_lord_index
+from .utils import get_nakshatra_progress
 
 
 def calculate_vimshottari_dasha(moon_deg, birth_jd):

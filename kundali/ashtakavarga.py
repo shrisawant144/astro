@@ -4,7 +4,7 @@ Ashtakavarga (Sarvashtakavarga) calculation.
 Computes benefic points for each planet and the SAV for all houses.
 """
 
-from constants import ASHTAKAVARGA_REKHAS, zodiac_signs
+from .constants import ASHTAKAVARGA_REKHAS, zodiac_signs
 
 
 def calculate_ashtakavarga(result):

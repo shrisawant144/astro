@@ -2,12 +2,7 @@
 Vedic Kundali - Entry point
 Run: python run.py
 """
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "kundali"))
-
-from main import main
+from kundali.main import main
 
 if __name__ == "__main__":
     main()

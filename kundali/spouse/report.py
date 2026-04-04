@@ -1,7 +1,7 @@
 # spouse/report.py
 def generate_spouse_report(pred):
     from datetime import datetime
-    from constants import SHORT_TO_FULL, ZODIAC_SIGNS
+    from ..constants import SHORT_TO_FULL, ZODIAC_SIGNS
 
     lines = []
     lines.append("=" * 90)

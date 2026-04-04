@@ -4,8 +4,8 @@ Jaimini Charakaraka (7 significators) and Karakamsa Lagna.
 Based on the Jaimini Sutras, using the highest degrees (or lowest for nodes) to determine the karakas.
 """
 
-from constants import short_to_full, zodiac_signs
-from utils import get_navamsa_sign
+from .constants import short_to_full, zodiac_signs
+from .utils import get_navamsa_sign
 
 
 def calculate_charakaraka(planet_data, navamsa_data):

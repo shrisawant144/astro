@@ -5,7 +5,7 @@ Formatted output of the complete kundali report.
 
 import datetime
 import re
-from constants import (
+from .constants import (
     short_to_full,
     zodiac_signs,
     sign_lords,
@@ -17,8 +17,8 @@ from constants import (
     SEVENTH_LORD_REMEDIES,
     HOUSE_LORD_IN_HOUSE,
 )
-from utils import get_dignity
-from interpretations import (
+from .utils import get_dignity
+from .interpretations import (
     interpret_aspects,
     interpret_navamsa,
     interpret_d7,

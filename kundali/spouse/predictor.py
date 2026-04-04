@@ -5,11 +5,8 @@ Main predictor class that orchestrates all analysis modules.
 
 from . import analysis
 from . import report
-import sys
-
-sys.path.append("..")
-from utils import get_navamsa_sign_and_deg
-from constants import SHORT_TO_FULL, ZODIAC_SIGNS, SIGN_LORDS
+from ..utils import get_navamsa_sign_and_deg
+from ..constants import SHORT_TO_FULL, ZODIAC_SIGNS, SIGN_LORDS
 
 
 class AdvancedSpousePredictor:

@@ -4,7 +4,7 @@ Neecha Bhanga (cancellation of debilitation) detection.
 Based on Brihat Parashara Hora Shastra, Chapter 28.
 """
 
-from constants import NEECHA_BHANGA_INFO, sign_lords, zodiac_signs
+from .constants import NEECHA_BHANGA_INFO, sign_lords, zodiac_signs
 
 
 def check_neecha_bhanga(planet_code, planet_data, house_planets, lagna_idx, moon_house):

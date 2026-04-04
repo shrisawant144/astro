@@ -4,8 +4,8 @@ Detection and strength scoring of Vedic yogas (planetary combinations).
 Includes Raja Yoga, Gajakesari, Dhana Yoga, Pancha Mahapurusha, etc.
 """
 
-from constants import short_to_full, zodiac_signs, sign_lords, FUNCTIONAL_QUALITY
-from utils import get_dignity
+from .constants import short_to_full, zodiac_signs, sign_lords, FUNCTIONAL_QUALITY
+from .utils import get_dignity
 
 
 def get_yoga_strength(pl_list, result):

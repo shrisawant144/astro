@@ -5,7 +5,7 @@ debilitated planets, Pitru Dosha, Graha Malika, etc. Includes targeted remedies.
 """
 
 import re
-from constants import (
+from .constants import (
     short_to_full,
     zodiac_signs,
     FUNCTIONAL_QUALITY,
@@ -13,7 +13,7 @@ from constants import (
     NATURAL_MALEFICS,
     NEECHA_BHANGA_INFO,
 )
-from utils import houses_are_consecutive, get_dignity
+from .utils import houses_are_consecutive, get_dignity
 
 # -------------------------------------------------------------------
 # Remedial measures for each dosha

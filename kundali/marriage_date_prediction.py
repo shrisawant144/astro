@@ -9,14 +9,14 @@ from datetime import datetime, timezone
 from math import floor
 from typing import Dict, List, Optional, Tuple
 
-from constants import (
+from .constants import (
     SHORT_TO_FULL,
     ZODIAC_SIGNS,
     SIGN_LORDS,
     MARRIAGE_AUSPICIOUS_TITHIS,
     MARRIAGE_AUSPICIOUS_NAKSHATRAS,
 )
-from utils import (
+from .utils import (
     get_sign,
     get_nakshatra,
     get_seventh_sign,

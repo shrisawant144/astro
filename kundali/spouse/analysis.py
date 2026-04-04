@@ -1,9 +1,8 @@
 import re
 from datetime import datetime
-from kundali.utils import datetime_to_jd
 import pytz
 
-from constants import (
+from ..constants import (
     ZODIAC_SIGNS,
     SIGN_LORDS,
     SHORT_TO_FULL,
@@ -12,12 +11,13 @@ from constants import (
     MEETING_CIRCUMSTANCES,
     PROFESSION_BY_HOUSE,
 )
-from utils import (
+from ..utils import (
     get_dignity,
     get_navamsa_sign,
     has_aspect,
+    datetime_to_jd,
 )
-from nakshatra import (
+from ..nakshatra import (
     get_nakshatra_lord,
     get_nakshatra_deity,
     get_nakshatra_meaning,

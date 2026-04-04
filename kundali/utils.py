@@ -11,7 +11,7 @@ from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
 import pytz
 
-from constants import (
+from .constants import (
     zodiac_signs,
     nakshatras,
     sign_lords,
