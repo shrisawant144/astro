@@ -285,8 +285,20 @@ def generate_spouse_report(pred):
             lines.append("Cancellations (protective factors):")
             for c in manglik["cancellations"]:
                 lines.append(f"  ✓ {c}")
+        if manglik.get("recommendation"):
+            lines.append(f"Recommendation: {manglik['recommendation']}")
     else:
         lines.append(f"Manglik Dosha is NOT present. {manglik.get('reason', '')}")
+
+    # A7 Darapada
+    a7 = pred.get("a7_darapada", {})
+    if a7.get("sign") and a7["sign"] != "Unknown":
+        lines.append("\n" + "─" * 90)
+        lines.append("🎭 A7 DARAPADA (Public Image of Marriage)")
+        lines.append("─" * 90)
+        lines.append(f"A7 Sign: {a7['sign']} (Lord {a7.get('lord', 'N/A')})")
+        lines.append(f"Status: {a7.get('status', 'neutral').title()}")
+        lines.append(f"Meaning: {a7.get('meaning', '')}")
 
     # Neecha Bhanga
     if pred.get("neecha_bhanga_effects"):

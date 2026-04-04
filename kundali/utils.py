@@ -334,3 +334,16 @@ def get_progressed_jupiter_sign(natal_jup_lon, age_floor):
     """
     progressed_lon = (natal_jup_lon + age_floor * 30) % 360
     return get_sign(progressed_lon)
+
+
+def safe_sign_index(sign):
+    """Safe zodiac sign to index conversion with fallback to 0."""
+    return zodiac_signs.index(sign) if sign in zodiac_signs else 0
+
+
+def is_jupiter_transit_activating(transit_jup_sign, natal_sig_sign, progressed_sign):
+    """Check if transit Jupiter activates natal significator or progressed sign."""
+    return (
+        signs_have_nadi_relation(transit_jup_sign, natal_sig_sign)
+        or signs_have_nadi_relation(transit_jup_sign, progressed_sign)
+    )

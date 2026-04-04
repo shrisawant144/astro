@@ -696,6 +696,7 @@ def check_manglik_dosha(chart_data, lagna_idx):
         "mars_sign": mars_sign,
         "mars_dignity": mars_dignity,
         "cancellations": cancellations,
+        "recommendation": get_manglik_recommendation(severity, cancellations),
     }
 
 
@@ -1091,3 +1092,47 @@ def summarize_integrity(chart_data, lagna_idx):
         if p in integrity:
             summary[p] = integrity[p]
     return summary
+
+
+def calculate_a7_darapada(chart_data, lagna_idx):
+    """Calculate A7 Darapada — public image of marriage (Jaimini)."""
+    d1 = chart_data["planets"]
+    h7_idx = (lagna_idx + 6) % 12
+    h7_sign = ZODIAC_SIGNS[h7_idx]
+    h7_lord = SIGN_LORDS[h7_sign]
+    if h7_lord not in d1:
+        return {"sign": "Unknown", "status": "neutral", "meaning": "Data insufficient"}
+    lord_sign = d1[h7_lord]["sign"]
+    lord_idx = ZODIAC_SIGNS.index(lord_sign) if lord_sign in ZODIAC_SIGNS else 0
+    distance = (lord_idx - h7_idx) % 12
+    a7_idx = (lord_idx + distance) % 12
+    if a7_idx == h7_idx:
+        a7_idx = (h7_idx + 9) % 12
+    elif a7_idx == (h7_idx + 6) % 12:
+        a7_idx = ((h7_idx + 6) + 9) % 12
+    a7_sign = ZODIAC_SIGNS[a7_idx]
+    a7_lord = SIGN_LORDS[a7_sign]
+    a7_lord_sign = d1.get(a7_lord, {}).get("sign", "")
+    a7_dignity = get_dignity(a7_lord, a7_lord_sign)
+    status = (
+        "strong"
+        if a7_dignity in ["Exalted", "Own"]
+        else "afflicted" if a7_dignity == "Debilitated" else "neutral"
+    )
+    meaning = {
+        "strong": "Attractive spouse image, harmonious public perception of marriage",
+        "afflicted": "Challenges in public perception, possible delays/conflicts",
+        "neutral": "Average public image of marriage",
+    }.get(status, "")
+    return {"sign": a7_sign, "lord": a7_lord, "status": status, "meaning": meaning}
+
+
+def get_manglik_recommendation(severity, cancellations):
+    """Provide recommendation text based on Manglik severity and cancellations."""
+    if cancellations:
+        return "Dosha is cancelled - no major concern. Normal compatibility check sufficient."
+    if severity == "Mild":
+        return "Mild dosha - prefer partner with similar Mars placement or perform simple remedies."
+    if severity == "Moderate":
+        return "Moderate dosha - partner should also be Manglik or have strong Venus/Jupiter. Consider remedies."
+    return "Strong dosha - Important: Partner should be Manglik or have strong cancellations. Consult astrologer for remedies."

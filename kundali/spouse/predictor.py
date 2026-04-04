@@ -123,6 +123,9 @@ class AdvancedSpousePredictor:
         pred["nakshatra_insights"] = analysis.analyze_nakshatra_for_spouse(
             self.data, self.lagna_idx
         )
+        pred["a7_darapada"] = analysis.calculate_a7_darapada(
+            self.data, self.lagna_idx
+        )
         pred["graha_yuddha"] = analysis.detect_planetary_war(self.data)
         pred["integrity_summary"] = analysis.summarize_integrity(
             self.data, self.lagna_idx
