@@ -11,17 +11,47 @@ from .utils import get_nakshatra_progress
 
 # ─── Ashtottari constants ────────────────────────────────────────────────────
 # Order: Su, Mo, Ma, Me, Ve, Sa, Ju, Ra  (8 planets, total 108 years)
-_ASHTO_LORDS   = ["Su", "Mo", "Ma", "Me", "Ve", "Sa", "Ju", "Ra"]
+_ASHTO_LORDS = ["Su", "Mo", "Ma", "Me", "Ve", "Sa", "Ju", "Ra"]
 _ASHTO_PERIODS = {
-    "Su": 6, "Mo": 15, "Ma": 8, "Me": 17,
-    "Ve": 21, "Sa": 10, "Ju": 19, "Ra": 12,
-}   # total = 108 years
+    "Su": 6,
+    "Mo": 15,
+    "Ma": 8,
+    "Me": 17,
+    "Ve": 21,
+    "Sa": 10,
+    "Ju": 19,
+    "Ra": 12,
+}  # total = 108 years
 _ASHTO_NAK_LORD = {
     # Nakshatra index (0-26) → Ashtottari starting lord index
     # Lord of each nakshatra in Ashtottari (different from Vimshottari)
-    0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 0, 8: 1,
-    9: 2, 10: 3, 11: 4, 12: 5, 13: 6, 14: 7, 15: 0, 16: 1, 17: 2,
-    18: 3, 19: 4, 20: 5, 21: 6, 22: 7, 23: 0, 24: 1, 25: 2, 26: 3,
+    0: 1,
+    1: 2,
+    2: 3,
+    3: 4,
+    4: 5,
+    5: 6,
+    6: 7,
+    7: 0,
+    8: 1,
+    9: 2,
+    10: 3,
+    11: 4,
+    12: 5,
+    13: 6,
+    14: 7,
+    15: 0,
+    16: 1,
+    17: 2,
+    18: 3,
+    19: 4,
+    20: 5,
+    21: 6,
+    22: 7,
+    23: 0,
+    24: 1,
+    25: 2,
+    26: 3,
 }
 
 
@@ -195,7 +225,9 @@ def get_current_pratyantar(birth_jd, current_jd, current_md, current_ad, dashas)
     return None, None, None
 
 
-def get_current_sookshma(birth_jd, current_jd, current_md, current_ad, current_pd, dashas):
+def get_current_sookshma(
+    birth_jd, current_jd, current_md, current_ad, current_pd, dashas
+):
     """
     Compute current Sookshma Dasha (4th level, ~days precision).
 
@@ -239,6 +271,7 @@ def get_current_sookshma(birth_jd, current_jd, current_md, current_ad, current_p
 # Ashtottari Dasha (108-year system)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def calculate_ashtottari_dasha(moon_deg, birth_jd):
     """
     Calculate Ashtottari Mahadashas from birth.
@@ -260,13 +293,15 @@ def calculate_ashtottari_dasha(moon_deg, birth_jd):
 
     # Balance period
     balance_days = balance_years * 365.25
-    dashas.append({
-        "lord": start_lord,
-        "start_jd": current_jd,
-        "end_jd": current_jd + balance_days,
-        "years": round(balance_years, 3),
-        "antardashas": [],
-    })
+    dashas.append(
+        {
+            "lord": start_lord,
+            "start_jd": current_jd,
+            "end_jd": current_jd + balance_days,
+            "years": round(balance_years, 3),
+            "antardashas": [],
+        }
+    )
     current_jd += balance_days
     total_years = balance_years
 
@@ -275,13 +310,15 @@ def calculate_ashtottari_dasha(moon_deg, birth_jd):
         lord = _ASHTO_LORDS[current_idx]
         period = _ASHTO_PERIODS[lord]
         days = period * 365.25
-        dashas.append({
-            "lord": lord,
-            "start_jd": current_jd,
-            "end_jd": current_jd + days,
-            "years": period,
-            "antardashas": [],
-        })
+        dashas.append(
+            {
+                "lord": lord,
+                "start_jd": current_jd,
+                "end_jd": current_jd + days,
+                "years": period,
+                "antardashas": [],
+            }
+        )
         current_jd += days
         total_years += period
 
@@ -303,12 +340,14 @@ def calculate_ashtottari_antardashas(md_dasha):
         ad_prop = ad_full / 108.0
         ad_years = md_years * ad_prop
         ad_end = current_jd + ad_years * 365.25
-        antardashas.append({
-            "lord": ad_lord,
-            "start_jd": current_jd,
-            "end_jd": ad_end,
-            "years": round(ad_years, 3),
-        })
+        antardashas.append(
+            {
+                "lord": ad_lord,
+                "start_jd": current_jd,
+                "end_jd": ad_end,
+                "years": round(ad_years, 3),
+            }
+        )
         current_jd = ad_end
 
     md_dasha["antardashas"] = antardashas
@@ -324,7 +363,7 @@ def find_current_ashtottari(birth_jd, current_jd, dashas):
         if ms <= years_since < me:
             for ad in md["antardashas"]:
                 as_ = (ad["start_jd"] - birth_jd) / 365.25
-                ae  = (ad["end_jd"] - birth_jd) / 365.25
+                ae = (ad["end_jd"] - birth_jd) / 365.25
                 if as_ <= years_since < ae:
                     return md["lord"], ad["lord"]
     return None, None
@@ -336,27 +375,56 @@ def find_current_ashtottari(birth_jd, current_jd, dashas):
 # 8 Yoginis with their ruling planets and durations (total = 36 years)
 _YOGINI_LORDS = ["Mo", "Su", "Ju", "Ma", "Me", "Sa", "Ve", "Ra"]
 _YOGINI_NAMES = [
-    "Mangala", "Pingala", "Dhanya", "Bhramari",
-    "Bhadrika", "Ulka", "Siddha", "Sankata",
+    "Mangala",
+    "Pingala",
+    "Dhanya",
+    "Bhramari",
+    "Bhadrika",
+    "Ulka",
+    "Siddha",
+    "Sankata",
 ]
 _YOGINI_PERIODS = {
-    "Mangala":  1,   # Moon
-    "Pingala":  2,   # Sun
-    "Dhanya":   3,   # Jupiter
-    "Bhramari": 4,   # Mars
-    "Bhadrika": 5,   # Mercury
-    "Ulka":     6,   # Saturn
-    "Siddha":   7,   # Venus
-    "Sankata":  8,   # Rahu
-}   # total = 36 years
+    "Mangala": 1,  # Moon
+    "Pingala": 2,  # Sun
+    "Dhanya": 3,  # Jupiter
+    "Bhramari": 4,  # Mars
+    "Bhadrika": 5,  # Mercury
+    "Ulka": 6,  # Saturn
+    "Siddha": 7,  # Venus
+    "Sankata": 8,  # Rahu
+}  # total = 36 years
 
 # Nakshatra → starting Yogini index (0-7) for Yogini Dasha
 # Maps nak_index % 8 → Yogini sequence start
 _YOGINI_NAK_MAP = {
-    0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7,
-    8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 6, 15: 7,
-    16: 0, 17: 1, 18: 2, 19: 3, 20: 4, 21: 5, 22: 6, 23: 7,
-    24: 0, 25: 1, 26: 2,
+    0: 0,
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 4,
+    5: 5,
+    6: 6,
+    7: 7,
+    8: 0,
+    9: 1,
+    10: 2,
+    11: 3,
+    12: 4,
+    13: 5,
+    14: 6,
+    15: 7,
+    16: 0,
+    17: 1,
+    18: 2,
+    19: 3,
+    20: 4,
+    21: 5,
+    22: 6,
+    23: 7,
+    24: 0,
+    25: 1,
+    26: 2,
 }
 
 
@@ -390,30 +458,34 @@ def calculate_yogini_dasha(moon_deg, birth_jd):
 
     # Balance period
     balance_days = balance_years * 365.25
-    dashas.append({
-        "yogini":   start_yogini,
-        "lord":     _YOGINI_LORDS[current_idx],
-        "start_jd": current_jd,
-        "end_jd":   current_jd + balance_days,
-        "years":    round(balance_years, 3),
-        "antardashas": [],
-    })
+    dashas.append(
+        {
+            "yogini": start_yogini,
+            "lord": _YOGINI_LORDS[current_idx],
+            "start_jd": current_jd,
+            "end_jd": current_jd + balance_days,
+            "years": round(balance_years, 3),
+            "antardashas": [],
+        }
+    )
     current_jd += balance_days
     total_years = balance_years
 
-    while total_years < 72:   # 2 cycles of 36 years
+    while total_years < 72:  # 2 cycles of 36 years
         current_idx = (current_idx + 1) % 8
         yogini = _YOGINI_NAMES[current_idx]
         period = _YOGINI_PERIODS[yogini]
         days = period * 365.25
-        dashas.append({
-            "yogini":   yogini,
-            "lord":     _YOGINI_LORDS[current_idx],
-            "start_jd": current_jd,
-            "end_jd":   current_jd + days,
-            "years":    period,
-            "antardashas": [],
-        })
+        dashas.append(
+            {
+                "yogini": yogini,
+                "lord": _YOGINI_LORDS[current_idx],
+                "start_jd": current_jd,
+                "end_jd": current_jd + days,
+                "years": period,
+                "antardashas": [],
+            }
+        )
         current_jd += days
         total_years += period
 
@@ -440,13 +512,15 @@ def calculate_yogini_antardashas(md_dasha):
         ad_prop = ad_full / total_cycle
         ad_years = md_years * ad_prop
         ad_end = current_jd + ad_years * 365.25
-        antardashas.append({
-            "yogini":   ad_yogini,
-            "lord":     _YOGINI_LORDS[ad_idx],
-            "start_jd": current_jd,
-            "end_jd":   ad_end,
-            "years":    round(ad_years, 3),
-        })
+        antardashas.append(
+            {
+                "yogini": ad_yogini,
+                "lord": _YOGINI_LORDS[ad_idx],
+                "start_jd": current_jd,
+                "end_jd": ad_end,
+                "years": round(ad_years, 3),
+            }
+        )
         current_jd = ad_end
 
     md_dasha["antardashas"] = antardashas
@@ -462,7 +536,7 @@ def find_current_yogini(birth_jd, current_jd, dashas):
         if ms <= years_since < me:
             for ad in md.get("antardashas", []):
                 as_ = (ad["start_jd"] - birth_jd) / 365.25
-                ae  = (ad["end_jd"] - birth_jd) / 365.25
+                ae = (ad["end_jd"] - birth_jd) / 365.25
                 if as_ <= years_since < ae:
                     return md["yogini"], md["lord"], ad["yogini"], ad["lord"]
     return None, None, None, None

@@ -21,14 +21,16 @@ import textwrap
 
 try:
     import anthropic
+
     _ANTHROPIC_AVAILABLE = True
 except ImportError:
     _ANTHROPIC_AVAILABLE = False
 
 # Default model — can override via env var VEDIC_AI_MODEL
-DEFAULT_MODEL   = os.environ.get("VEDIC_AI_MODEL", "claude-sonnet-4-6")
-MAX_TOKENS      = int(os.environ.get("VEDIC_AI_MAX_TOKENS", "2048"))
-SYSTEM_PROMPT   = textwrap.dedent("""\
+DEFAULT_MODEL = os.environ.get("VEDIC_AI_MODEL", "claude-sonnet-4-6")
+MAX_TOKENS = int(os.environ.get("VEDIC_AI_MAX_TOKENS", "2048"))
+SYSTEM_PROMPT = textwrap.dedent(
+    """\
     You are an expert Vedic astrologer with deep knowledge of:
     - Parashari system (BPHS), Jaimini system, Nadi astrology
     - Planetary dignities, yogas, dashas, divisional charts
@@ -48,16 +50,18 @@ SYSTEM_PROMPT   = textwrap.dedent("""\
     Always speak in a warm, insightful tone. Provide specific, actionable insights.
     When uncertain, state possibilities rather than absolute predictions.
     Mention relevant remedies (mantras, gemstones, fasting, charity) where appropriate.
-""")
+"""
+)
 
 
 # ─── Prompt Builders ──────────────────────────────────────────────────────────
 
+
 def _format_planet_summary(result: dict) -> str:
     """Build a compact planet summary string for the prompt."""
     planets = result.get("planets", {})
-    order   = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]
-    lines   = []
+    order = ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]
+    lines = []
     for pl in order:
         if pl not in planets:
             continue
@@ -79,18 +83,28 @@ def _format_planet_summary(result: dict) -> str:
 def _format_houses(result: dict) -> str:
     """Build a compact house occupancy string."""
     houses = result.get("houses", {})
-    lagna  = result.get("lagna_sign", "")
-    signs  = [
-        "Aries","Taurus","Gemini","Cancer","Leo","Virgo",
-        "Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces",
+    lagna = result.get("lagna_sign", "")
+    signs = [
+        "Aries",
+        "Taurus",
+        "Gemini",
+        "Cancer",
+        "Leo",
+        "Virgo",
+        "Libra",
+        "Scorpio",
+        "Sagittarius",
+        "Capricorn",
+        "Aquarius",
+        "Pisces",
     ]
     lagna_idx = signs.index(lagna) if lagna in signs else 0
     lines = []
     for h in range(1, 13):
-        sign_idx  = (lagna_idx + h - 1) % 12
-        sign      = signs[sign_idx]
+        sign_idx = (lagna_idx + h - 1) % 12
+        sign = signs[sign_idx]
         occupants = [p for p in houses.get(h, []) if p != "Asc"]
-        content   = " ".join(occupants) if occupants else "—"
+        content = " ".join(occupants) if occupants else "—"
         lines.append(f"  H{h:02d} ({sign:12}): {content}")
     return "\n".join(lines)
 
@@ -121,7 +135,7 @@ def _format_dasha(result: dict) -> str:
         for m in mds:
             try:
                 s_yr = int(birth_yr + (m["start_jd"] - birth_jd) / 365.25)
-                e_yr = int(birth_yr + (m["end_jd"]   - birth_jd) / 365.25)
+                e_yr = int(birth_yr + (m["end_jd"] - birth_jd) / 365.25)
                 lines.append(f"    {m['lord']:8} ({s_yr}–{e_yr})")
             except Exception:
                 lines.append(f"    {m.get('lord','?')}")
@@ -145,7 +159,7 @@ def _format_shadbala(result: dict) -> str:
     rows = []
     for pl, data in sb_data.items():
         if isinstance(data, dict):
-            rupas  = data.get("rupas", data.get("total_rupas", data.get("total", 0)))
+            rupas = data.get("rupas", data.get("total_rupas", data.get("total", 0)))
             strong = "STRONG" if data.get("strong") else "weak"
             rows.append(f"  {pl}: {rupas:.2f} Rupas ({strong})")
     return "\n".join(rows) if rows else "  Shadbala unavailable."
@@ -181,19 +195,20 @@ def build_kundali_prompt(result: dict, question: str | None = None) -> str:
     """
     Build a comprehensive Vedic astrology prompt from the kundali result dict.
     """
-    name        = result.get("name", "the native")
-    gender      = result.get("gender", "Unknown")
-    birth_date  = result.get("birth_date", "?")
-    birth_time  = result.get("birth_time", "?")
+    name = result.get("name", "the native")
+    gender = result.get("gender", "Unknown")
+    birth_date = result.get("birth_date", "?")
+    birth_time = result.get("birth_time", "?")
     birth_place = result.get("birth_place", "?")
-    lagna       = result.get("lagna_sign", "?")
-    lagna_deg   = result.get("lagna_deg", 0)
-    moon_sign   = result.get("moon_sign", "?")
-    moon_nak    = result.get("moon_nakshatra", "?")
-    ayanamsa    = result.get("ayanamsa", "Lahiri")
-    pan         = result.get("panchanga", {})
+    lagna = result.get("lagna_sign", "?")
+    lagna_deg = result.get("lagna_deg", 0)
+    moon_sign = result.get("moon_sign", "?")
+    moon_nak = result.get("moon_nakshatra", "?")
+    ayanamsa = result.get("ayanamsa", "Lahiri")
+    pan = result.get("panchanga", {})
 
-    prompt = textwrap.dedent(f"""\
+    prompt = textwrap.dedent(
+        f"""\
         ════════════════════════════════════════════════════════════════
         VEDIC KUNDALI — Full Analysis Request
         ════════════════════════════════════════════════════════════════
@@ -225,56 +240,71 @@ def build_kundali_prompt(result: dict, question: str | None = None) -> str:
         PLANETARY POSITIONS (D1 — Rasi Chart)
         ──────────────────────────────────────
         [Planet: Sign | Degree | Nakshatra | Dignity | Flags]
-    """)
+    """
+    )
     prompt += _format_planet_summary(result) + "\n\n"
 
-    prompt += textwrap.dedent("""\
+    prompt += textwrap.dedent(
+        """\
         HOUSES (Whole Sign)
         ───────────────────
-    """)
+    """
+    )
     prompt += _format_houses(result) + "\n\n"
 
-    prompt += textwrap.dedent("""\
+    prompt += textwrap.dedent(
+        """\
         NAVAMSA (D9) — Marriage/Dharma
         ───────────────────────────────
-    """)
+    """
+    )
     prompt += _format_navamsa(result) + "\n\n"
 
-    prompt += textwrap.dedent("""\
+    prompt += textwrap.dedent(
+        """\
         MAJOR YOGAS DETECTED
         ─────────────────────
-    """)
+    """
+    )
     prompt += _format_yogas(result) + "\n\n"
 
-    prompt += textwrap.dedent("""\
+    prompt += textwrap.dedent(
+        """\
         VIMSHOTTARI DASHA
         ─────────────────
-    """)
+    """
+    )
     prompt += _format_dasha(result) + "\n\n"
 
-    prompt += textwrap.dedent("""\
+    prompt += textwrap.dedent(
+        """\
         SHADBALA (Planetary Strength)
         ──────────────────────────────
-    """)
+    """
+    )
     prompt += _format_shadbala(result) + "\n\n"
 
-    prompt += textwrap.dedent("""\
+    prompt += textwrap.dedent(
+        """\
         PANCHA PAKSHI (Bird Activity System)
         ─────────────────────────────────────
-    """)
+    """
+    )
     prompt += _format_pancha_pakshi(result) + "\n\n"
 
-    prompt += textwrap.dedent("""\
+    prompt += textwrap.dedent(
+        """\
         DOSHAS & CHALLENGES
         ────────────────────
-    """)
+    """
+    )
     prompt += _format_problems(result) + "\n\n"
 
     # Optional tajika / muhurtha
     tajika = result.get("tajika", {})
     if tajika:
         year_lord = tajika.get("year_lord", "?")
-        muntha    = tajika.get("muntha", {}).get("sign", "?")
+        muntha = tajika.get("muntha", {}).get("sign", "?")
         mun_house = tajika.get("muntha", {}).get("house_from_lagna", "?")
         prompt += "TAJIKA SOLAR RETURN\n───────────────────\n"
         prompt += f"  Year : {tajika.get('year','?')} | Year Lord: {year_lord}\n"
@@ -291,7 +321,8 @@ def build_kundali_prompt(result: dict, question: str | None = None) -> str:
 
     # Specific question
     if question:
-        prompt += textwrap.dedent(f"""\
+        prompt += textwrap.dedent(
+            f"""\
             SPECIFIC QUESTION FROM NATIVE
             ──────────────────────────────
             {question}
@@ -302,9 +333,11 @@ def build_kundali_prompt(result: dict, question: str | None = None) -> str:
             3. Timing via current Vimshottari dasha
             4. Remedies or practical recommendations
             5. Overall life potential summary (brief)
-        """)
+        """
+        )
     else:
-        prompt += textwrap.dedent("""\
+        prompt += textwrap.dedent(
+            """\
             Please provide a comprehensive Vedic astrological interpretation covering:
             1. Overall personality and life path (Lagna + Moon analysis)
             2. Career and wealth potential (2nd, 10th, 11th house lords + yogas)
@@ -314,18 +347,20 @@ def build_kundali_prompt(result: dict, question: str | None = None) -> str:
             6. Current life phase based on Vimshottari dasha
             7. Key opportunities in the next 3–5 years
             8. Suggested remedies for planetary afflictions
-        """)
+        """
+        )
 
     return prompt
 
 
 # ─── Main API ─────────────────────────────────────────────────────────────────
 
+
 def get_ai_interpretation(
-    result:    dict,
-    question:  str | None = None,
-    model:     str | None = None,
-    api_key:   str | None = None,
+    result: dict,
+    question: str | None = None,
+    model: str | None = None,
+    api_key: str | None = None,
 ) -> str:
     """
     Get an AI-generated Vedic astrological interpretation of the kundali.
@@ -352,8 +387,7 @@ def get_ai_interpretation(
             "⚠️  ANTHROPIC_API_KEY not set.\n"
             "Please set the environment variable:\n"
             "  export ANTHROPIC_API_KEY='your-key-here'\n\n"
-            "--- Offline Fallback Analysis ---\n"
-            + _offline_fallback(result, question)
+            "--- Offline Fallback Analysis ---\n" + _offline_fallback(result, question)
         )
 
     model = model or DEFAULT_MODEL
@@ -373,21 +407,20 @@ def get_ai_interpretation(
     except Exception as e:
         return (
             f"⚠️  Claude API error: {e}\n\n"
-            "--- Offline Fallback Analysis ---\n"
-            + _offline_fallback(result, question)
+            "--- Offline Fallback Analysis ---\n" + _offline_fallback(result, question)
         )
 
 
 def _offline_fallback(result: dict, question: str | None = None) -> str:
     """Generate a basic text analysis without the AI API."""
-    lagna    = result.get("lagna_sign", "?")
-    moon_s   = result.get("moon_sign", "?")
-    moon_n   = result.get("moon_nakshatra", "?")
-    name     = result.get("name", "the native")
-    yogas    = result.get("yogas", [])
-    vim      = result.get("vimshottari", {})
-    md       = vim.get("current_md", "?")
-    ad       = vim.get("current_ad", "?")
+    lagna = result.get("lagna_sign", "?")
+    moon_s = result.get("moon_sign", "?")
+    moon_n = result.get("moon_nakshatra", "?")
+    name = result.get("name", "the native")
+    yogas = result.get("yogas", [])
+    vim = result.get("vimshottari", {})
+    md = vim.get("current_md", "?")
+    ad = vim.get("current_ad", "?")
     problems = result.get("problems", [])
 
     lines = [
@@ -413,12 +446,17 @@ def _offline_fallback(result: dict, question: str | None = None) -> str:
             lines.append(f"  • {s}")
 
     if question:
-        lines += ["", f"Question: {question}", "(Set ANTHROPIC_API_KEY for AI analysis)"]
+        lines += [
+            "",
+            f"Question: {question}",
+            "(Set ANTHROPIC_API_KEY for AI analysis)",
+        ]
 
     return "\n".join(lines)
 
 
 # ─── Convenience Helpers ──────────────────────────────────────────────────────
+
 
 def get_marriage_analysis(result: dict) -> str:
     """Focused marriage / relationship analysis."""

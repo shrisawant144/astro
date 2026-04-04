@@ -24,11 +24,11 @@ from .constants import zodiac_signs, sign_lords, NATURAL_BENEFICS, NATURAL_MALEF
 # Exaltation/Debilitation degrees (full longitude 0-360)
 # ---------------------------------------------------------------------------
 _EXALT_DEG = {
-    "Su": 10.0,   # Aries 10°
-    "Mo": 33.0,   # Taurus  3°
+    "Su": 10.0,  # Aries 10°
+    "Mo": 33.0,  # Taurus  3°
     "Ma": 298.0,  # Capricorn 28°
     "Me": 165.0,  # Virgo 15°
-    "Ju": 95.0,   # Cancer  5°
+    "Ju": 95.0,  # Cancer  5°
     "Ve": 357.0,  # Pisces 27°
     "Sa": 200.0,  # Libra  20°
 }
@@ -36,14 +36,24 @@ _DEB_DEG = {pl: (_EXALT_DEG[pl] + 180) % 360 for pl in _EXALT_DEG}
 
 # Natural strength (Naisargika Bala) in Virupas
 _NAISARGIKA = {
-    "Su": 60.0, "Mo": 51.43, "Ve": 45.0,
-    "Ju": 34.29, "Me": 25.71, "Ma": 17.14, "Sa": 8.57,
+    "Su": 60.0,
+    "Mo": 51.43,
+    "Ve": 45.0,
+    "Ju": 34.29,
+    "Me": 25.71,
+    "Ma": 17.14,
+    "Sa": 8.57,
 }
 
 # Minimum Shadbala Pinda (in Rupas = Virupas/60) for "strong" classification
 _MIN_RUPAS = {
-    "Su": 5.0, "Mo": 6.0, "Ma": 5.0,
-    "Me": 7.0, "Ju": 6.5, "Ve": 5.5, "Sa": 5.0,
+    "Su": 5.0,
+    "Mo": 6.0,
+    "Ma": 5.0,
+    "Me": 7.0,
+    "Ju": 6.5,
+    "Ve": 5.5,
+    "Sa": 5.0,
 }
 
 # Planets that prefer odd signs (masculine)
@@ -53,35 +63,48 @@ _EVEN_SIGN_PLANETS = {"Mo", "Ve"}
 
 # Direction of maximum Dig Bala strength (house number, 1-based)
 _DIG_BALA_HOUSE = {
-    "Su": 10, "Ju": 10,   # strongest in 10th
-    "Mo": 4,  "Ve": 4,    # strongest in 4th
-    "Ma": 1,  "Sa": 1,    # strongest in 1st
-    "Me": 1,              # strongest in 1st
+    "Su": 10,
+    "Ju": 10,  # strongest in 10th
+    "Mo": 4,
+    "Ve": 4,  # strongest in 4th
+    "Ma": 1,
+    "Sa": 1,  # strongest in 1st
+    "Me": 1,  # strongest in 1st
 }
 
 # Mean daily motions (degrees/day) for Chesta Bala
 _MEAN_MOTION = {
-    "Su": 0.9856, "Mo": 13.1764, "Ma": 0.5240,
-    "Me": 1.3833, "Ju": 0.0831,  "Ve": 1.2000, "Sa": 0.0335,
+    "Su": 0.9856,
+    "Mo": 13.1764,
+    "Ma": 0.5240,
+    "Me": 1.3833,
+    "Ju": 0.0831,
+    "Ve": 1.2000,
+    "Sa": 0.0335,
 }
 
 # Sapta-Varga dignity score table (Virupas per varga)
 _VARGA_SCORES = {
-    "Exalt":       20.0,
+    "Exalt": 20.0,
     "Moolatrikona": 45.0,
-    "Own":         30.0,
+    "Own": 30.0,
     "Great Friend": 22.5,
-    "Friend":      15.0,
-    "Neutral":      7.5,
-    "Enemy":        3.75,
-    "Great Enemy":  1.875,
-    "Debilitated":  0.0,
+    "Friend": 15.0,
+    "Neutral": 7.5,
+    "Enemy": 3.75,
+    "Great Enemy": 1.875,
+    "Debilitated": 0.0,
 }
 
 # Moolatrikona signs
 _MOOLATRIKONA = {
-    "Su": "Leo", "Mo": "Taurus", "Ma": "Aries",
-    "Me": "Virgo", "Ju": "Sagittarius", "Ve": "Libra", "Sa": "Aquarius",
+    "Su": "Leo",
+    "Mo": "Taurus",
+    "Ma": "Aries",
+    "Me": "Virgo",
+    "Ju": "Sagittarius",
+    "Ve": "Libra",
+    "Sa": "Aquarius",
 }
 
 # Natural friendships (for Sapta Varga dignity)
@@ -109,6 +132,7 @@ _NAT_ENEMIES = {
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _angular_distance(lon_a, lon_b):
     """Shortest arc between two longitudes (0-180)."""
     d = abs(lon_a - lon_b) % 360
@@ -122,6 +146,7 @@ def _sign_of(full_lon):
 def _dignity_label(planet, sign):
     """Return dignity category string for Sapta Varga scoring."""
     from .constants import dignity_table
+
     if planet not in dignity_table:
         return "Neutral"
     d = dignity_table[planet]
@@ -155,6 +180,7 @@ def _dignity_label(planet, sign):
 # 1. Sthana Bala
 # ---------------------------------------------------------------------------
 
+
 def _uchcha_bala(planet, full_lon):
     """0–60 Virupas. Max at exaltation point, 0 at debilitation point."""
     if planet not in _EXALT_DEG:
@@ -181,7 +207,7 @@ def _sapta_varga_bala(planet, planet_signs):
 def _ojha_yugma_bala(planet, d1_sign):
     """15 Virupas if planet is in its preferred odd/even sign type."""
     sign_idx = zodiac_signs.index(d1_sign)
-    is_odd = (sign_idx % 2 == 0)   # Aries=0 (odd), Taurus=1 (even) …
+    is_odd = sign_idx % 2 == 0  # Aries=0 (odd), Taurus=1 (even) …
     if planet in _ODD_SIGN_PLANETS and is_odd:
         return 15.0
     if planet in _EVEN_SIGN_PLANETS and not is_odd:
@@ -201,7 +227,7 @@ def _kendra_bala(house):
 def _drekkana_bala(planet, full_lon):
     """15 Virupas for correct decan affinity."""
     deg_in_sign = full_lon % 30
-    decan = int(deg_in_sign / 10)   # 0=1st, 1=2nd, 2=3rd
+    decan = int(deg_in_sign / 10)  # 0=1st, 1=2nd, 2=3rd
     male = {"Su", "Ma", "Ju"}
     female = {"Mo", "Ve"}
     if planet in male and decan == 0:
@@ -222,8 +248,11 @@ def sthana_bala(planet, full_lon, d1_sign, house, planet_signs):
     db = _drekkana_bala(planet, full_lon)
     total = ub + svb + ojb + kb + db
     return round(total, 2), {
-        "uchcha": ub, "sapta_varga": svb,
-        "ojha_yugma": ojb, "kendra": kb, "drekkana": db,
+        "uchcha": ub,
+        "sapta_varga": svb,
+        "ojha_yugma": ojb,
+        "kendra": kb,
+        "drekkana": db,
     }
 
 
@@ -231,12 +260,13 @@ def sthana_bala(planet, full_lon, d1_sign, house, planet_signs):
 # 2. Dig Bala
 # ---------------------------------------------------------------------------
 
+
 def dig_bala(planet, house):
     """0–60 Virupas. Max at direction house, 0 at opposite house."""
     if planet not in _DIG_BALA_HOUSE:
         return 0.0
     best_h = _DIG_BALA_HOUSE[planet]
-    worst_h = ((best_h - 1 + 6) % 12) + 1   # opposite house
+    worst_h = ((best_h - 1 + 6) % 12) + 1  # opposite house
     dist_from_worst = abs(house - worst_h)
     if dist_from_worst > 6:
         dist_from_worst = 12 - dist_from_worst
@@ -250,6 +280,7 @@ def dig_bala(planet, house):
 # Day planets get 60 during day, night planets 60 at night, Me always 60
 _DAY_PLANETS = {"Su", "Ju", "Ve"}
 _NIGHT_PLANETS = {"Mo", "Ma", "Sa"}
+
 
 def _natonnatha_bala(planet, is_day_birth):
     if planet == "Me":
@@ -279,11 +310,12 @@ def _paksha_bala(planet, moon_phase_fraction):
 _TRIBHAGA_DAY = [["Me", "Su", "Sa"], ["Mo", "Ve", "Ma"], ["Ju", "Me", "Su"]]
 _TRIBHAGA_NIGHT = [["Ju", "Ve", "Sa"], ["Mo", "Ma", "Me"], ["Su", "Ju", "Ve"]]
 
+
 def _tribhaga_bala(planet, birth_jd, sunrise_jd, sunset_jd):
     """30 Virupas if planet lords the current 1/3 of day/night."""
     try:
         day_len = sunset_jd - sunrise_jd
-        night_len = 1.0 - day_len   # as fraction of a day (approx)
+        night_len = 1.0 - day_len  # as fraction of a day (approx)
         elapsed = birth_jd - sunrise_jd
         if 0 <= elapsed <= day_len:
             part = int(elapsed / day_len * 3)
@@ -316,13 +348,16 @@ def kala_bala(planet, birth_jd, sun_lon, moon_lon, sunrise_jd, sunset_jd):
 
     total = nath + paksha + trib
     return round(total, 2), {
-        "natonnatha": nath, "paksha": paksha, "tribhaga": trib,
+        "natonnatha": nath,
+        "paksha": paksha,
+        "tribhaga": trib,
     }
 
 
 # ---------------------------------------------------------------------------
 # 4. Chesta Bala
 # ---------------------------------------------------------------------------
+
 
 def chesta_bala(planet, speed):
     """
@@ -334,7 +369,7 @@ def chesta_bala(planet, speed):
     if planet not in _MEAN_MOTION:
         return 0.0
     mean = _MEAN_MOTION[planet]
-    if speed < 0:          # retrograde → maximum chesta
+    if speed < 0:  # retrograde → maximum chesta
         return 60.0
     ratio = abs(speed) / mean if mean > 0 else 0
     return round(min(ratio, 1.0) * 60.0, 2)
@@ -344,6 +379,7 @@ def chesta_bala(planet, speed):
 # 5. Naisargika Bala (fixed)
 # ---------------------------------------------------------------------------
 
+
 def naisargika_bala(planet):
     return _NAISARGIKA.get(planet, 0.0)
 
@@ -351,6 +387,7 @@ def naisargika_bala(planet):
 # ---------------------------------------------------------------------------
 # 6. Drik Bala (aspectual)
 # ---------------------------------------------------------------------------
+
 
 def _aspect_strength(planet_house, aspector_house, aspector):
     """Return aspect fraction (0-1) for classical Vedic aspects."""
@@ -388,6 +425,7 @@ def drik_bala(planet, planet_house, all_houses):
 # Ishta / Kashta Phala
 # ---------------------------------------------------------------------------
 
+
 def ishta_kashta_phala(uchcha_virupas, chesta_virupas):
     """
     Ishta  = sqrt(Uchcha × Chesta) / 60  × 60  (range 0-60)
@@ -395,7 +433,7 @@ def ishta_kashta_phala(uchcha_virupas, chesta_virupas):
     """
     ub = max(0, min(60, uchcha_virupas))
     cb = max(0, min(60, chesta_virupas))
-    ishta  = round(math.sqrt(ub * cb), 2)
+    ishta = round(math.sqrt(ub * cb), 2)
     kashta = round(math.sqrt((60 - ub) * (60 - cb)), 2)
     return ishta, kashta
 
@@ -403,6 +441,7 @@ def ishta_kashta_phala(uchcha_virupas, chesta_virupas):
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
 
 def calculate_shadbala(result):
     """
@@ -441,13 +480,23 @@ def calculate_shadbala(result):
     lon_geo = result.get("lon", 0.0)
     try:
         sunrise_data = swe.rise_trans(
-            birth_jd - 1, swe.SUN, "", swe.CALC_RISE,
-            geopos=(lon_geo, lat, 0), atpress=0, attemp=0
+            birth_jd - 1,
+            swe.SUN,
+            "",
+            swe.CALC_RISE,
+            geopos=(lon_geo, lat, 0),
+            atpress=0,
+            attemp=0,
         )
         sunrise_jd = sunrise_data[1][0] if sunrise_data[1] else birth_jd - 0.25
         sunset_data = swe.rise_trans(
-            birth_jd - 1, swe.SUN, "", swe.CALC_SET,
-            geopos=(lon_geo, lat, 0), atpress=0, attemp=0
+            birth_jd - 1,
+            swe.SUN,
+            "",
+            swe.CALC_SET,
+            geopos=(lon_geo, lat, 0),
+            atpress=0,
+            attemp=0,
         )
         sunset_jd = sunset_data[1][0] if sunset_data[1] else birth_jd + 0.25
     except Exception:
@@ -472,19 +521,20 @@ def calculate_shadbala(result):
 
         # Build planet signs across 7 vargas for Sapta Varga Bala
         planet_signs = {
-            "D1":  d1_sign,
-            "D2":  pd.get("d2_sign",  d1_sign),
-            "D3":  pd.get("d3_sign",  d1_sign),
-            "D9":  pd.get("navamsa_sign", d1_sign),
+            "D1": d1_sign,
+            "D2": pd.get("d2_sign", d1_sign),
+            "D3": pd.get("d3_sign", d1_sign),
+            "D9": pd.get("navamsa_sign", d1_sign),
             "D12": pd.get("d12_sign", d1_sign),
             "D30": pd.get("d30_sign", d1_sign),
-            "D7":  pd.get("d7_sign",  d1_sign),
+            "D7": pd.get("d7_sign", d1_sign),
         }
 
         stb, stb_parts = sthana_bala(pl, full_lon, d1_sign, house, planet_signs)
         dgb = dig_bala(pl, house)
-        klb, klb_parts = kala_bala(pl, birth_jd, sun_lon, moon_lon,
-                                   sunrise_jd, sunset_jd)
+        klb, klb_parts = kala_bala(
+            pl, birth_jd, sun_lon, moon_lon, sunrise_jd, sunset_jd
+        )
         chb = chesta_bala(pl, speed)
         nab = naisargika_bala(pl)
         drb = drik_bala(pl, house, house_map)

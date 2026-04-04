@@ -284,12 +284,13 @@ def get_d60_sign_and_deg(full_lon):
 # Additional Divisional Charts (D3, D4, D12, D16, D20, D24, D27, D30)
 # -------------------------------------------------------------------
 
+
 def get_d3_sign_and_deg(full_lon):
     """D3 Drekkana — 3 parts of 10° each. Same triplicity element."""
     full_lon = full_lon % 360
     rasi_idx = int(full_lon // 30)
     deg_in_rasi = full_lon % 30
-    decan = int(deg_in_rasi / 10)          # 0, 1, 2
+    decan = int(deg_in_rasi / 10)  # 0, 1, 2
     # Same element: 0→same, 1→+4, 2→+8
     new_idx = (rasi_idx + decan * 4) % 12
     frac = (deg_in_rasi % 10) / 10
@@ -301,8 +302,8 @@ def get_d4_sign_and_deg(full_lon):
     full_lon = full_lon % 360
     rasi_idx = int(full_lon // 30)
     deg_in_rasi = full_lon % 30
-    part = int(deg_in_rasi / 7.5)          # 0–3
-    new_idx = (rasi_idx + part * 3) % 12   # +0, +3, +6, +9
+    part = int(deg_in_rasi / 7.5)  # 0–3
+    new_idx = (rasi_idx + part * 3) % 12  # +0, +3, +6, +9
     frac = (deg_in_rasi % 7.5) / 7.5
     return zodiac_signs[new_idx], round(frac * 30, 2)
 
@@ -312,7 +313,7 @@ def get_d12_sign_and_deg(full_lon):
     full_lon = full_lon % 360
     rasi_idx = int(full_lon // 30)
     deg_in_rasi = full_lon % 30
-    part = int(deg_in_rasi / 2.5)          # 0–11
+    part = int(deg_in_rasi / 2.5)  # 0–11
     new_idx = (rasi_idx + part) % 12
     frac = (deg_in_rasi % 2.5) / 2.5
     return zodiac_signs[new_idx], round(frac * 30, 2)
@@ -324,9 +325,9 @@ def get_d16_sign_and_deg(full_lon):
     full_lon = full_lon % 360
     rasi_idx = int(full_lon // 30)
     deg_in_rasi = full_lon % 30
-    part = int(deg_in_rasi / 1.875)        # 0–15
-    rasi_type = rasi_idx % 3               # 0=movable, 1=fixed, 2=dual
-    start = [0, 4, 8][rasi_type]           # Aries, Leo, Sagittarius
+    part = int(deg_in_rasi / 1.875)  # 0–15
+    rasi_type = rasi_idx % 3  # 0=movable, 1=fixed, 2=dual
+    start = [0, 4, 8][rasi_type]  # Aries, Leo, Sagittarius
     new_idx = (start + part) % 12
     frac = (deg_in_rasi % 1.875) / 1.875
     return zodiac_signs[new_idx], round(frac * 30, 2)
@@ -338,9 +339,9 @@ def get_d20_sign_and_deg(full_lon):
     full_lon = full_lon % 360
     rasi_idx = int(full_lon // 30)
     deg_in_rasi = full_lon % 30
-    part = int(deg_in_rasi / 1.5)          # 0–19
+    part = int(deg_in_rasi / 1.5)  # 0–19
     rasi_type = rasi_idx % 3
-    start = [0, 8, 4][rasi_type]           # Aries, Sagittarius, Leo
+    start = [0, 8, 4][rasi_type]  # Aries, Sagittarius, Leo
     new_idx = (start + part) % 12
     frac = (deg_in_rasi % 1.5) / 1.5
     return zodiac_signs[new_idx], round(frac * 30, 2)
@@ -352,7 +353,7 @@ def get_d24_sign_and_deg(full_lon):
     full_lon = full_lon % 360
     rasi_idx = int(full_lon // 30)
     deg_in_rasi = full_lon % 30
-    part = int(deg_in_rasi / 1.25)         # 0–23
+    part = int(deg_in_rasi / 1.25)  # 0–23
     start = 4 if rasi_idx % 2 == 0 else 3  # Leo for odd, Cancer for even
     new_idx = (start + part) % 12
     frac = (deg_in_rasi % 1.25) / 1.25
@@ -366,17 +367,18 @@ def get_d27_sign_and_deg(full_lon):
     rasi_idx = int(full_lon // 30)
     deg_in_rasi = full_lon % 30
     part_size = 30.0 / 27
-    part = int(deg_in_rasi / part_size)    # 0–26
-    element = rasi_idx % 4                 # 0=fire, 1=earth, 2=air, 3=water
-    start = [0, 3, 6, 9][element]          # Aries, Cancer, Libra, Capricorn
+    part = int(deg_in_rasi / part_size)  # 0–26
+    element = rasi_idx % 4  # 0=fire, 1=earth, 2=air, 3=water
+    start = [0, 3, 6, 9][element]  # Aries, Cancer, Libra, Capricorn
     new_idx = (start + part) % 12
     frac = (deg_in_rasi % part_size) / part_size
     return zodiac_signs[new_idx], round(frac * 30, 2)
 
 
 # D30 Trimsha — unequal divisions, planet-ruled sections
-_D30_ODD = [(5, 0), (10, 10), (18, 8), (25, 2), (30, 6)]   # (boundary°, sign_idx)
+_D30_ODD = [(5, 0), (10, 10), (18, 8), (25, 2), (30, 6)]  # (boundary°, sign_idx)
 _D30_EVEN = [(5, 1), (12, 5), (20, 11), (25, 9), (30, 7)]
+
 
 def get_d30_sign_and_deg(full_lon):
     """D30 Trimsha — unequal divisions for odd/even signs."""
@@ -402,11 +404,11 @@ def get_d40_sign_and_deg(full_lon):
     full_lon = full_lon % 360
     rasi_idx = int(full_lon // 30)
     deg_in_rasi = full_lon % 30
-    part = int(deg_in_rasi / 0.75)   # 0-39
+    part = int(deg_in_rasi / 0.75)  # 0-39
     frac = (deg_in_rasi % 0.75) / 0.75
-    if rasi_idx % 2 == 0:   # odd sign (Aries, Gemini...)
+    if rasi_idx % 2 == 0:  # odd sign (Aries, Gemini...)
         sign_idx = part % 12
-    else:                    # even sign (Taurus, Cancer...)
+    else:  # even sign (Taurus, Cancer...)
         sign_idx = (part + 6) % 12  # start from Libra (idx 6)
     return zodiac_signs[sign_idx], round(frac * 30, 2)
 
@@ -423,11 +425,11 @@ def get_d45_sign_and_deg(full_lon):
     frac = (deg_in_rasi % part_size) / part_size
     rasi_type = rasi_idx % 3  # 0=movable, 1=fixed, 2=dual
     if rasi_type == 0:
-        base = 0   # Aries
+        base = 0  # Aries
     elif rasi_type == 1:
-        base = 4   # Leo
+        base = 4  # Leo
     else:
-        base = 8   # Sagittarius
+        base = 8  # Sagittarius
     sign_idx = (base + part) % 12
     return zodiac_signs[sign_idx], round(frac * 30, 2)
 
@@ -490,7 +492,6 @@ def safe_sign_index(sign):
 
 def is_jupiter_transit_activating(transit_jup_sign, natal_sig_sign, progressed_sign):
     """Check if transit Jupiter activates natal significator or progressed sign."""
-    return (
-        signs_have_nadi_relation(transit_jup_sign, natal_sig_sign)
-        or signs_have_nadi_relation(transit_jup_sign, progressed_sign)
-    )
+    return signs_have_nadi_relation(
+        transit_jup_sign, natal_sig_sign
+    ) or signs_have_nadi_relation(transit_jup_sign, progressed_sign)

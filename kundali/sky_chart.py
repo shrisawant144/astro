@@ -37,13 +37,13 @@ from xml.etree import ElementTree as ET
 # Row 3: Sagittarius(12), Scorpio(13), Libra(14), Virgo(15)
 
 CELL_SIGN = {
-    0:  "Pisces",
-    1:  "Aries",
-    2:  "Taurus",
-    3:  "Gemini",
-    4:  "Aquarius",
-    7:  "Cancer",
-    8:  "Capricorn",
+    0: "Pisces",
+    1: "Aries",
+    2: "Taurus",
+    3: "Gemini",
+    4: "Aquarius",
+    7: "Cancer",
+    8: "Capricorn",
     11: "Leo",
     12: "Sagittarius",
     13: "Scorpio",
@@ -54,14 +54,31 @@ CELL_SIGN = {
 SIGN_CELL = {v: k for k, v in CELL_SIGN.items()}
 
 ZODIAC_SIGNS = [
-    "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
+    "Aries",
+    "Taurus",
+    "Gemini",
+    "Cancer",
+    "Leo",
+    "Virgo",
+    "Libra",
+    "Scorpio",
+    "Sagittarius",
+    "Capricorn",
+    "Aquarius",
+    "Pisces",
 ]
 
 # Planet abbreviations for chart display
 PLANET_ABBREV = {
-    "Su": "Su", "Mo": "Mo", "Ma": "Ma", "Me": "Me",
-    "Ju": "Ju", "Ve": "Ve", "Sa": "Sa", "Ra": "Ra", "Ke": "Ke",
+    "Su": "Su",
+    "Mo": "Mo",
+    "Ma": "Ma",
+    "Me": "Me",
+    "Ju": "Ju",
+    "Ve": "Ve",
+    "Sa": "Sa",
+    "Ra": "Ra",
+    "Ke": "Ke",
 }
 
 PLANET_COLOR = {
@@ -77,13 +94,23 @@ PLANET_COLOR = {
 }
 
 SIGN_ABBREV = {
-    "Aries": "Ar", "Taurus": "Ta", "Gemini": "Ge", "Cancer": "Ca",
-    "Leo": "Le", "Virgo": "Vi", "Libra": "Li", "Scorpio": "Sc",
-    "Sagittarius": "Sg", "Capricorn": "Cp", "Aquarius": "Aq", "Pisces": "Pi",
+    "Aries": "Ar",
+    "Taurus": "Ta",
+    "Gemini": "Ge",
+    "Cancer": "Ca",
+    "Leo": "Le",
+    "Virgo": "Vi",
+    "Libra": "Li",
+    "Scorpio": "Sc",
+    "Sagittarius": "Sg",
+    "Capricorn": "Cp",
+    "Aquarius": "Aq",
+    "Pisces": "Pi",
 }
 
 
 # ─── SVG Generation ───────────────────────────────────────────────────────────
+
 
 def _cell_pos(cell_idx: int, cell_size: int = 130) -> tuple[int, int]:
     """Return (x, y) top-left pixel of a cell given its 0-based row-major index."""
@@ -104,20 +131,20 @@ def generate_sky_chart(result: dict, output_path: str | None = None) -> str:
     Returns:
         Absolute path to the saved SVG file.
     """
-    CELL  = 130    # cell size in pixels
+    CELL = 130  # cell size in pixels
     TOTAL = CELL * 4  # 520×520
 
     lagna_sign = result["lagna_sign"]
-    lagna_idx  = ZODIAC_SIGNS.index(lagna_sign)
-    planets    = result.get("planets", {})
-    houses     = result.get("houses", {})
-    name       = result.get("name", "Chart")
+    lagna_idx = ZODIAC_SIGNS.index(lagna_sign)
+    planets = result.get("planets", {})
+    houses = result.get("houses", {})
+    name = result.get("name", "Chart")
 
     # Map each cell to its house number (house = sign relative to Lagna)
     cell_house = {}
     for sign, cell_idx in SIGN_CELL.items():
-        sign_idx   = ZODIAC_SIGNS.index(sign)
-        house_no   = (sign_idx - lagna_idx) % 12 + 1
+        sign_idx = ZODIAC_SIGNS.index(sign)
+        house_no = (sign_idx - lagna_idx) % 12 + 1
         cell_house[cell_idx] = house_no
 
     # Map house → list of planet abbreviations
@@ -127,32 +154,49 @@ def generate_sky_chart(result: dict, output_path: str | None = None) -> str:
         if pl_sign in ZODIAC_SIGNS:
             sign_idx = ZODIAC_SIGNS.index(pl_sign)
             house_no = (sign_idx - lagna_idx) % 12 + 1
-            abbrev   = PLANET_ABBREV.get(pl, pl)
+            abbrev = PLANET_ABBREV.get(pl, pl)
             if pl_data.get("retro"):
                 abbrev += "®"
             house_planets[house_no].append((pl, abbrev))
 
     # ── Build SVG ──────────────────────────────────────────────────────────────
-    svg = ET.Element("svg", {
-        "xmlns":   "http://www.w3.org/2000/svg",
-        "width":   str(TOTAL + 2),
-        "height":  str(TOTAL + 2),
-        "viewBox": f"0 0 {TOTAL + 2} {TOTAL + 2}",
-    })
+    svg = ET.Element(
+        "svg",
+        {
+            "xmlns": "http://www.w3.org/2000/svg",
+            "width": str(TOTAL + 2),
+            "height": str(TOTAL + 2),
+            "viewBox": f"0 0 {TOTAL + 2} {TOTAL + 2}",
+        },
+    )
 
     # Background
-    ET.SubElement(svg, "rect", {
-        "x": "0", "y": "0",
-        "width": str(TOTAL + 2), "height": str(TOTAL + 2),
-        "fill": "#FDFAF6",
-    })
+    ET.SubElement(
+        svg,
+        "rect",
+        {
+            "x": "0",
+            "y": "0",
+            "width": str(TOTAL + 2),
+            "height": str(TOTAL + 2),
+            "fill": "#FDFAF6",
+        },
+    )
 
     # Draw outer border
-    ET.SubElement(svg, "rect", {
-        "x": "1", "y": "1",
-        "width": str(TOTAL), "height": str(TOTAL),
-        "fill": "none", "stroke": "#2C3E50", "stroke-width": "2",
-    })
+    ET.SubElement(
+        svg,
+        "rect",
+        {
+            "x": "1",
+            "y": "1",
+            "width": str(TOTAL),
+            "height": str(TOTAL),
+            "fill": "none",
+            "stroke": "#2C3E50",
+            "stroke-width": "2",
+        },
+    )
 
     # Draw all 16 cells
     for cell_idx in range(16):
@@ -170,42 +214,65 @@ def generate_sky_chart(result: dict, output_path: str | None = None) -> str:
 
             # Cell background
             bg_color = "#EAF2FF" if house_no == 1 else "#FFFFFF"
-            ET.SubElement(svg, "rect", {
-                "x": str(x + 1), "y": str(y + 1),
-                "width": str(CELL - 2), "height": str(CELL - 2),
-                "fill": bg_color, "stroke": "#95A5A6", "stroke-width": "1",
-            })
+            ET.SubElement(
+                svg,
+                "rect",
+                {
+                    "x": str(x + 1),
+                    "y": str(y + 1),
+                    "width": str(CELL - 2),
+                    "height": str(CELL - 2),
+                    "fill": bg_color,
+                    "stroke": "#95A5A6",
+                    "stroke-width": "1",
+                },
+            )
 
             # Sign label (top-left, small)
             if sign:
-                ET.SubElement(svg, "text", {
-                    "x": str(x + 5), "y": str(y + 14),
-                    "font-family": "Arial, sans-serif",
-                    "font-size": "10",
-                    "fill": "#7F8C8D",
-                }).text = f"{SIGN_ABBREV.get(sign, sign)}"
+                ET.SubElement(
+                    svg,
+                    "text",
+                    {
+                        "x": str(x + 5),
+                        "y": str(y + 14),
+                        "font-family": "Arial, sans-serif",
+                        "font-size": "10",
+                        "fill": "#7F8C8D",
+                    },
+                ).text = f"{SIGN_ABBREV.get(sign, sign)}"
 
             # House number (top-right)
             if house_no:
-                hn_text = ET.SubElement(svg, "text", {
-                    "x": str(x + CELL - 6), "y": str(y + 14),
-                    "font-family": "Arial, sans-serif",
-                    "font-size": "10",
-                    "fill": "#BDC3C7",
-                    "text-anchor": "end",
-                })
+                hn_text = ET.SubElement(
+                    svg,
+                    "text",
+                    {
+                        "x": str(x + CELL - 6),
+                        "y": str(y + 14),
+                        "font-family": "Arial, sans-serif",
+                        "font-size": "10",
+                        "fill": "#BDC3C7",
+                        "text-anchor": "end",
+                    },
+                )
                 hn_text.text = str(house_no)
 
             # Lagna marker
             if house_no == 1:
-                ET.SubElement(svg, "text", {
-                    "x": str(x + CELL // 2), "y": str(y + 28),
-                    "font-family": "Arial, sans-serif",
-                    "font-size": "11",
-                    "fill": "#E74C3C",
-                    "text-anchor": "middle",
-                    "font-weight": "bold",
-                }).text = f"Asc {result.get('lagna_deg', 0):.0f}°"
+                ET.SubElement(
+                    svg,
+                    "text",
+                    {
+                        "x": str(x + CELL // 2),
+                        "y": str(y + 28),
+                        "font-family": "Arial, sans-serif",
+                        "font-size": "11",
+                        "fill": "#E74C3C",
+                        "text-anchor": "middle",
+                        "font-weight": "bold",
+                    },
+                ).text = f"Asc {result.get('lagna_deg', 0):.0f}°"
 
             # Planets in this cell
             if house_no:
@@ -214,57 +281,93 @@ def generate_sky_chart(result: dict, output_path: str | None = None) -> str:
                     py = y + 45 + i * 16
                     color = PLANET_COLOR.get(pl_code, "#2C3E50")
                     deg = planets[pl_code].get("deg", 0) if pl_code in planets else 0
-                    ET.SubElement(svg, "text", {
-                        "x": str(x + CELL // 2), "y": str(py),
-                        "font-family": "Arial, sans-serif",
-                        "font-size": "12",
-                        "fill": color,
-                        "text-anchor": "middle",
-                        "font-weight": "bold",
-                    }).text = pl_abbr
+                    ET.SubElement(
+                        svg,
+                        "text",
+                        {
+                            "x": str(x + CELL // 2),
+                            "y": str(py),
+                            "font-family": "Arial, sans-serif",
+                            "font-size": "12",
+                            "fill": color,
+                            "text-anchor": "middle",
+                            "font-weight": "bold",
+                        },
+                    ).text = pl_abbr
 
-                    ET.SubElement(svg, "text", {
-                        "x": str(x + CELL // 2), "y": str(py + 11),
-                        "font-family": "Arial, sans-serif",
-                        "font-size": "9",
-                        "fill": "#95A5A6",
-                        "text-anchor": "middle",
-                    }).text = f"{deg:.1f}°"
+                    ET.SubElement(
+                        svg,
+                        "text",
+                        {
+                            "x": str(x + CELL // 2),
+                            "y": str(py + 11),
+                            "font-family": "Arial, sans-serif",
+                            "font-size": "9",
+                            "fill": "#95A5A6",
+                            "text-anchor": "middle",
+                        },
+                    ).text = f"{deg:.1f}°"
 
     # ── Centre info panel ──────────────────────────────────────────────────────
-    cx = CELL        # x start of centre block
-    cy = CELL        # y start of centre block
-    cw = CELL * 2    # width
-    ch = CELL * 2    # height
+    cx = CELL  # x start of centre block
+    cy = CELL  # y start of centre block
+    cw = CELL * 2  # width
+    ch = CELL * 2  # height
 
     # Merge background for centre 2×2
-    ET.SubElement(svg, "rect", {
-        "x": str(cx + 1), "y": str(cy + 1),
-        "width": str(cw - 2), "height": str(ch - 2),
-        "fill": "#F0F4F8", "stroke": "#2C3E50", "stroke-width": "1.5",
-    })
+    ET.SubElement(
+        svg,
+        "rect",
+        {
+            "x": str(cx + 1),
+            "y": str(cy + 1),
+            "width": str(cw - 2),
+            "height": str(ch - 2),
+            "fill": "#F0F4F8",
+            "stroke": "#2C3E50",
+            "stroke-width": "1.5",
+        },
+    )
 
     # Inner decorative border
     margin = 12
-    ET.SubElement(svg, "rect", {
-        "x": str(cx + margin), "y": str(cy + margin),
-        "width": str(cw - 2 * margin), "height": str(ch - 2 * margin),
-        "fill": "none", "stroke": "#3498DB", "stroke-width": "1",
-        "stroke-dasharray": "4,3",
-    })
+    ET.SubElement(
+        svg,
+        "rect",
+        {
+            "x": str(cx + margin),
+            "y": str(cy + margin),
+            "width": str(cw - 2 * margin),
+            "height": str(ch - 2 * margin),
+            "fill": "none",
+            "stroke": "#3498DB",
+            "stroke-width": "1",
+            "stroke-dasharray": "4,3",
+        },
+    )
 
     centre_info = [
         ("KUNDALI", "#2C3E50", 16, "bold"),
         (name[:20], "#E74C3C", 14, "bold"),
         ("", "#000", 8, "normal"),
         (f"Lagna: {lagna_sign}", "#2980B9", 11, "normal"),
-        (f"Moon: {result.get('moon_sign','?')} ({result.get('moon_nakshatra','?')[:10]})", "#8E44AD", 11, "normal"),
+        (
+            f"Moon: {result.get('moon_sign','?')} ({result.get('moon_nakshatra','?')[:10]})",
+            "#8E44AD",
+            11,
+            "normal",
+        ),
         (f"Date: {result.get('birth_date','?')}", "#555", 10, "normal"),
         (f"Time: {result.get('birth_time','?')}", "#555", 10, "normal"),
         (f"Place: {str(result.get('birth_place','?'))[:22]}", "#555", 10, "normal"),
         ("", "#000", 8, "normal"),
         (f"Ayanamsa: {result.get('ayanamsa','Lahiri')}", "#7F8C8D", 10, "normal"),
-        (f"Tithi: {result.get('panchanga',{}).get('tithi','?')[:18]}", "#7F8C8D", 10, "normal"),
+        (
+            f"Tithi: {result.get('panchanga',{}).get('tithi','?')[:18]}",
+            "#7F8C8D",
+            10,
+            "normal",
+        ),
     ]
 
     text_y = cy + 38
@@ -272,14 +375,19 @@ def generate_sky_chart(result: dict, output_path: str | None = None) -> str:
         if not txt:
             text_y += 5
             continue
-        ET.SubElement(svg, "text", {
-            "x": str(cx + cw // 2), "y": str(text_y),
-            "font-family": "Arial, sans-serif",
-            "font-size": str(fsize),
-            "fill": color,
-            "text-anchor": "middle",
-            "font-weight": weight,
-        }).text = txt
+        ET.SubElement(
+            svg,
+            "text",
+            {
+                "x": str(cx + cw // 2),
+                "y": str(text_y),
+                "font-family": "Arial, sans-serif",
+                "font-size": str(fsize),
+                "fill": color,
+                "text-anchor": "middle",
+                "font-weight": weight,
+            },
+        ).text = txt
         text_y += fsize + 5
 
     # ── Title strip at top ─────────────────────────────────────────────────────
@@ -292,7 +400,9 @@ def generate_sky_chart(result: dict, output_path: str | None = None) -> str:
 
     # ── Save ───────────────────────────────────────────────────────────────────
     if output_path is None:
-        outputs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
+        outputs_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "outputs"
+        )
         os.makedirs(outputs_dir, exist_ok=True)
         safe_name = "".join(c if c.isalnum() or c in "_-" else "_" for c in name)
         output_path = os.path.join(outputs_dir, f"{safe_name}_sky_chart.svg")
@@ -303,8 +413,9 @@ def generate_sky_chart(result: dict, output_path: str | None = None) -> str:
     return output_path
 
 
-def generate_transit_chart(result: dict, transit_result: dict,
-                           output_path: str | None = None) -> str:
+def generate_transit_chart(
+    result: dict, transit_result: dict, output_path: str | None = None
+) -> str:
     """
     Generate a bi-wheel transit chart (natal inner, transits outer) as SVG.
     This is a simplified version that overlays transit planet positions.

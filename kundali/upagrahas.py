@@ -41,18 +41,28 @@ def _get_sunrise_sunset(birth_jd, lat, lon_geo):
     """Return (sunrise_jd, sunset_jd) for the birth date."""
     try:
         sr = swe.rise_trans(
-            birth_jd - 1, swe.SUN, "", swe.CALC_RISE,
-            geopos=(lon_geo, lat, 0), atpress=0, attemp=0,
+            birth_jd - 1,
+            swe.SUN,
+            "",
+            swe.CALC_RISE,
+            geopos=(lon_geo, lat, 0),
+            atpress=0,
+            attemp=0,
         )
         ss = swe.rise_trans(
-            birth_jd - 1, swe.SUN, "", swe.CALC_SET,
-            geopos=(lon_geo, lat, 0), atpress=0, attemp=0,
+            birth_jd - 1,
+            swe.SUN,
+            "",
+            swe.CALC_SET,
+            geopos=(lon_geo, lat, 0),
+            atpress=0,
+            attemp=0,
         )
         sunrise_jd = sr[1][0] if sr[1] else birth_jd - 0.25
-        sunset_jd  = ss[1][0] if ss[1] else birth_jd + 0.25
+        sunset_jd = ss[1][0] if ss[1] else birth_jd + 0.25
     except Exception:
         sunrise_jd = birth_jd - 0.25
-        sunset_jd  = birth_jd + 0.25
+        sunset_jd = birth_jd + 0.25
     return sunrise_jd, sunset_jd
 
 
@@ -78,9 +88,9 @@ def _upagraha_from_day_part(part_map, birth_jd, lat, lon_geo):
     Returns (sign_str, deg_in_sign_float).
     """
     sunrise_jd, sunset_jd = _get_sunrise_sunset(birth_jd, lat, lon_geo)
-    vara_jd = int(birth_jd + 0.5)               # approximate weekday JD
+    vara_jd = int(birth_jd + 0.5)  # approximate weekday JD
     # Use birth_jd weekday
-    weekday = int(birth_jd + 1.5) % 7           # 0=Sun,1=Mon,…,6=Sat
+    weekday = int(birth_jd + 1.5) % 7  # 0=Sun,1=Mon,…,6=Sat
     part = part_map.get(weekday, 1)
     portion_jd = _day_portion_jd(sunrise_jd, sunset_jd, part)
     asc_lon = _lagna_at_jd(portion_jd, lat, lon_geo)
@@ -92,6 +102,7 @@ def _upagraha_from_day_part(part_map, birth_jd, lat, lon_geo):
 # ---------------------------------------------------------------------------
 # Sun-based shadow planets (simple longitude arithmetic)
 # ---------------------------------------------------------------------------
+
 
 def _dhuma(sun_lon):
     """Dhuma = Sun + 133°20'."""
@@ -120,13 +131,14 @@ def _upaketu(sun_lon):
 
 def _lon_to_sign_deg(lon):
     sign = get_sign(lon)
-    deg  = round(lon % 30, 2)
+    deg = round(lon % 30, 2)
     return sign, deg
 
 
 # ---------------------------------------------------------------------------
 # Main function
 # ---------------------------------------------------------------------------
+
 
 def calculate_upagrahas(result):
     """
@@ -151,30 +163,30 @@ def calculate_upagrahas(result):
     }
     """
     birth_jd = result["birth_jd"]
-    lat      = result.get("lat", 0.0)
-    lon_geo  = result.get("lon", 0.0)
-    sun_lon  = result["planets"]["Su"]["full_lon"]
+    lat = result.get("lat", 0.0)
+    lon_geo = result.get("lon", 0.0)
+    sun_lon = result["planets"]["Su"]["full_lon"]
     moon_lon = result["planets"]["Mo"]["full_lon"]
 
     out = {}
 
     # Day-portion upagrahas
     for name, part_map in [
-        ("Gulika",       _GULIKA_DAY_PART),
-        ("Yamghantaka",  _YAMGHANTAKA_DAY_PART),
+        ("Gulika", _GULIKA_DAY_PART),
+        ("Yamghantaka", _YAMGHANTAKA_DAY_PART),
         ("Ardhaprahara", _ARDHAPRAHARA_DAY_PART),
-        ("Kaala",        _KAALA_DAY_PART),
+        ("Kaala", _KAALA_DAY_PART),
     ]:
         sign, deg, full_lon = _upagraha_from_day_part(part_map, birth_jd, lat, lon_geo)
         out[name] = {"sign": sign, "deg": deg, "full_lon": full_lon}
 
     # Sun/Moon arithmetic upagrahas
     for name, lon in [
-        ("Dhuma",      _dhuma(sun_lon)),
-        ("Vyatipata",  _vyatipata(sun_lon, moon_lon)),
-        ("Parivesha",  _parivesha(sun_lon, moon_lon)),
+        ("Dhuma", _dhuma(sun_lon)),
+        ("Vyatipata", _vyatipata(sun_lon, moon_lon)),
+        ("Parivesha", _parivesha(sun_lon, moon_lon)),
         ("Indrachapa", _indrachapa(sun_lon, moon_lon)),
-        ("Upaketu",    _upaketu(sun_lon)),
+        ("Upaketu", _upaketu(sun_lon)),
     ]:
         sign, deg = _lon_to_sign_deg(lon)
         out[name] = {"sign": sign, "deg": deg, "full_lon": round(lon, 4)}

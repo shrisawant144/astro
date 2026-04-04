@@ -293,7 +293,9 @@ def find_marriage_date(
     natal_jup_sign = get_sign(jup_lon)
     seventh_sign = get_seventh_sign(lagna_lon) if lagna_lon else None
 
-    birth_date = kundali.get("birth_datetime").date() if kundali.get("birth_datetime") else None
+    birth_date = (
+        kundali.get("birth_datetime").date() if kundali.get("birth_datetime") else None
+    )
     if not birth_date:
         return "Birth date not available"
     birth_year = birth_date.year

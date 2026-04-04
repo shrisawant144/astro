@@ -556,7 +556,8 @@ def print_kundali(result, file=None):
         sd_end = sd_info.get("sd_end_jd")
         sd_end_yr = (
             int(result["birth_year"] + (sd_end - result["birth_jd"]) / 365.25)
-            if sd_end else "?"
+            if sd_end
+            else "?"
         )
         vim = result.get("vimshottari", {})
         pd_info = result.get("vimshottari_pd", {})
@@ -577,7 +578,9 @@ def print_kundali(result, file=None):
     # ── Arudha Lagna ──────────────────────────────────────────────────────────
     al = result.get("arudha_lagna", {})
     if al:
-        write(f"\nArudha Lagna (AL1) : {al.get('sign','?')} (House {al.get('house','?')})")
+        write(
+            f"\nArudha Lagna (AL1) : {al.get('sign','?')} (House {al.get('house','?')})"
+        )
         write("  (Reflects worldly image/perception — the 'mask' shown to society)")
 
     # ── Avasthas ──────────────────────────────────────────────────────────────
@@ -603,9 +606,11 @@ def print_kundali(result, file=None):
         write(
             "(Total strength in Rupas. Minimum for strength: Su≥5, Mo≥6, Ma≥5, Me≥7, Ju≥6.5, Ve≥5.5, Sa≥5)"
         )
-        write(f"{'Planet':<10} {'Rupas':>6} {'Min':>5} {'Status':<10} "
-              f"{'Sthana':>7} {'Dig':>5} {'Kala':>6} {'Chesta':>7} "
-              f"{'Naisarg':>8} {'Drik':>6} {'Ishta':>6} {'Kashta':>7}")
+        write(
+            f"{'Planet':<10} {'Rupas':>6} {'Min':>5} {'Status':<10} "
+            f"{'Sthana':>7} {'Dig':>5} {'Kala':>6} {'Chesta':>7} "
+            f"{'Naisarg':>8} {'Drik':>6} {'Ishta':>6} {'Kashta':>7}"
+        )
         write("-" * 85)
         for pl in order:
             if pl in shadbala:
@@ -621,7 +626,9 @@ def print_kundali(result, file=None):
                     f"{c['naisargika_bala']:>8.1f} {c['drik_bala']:>6.1f} "
                     f"{sb['ishta']:>6.1f} {sb['kashta']:>7.1f}"
                 )
-        write("  Ishta = benefic potential (higher=better); Kashta = malefic tendency (lower=better)")
+        write(
+            "  Ishta = benefic potential (higher=better); Kashta = malefic tendency (lower=better)"
+        )
 
     # ── Bhinnashtakavarga ─────────────────────────────────────────────────────
     ashtak = result.get("ashtakavarga", {})
@@ -630,15 +637,21 @@ def print_kundali(result, file=None):
         write("\nBhinnashtakavarga — Per-Planet Bindus per House:")
         write("-" * 85)
         write("(Number of benefic dots each planet contributes to each house)")
-        header = f"{'House':<8} {'Sign':<12}" + "".join(
-            f"{short_to_full.get(pl,pl):>8}" for pl in ["Su","Mo","Ma","Me","Ju","Ve","Sa"]
-        ) + f"{'SAV':>6} {'Strength':<10}"
+        header = (
+            f"{'House':<8} {'Sign':<12}"
+            + "".join(
+                f"{short_to_full.get(pl,pl):>8}"
+                for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]
+            )
+            + f"{'SAV':>6} {'Strength':<10}"
+        )
         write(header)
         write("-" * 85)
         for h in range(1, 13):
             hd = by_house[h]
             planet_cols = "".join(
-                f"{hd['planets'].get(pl, 0):>8}" for pl in ["Su","Mo","Ma","Me","Ju","Ve","Sa"]
+                f"{hd['planets'].get(pl, 0):>8}"
+                for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]
             )
             write(
                 f"  H{h:02d} ({hd['sign']:<10}) {planet_cols}  {hd['sav']:>3}  {hd['strength']}"
@@ -646,8 +659,8 @@ def print_kundali(result, file=None):
 
     # ── Additional Divisional Charts ──────────────────────────────────────────
     extra_vargas = [
-        ("d3",  "Drekkana (D3 – Siblings/Courage/Vitality)"),
-        ("d4",  "Chaturthamsha (D4 – Property/Fortune)"),
+        ("d3", "Drekkana (D3 – Siblings/Courage/Vitality)"),
+        ("d4", "Chaturthamsha (D4 – Property/Fortune)"),
         ("d12", "Dwadashamsha (D12 – Parents/Ancestral Karma)"),
         ("d16", "Shodasha (D16 – Vehicles/Comforts)"),
         ("d20", "Vimsha (D20 – Spiritual Practice)"),
@@ -675,10 +688,16 @@ def print_kundali(result, file=None):
     if num:
         write("\nVedic Numerology:")
         write("-" * 85)
-        write(f"  Birth Number   : {num['birth_number']} ({num['birth_planet']}) — {num['birth_meaning']}")
-        write(f"  Destiny Number : {num['destiny_number']} ({num['destiny_planet']}) — {num['destiny_meaning']}")
+        write(
+            f"  Birth Number   : {num['birth_number']} ({num['birth_planet']}) — {num['birth_meaning']}"
+        )
+        write(
+            f"  Destiny Number : {num['destiny_number']} ({num['destiny_planet']}) — {num['destiny_meaning']}"
+        )
         if num.get("name_number"):
-            write(f"  Name Number    : {num['name_number']} ({num.get('name_planet','')}) — {num.get('name_meaning','')}")
+            write(
+                f"  Name Number    : {num['name_number']} ({num.get('name_planet','')}) — {num.get('name_meaning','')}"
+            )
         write(f"  Lucky Days     : {num['lucky_days']}")
         write(f"  Lucky Color    : {num['lucky_color']}")
         write(f"  Lucky Gem      : {num['lucky_gem']}")
@@ -689,28 +708,36 @@ def print_kundali(result, file=None):
     if yd:
         write("\nYogini Dasha (36-Year Cycle):")
         write("-" * 85)
-        write(f"  Birth Yogini   : {yd.get('start_yogini','?')} | Balance: {yd.get('balance_years',0):.2f} years")
+        write(
+            f"  Birth Yogini   : {yd.get('start_yogini','?')} | Balance: {yd.get('balance_years',0):.2f} years"
+        )
         cur = yd.get("current", {})
         if cur:
-            write(f"  Current Yogini : {cur.get('yogini','?')} (Lord: {cur.get('lord','?')})")
+            write(
+                f"  Current Yogini : {cur.get('yogini','?')} (Lord: {cur.get('lord','?')})"
+            )
             ad_info = cur.get("antardasha")
             if ad_info:
-                write(f"  Current AD     : {ad_info.get('yogini','?')} (Lord: {ad_info.get('lord','?')})")
+                write(
+                    f"  Current AD     : {ad_info.get('yogini','?')} (Lord: {ad_info.get('lord','?')})"
+                )
         write("")
         write(f"  {'Yogini':<14} {'Lord':<10} {'Years':<6}  Period")
         write("  " + "-" * 60)
         for md in yd.get("dashas", [])[:12]:
             start_yr = md.get("start_jd", 0)
-            end_yr   = md.get("end_jd", 0)
+            end_yr = md.get("end_jd", 0)
             try:
                 by = result.get("birth_year", 2000)
                 bjd = result.get("birth_jd", 0)
                 s_yr = int(by + (md["start_jd"] - bjd) / 365.25)
-                e_yr = int(by + (md["end_jd"]   - bjd) / 365.25)
+                e_yr = int(by + (md["end_jd"] - bjd) / 365.25)
                 period_str = f"{s_yr}–{e_yr}"
             except Exception:
                 period_str = ""
-            write(f"  {md['yogini']:<14} {md['lord']:<10} {md['years']:<6.1f}  {period_str}")
+            write(
+                f"  {md['yogini']:<14} {md['lord']:<10} {md['years']:<6.1f}  {period_str}"
+            )
 
     # ── Tajika / Solar Return ─────────────────────────────────────────────────
     taj = result.get("tajika", {})
@@ -722,14 +749,18 @@ def print_kundali(result, file=None):
         write(f"  Year Lord     : {taj.get('year_lord','?')}")
         mun = taj.get("muntha", {})
         if mun:
-            write(f"  Muntha Sign   : {mun.get('sign','?')} (House {mun.get('house_from_lagna','?')}, Lord: {mun.get('lord','?')})")
+            write(
+                f"  Muntha Sign   : {mun.get('sign','?')} (House {mun.get('house_from_lagna','?')}, Lord: {mun.get('lord','?')})"
+            )
         for line in taj.get("interpretation", [])[:6]:
             write(f"  • {line}")
         applying = taj.get("applying_aspects", [])
         if applying:
             write(f"  Applying Aspects ({len(applying)}):")
             for a in applying:
-                write(f"    {a.get('p1', a.get('planet1','?'))} → {a.get('p2', a.get('planet2','?'))} : {a.get('aspect','?')} (orb {a.get('orb','?')}°)")
+                write(
+                    f"    {a.get('p1', a.get('planet1','?'))} → {a.get('p2', a.get('planet2','?'))} : {a.get('aspect','?')} (orb {a.get('orb','?')}°)"
+                )
 
     # ── Muhurtha (Birth Moment Quality) ───────────────────────────────────────
     muh = result.get("muhurtha", {})
@@ -742,10 +773,14 @@ def print_kundali(result, file=None):
         write(f"  Grade         : {grade}")
         if muh.get("tarabala"):
             tb = muh["tarabala"]
-            write(f"  Tarabala      : {tb.get('tara_name','?')} (Score {tb.get('score','?')}/5)")
+            write(
+                f"  Tarabala      : {tb.get('tara_name','?')} (Score {tb.get('score','?')}/5)"
+            )
         if muh.get("chandrabala"):
             cb = muh["chandrabala"]
-            write(f"  Chandrabala   : H{cb.get('count','?')} from Moon — Score {cb.get('score','?')}/5")
+            write(
+                f"  Chandrabala   : H{cb.get('count','?')} from Moon — Score {cb.get('score','?')}/5"
+            )
         if muh.get("panchanga"):
             mp = muh["panchanga"]
             write(f"  Tithi         : {mp.get('tithi_name', mp.get('tithi','?'))}")
@@ -758,13 +793,19 @@ def print_kundali(result, file=None):
     if pp:
         write("\nPancha Pakshi — Five Bird Activity System:")
         write("-" * 85)
-        write(f"  Birth Bird     : {pp.get('birth_bird','?')} (Moon in {pp.get('moon_nakshatra','?')})")
+        write(
+            f"  Birth Bird     : {pp.get('birth_bird','?')} (Moon in {pp.get('moon_nakshatra','?')})"
+        )
         write(f"  Today ({pp.get('query_weekday','?')}):")
-        write(f"    Period       : {'Day' if pp.get('is_day') else 'Night'} Yama {pp.get('current_yama','?')}")
-        write(f"    Activity     : {pp.get('current_activity','?')} (Strength {pp.get('current_strength','?')}/5)")
+        write(
+            f"    Period       : {'Day' if pp.get('is_day') else 'Night'} Yama {pp.get('current_yama','?')}"
+        )
+        write(
+            f"    Activity     : {pp.get('current_activity','?')} (Strength {pp.get('current_strength','?')}/5)"
+        )
         write(f"    Advice       : {pp.get('current_advice','')}")
         write(f"  Ruling Bird Now: {pp.get('ruling_bird_now','?')}")
-        day_yamas   = pp.get("auspicious_day_yamas", [])
+        day_yamas = pp.get("auspicious_day_yamas", [])
         night_yamas = pp.get("auspicious_night_yamas", [])
         if day_yamas:
             write(f"  Best Day Yamas : {', '.join(f'Yama {y}' for y in day_yamas)}")
@@ -781,7 +822,9 @@ def print_kundali(result, file=None):
         for slot in pp.get("day_forecast", []):
             advice_short = slot["advice"].split(";")[0][:38]
             strength_bar = "★" * slot["strength"] + "☆" * (5 - slot["strength"])
-            write(f"  {slot['period']:<18} {slot['activity']:<12} {strength_bar}  {advice_short}")
+            write(
+                f"  {slot['period']:<18} {slot['activity']:<12} {strength_bar}  {advice_short}"
+            )
 
     # ── Sky Chart SVG ─────────────────────────────────────────────────────────
     sky_path = result.get("sky_chart_path", "")
@@ -790,6 +833,138 @@ def print_kundali(result, file=None):
         write("-" * 85)
         write(f"  South Indian chart saved to: {sky_path}")
         write("  Open the SVG file in any browser or vector graphics editor.")
+
+    # ── Chara Dasha ───────────────────────────────────────────────────────────
+    cd = result.get("chara_dasha", {})
+    if cd and cd.get("dashas"):
+        write("\nJaimini Chara Dasha (Sign-Based):")
+        write("-" * 85)
+        cur_cd = cd.get("current") or {}
+        if cur_cd:
+            write(
+                f"  Current : {cur_cd.get('current_sign','?')} "
+                f"(Lord: {cur_cd.get('current_lord','?')}) — "
+                f"{cur_cd.get('years_remaining',0):.1f} yrs remaining"
+            )
+        write(f"  {'Sign':<14} {'Lord':<8} {'Yrs':<5}  Period")
+        write("  " + "-" * 55)
+        for md in cd.get("dashas", []):
+            by = result.get("birth_year", 2000)
+            bjd = result.get("birth_jd", 0)
+            try:
+                s_yr = int(by + (md["start_jd"] - bjd) / 365.25)
+                e_yr = int(by + (md["end_jd"] - bjd) / 365.25)
+                period_str = f"{s_yr}–{e_yr}"
+            except Exception:
+                period_str = ""
+            write(
+                f"  {md['sign']:<14} {md['lord']:<8} {md['years']:<5.1f}  {period_str}"
+            )
+
+    # ── Pada Lagnas (Arudha) ──────────────────────────────────────────────────
+    pada = result.get("pada_lagnas", {})
+    if pada:
+        write("\nPada Lagnas (Arudha A1–A12):")
+        write("-" * 85)
+        write("  (Each Pada = worldly reflection of that house in the outer world)")
+        for key in [f"A{i}" for i in range(1, 13)]:
+            info = pada.get(key, {})
+            if info:
+                write(
+                    f"  {key}: {info.get('sign','?'):13} (House {info.get('house','?')})"
+                )
+        ul = result.get("upapadha_lagna", {})
+        if ul:
+            write(
+                f"\n  Upapadha Lagna (UL / A12 of H12): {ul.get('sign','?')} (House {ul.get('house','?')})"
+            )
+            interp = ul.get("interpretation", "")
+            if interp:
+                write(f"  → {interp}")
+
+    # ── Vimshopak Bala ────────────────────────────────────────────────────────
+    vb = result.get("vimshopak_bala", {})
+    if vb:
+        write("\nVimshopak Bala — 20-Point Strength Across 16 Vargas:")
+        write("-" * 85)
+        write("  (Score /20. Strong ≥ 15. Key weights: D60=4, D1=3.5, D9=3, D16=2)")
+        write(f"  {'Planet':<10} {'Score':>6} {'Status':<8}  Bar")
+        write("  " + "-" * 60)
+        for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"]:
+            if pl in vb:
+                pv = vb[pl]
+                score = pv.get("score", 0)
+                strong = pv.get("strong", False)
+                bar = "█" * int(score) + "░" * max(0, 20 - int(score))
+                status = "STRONG" if strong else "weak"
+                pl_full = short_to_full.get(pl, pl)
+                write(f"  {pl_full:<10} {score:>6.2f} {status:<8}  {bar}")
+
+    # ── Graha Yuddha ──────────────────────────────────────────────────────────
+    gy = result.get("graha_yuddha", [])
+    if gy:
+        write("\nGraha Yuddha (Planetary War):")
+        write("-" * 85)
+        write("  (Planets within 1° of each other — lower degree planet wins)")
+        for war in gy:
+            write(
+                f"  {war.get('planet1','?')} vs {war.get('planet2','?')} "
+                f"in {war.get('sign','?')} (orb {war.get('orb',0):.2f}°) "
+                f"— Winner: {war.get('winner','?')}"
+            )
+            interp = war.get("interpretation", "")
+            if interp:
+                write(f"    → {interp}")
+
+    # ── Transit Calendar ──────────────────────────────────────────────────────
+    tc = result.get("transit_calendar", {})
+    if tc:
+        write("\nTransit Calendar — Next 30 Days:")
+        write("-" * 85)
+        summary = tc.get("summary_next_30_days", [])
+        if summary:
+            for evt in summary[:15]:
+                evt_type = evt.get("type", evt.get("event_type", "event")).upper()
+                desc = evt.get("description", evt.get("planet", ""))
+                write(f"  {evt.get('date','?')}  {evt_type:<18} {desc}")
+        ingresses = tc.get("ingresses", [])
+        if ingresses:
+            write(f"\n  Upcoming Sign Ingresses (next {min(8,len(ingresses))}):")
+            for ing in ingresses[:8]:
+                write(
+                    f"    {ing.get('date','?')}: {ing.get('planet','?')} "
+                    f"→ {ing.get('to_sign','?')} (from {ing.get('from_sign','?')})"
+                )
+        retros = tc.get("retrogrades", [])
+        if retros:
+            write(f"\n  Retrograde Stations (next {min(6,len(retros))}):")
+            for r in retros[:6]:
+                write(
+                    f"    {r.get('date','?')}: {r.get('planet','?')} "
+                    f"{r.get('type','').replace('_',' ')} in {r.get('sign','?')}"
+                )
+        eclipses = tc.get("eclipses", [])
+        if eclipses:
+            write(f"\n  Eclipses (next {min(4,len(eclipses))}):")
+            for ec in eclipses[:4]:
+                write(
+                    f"    {ec.get('date','?')}: {ec.get('type','?').upper()} "
+                    f"Eclipse ({ec.get('subtype','?')})"
+                )
+
+    # ── North Indian Chart ────────────────────────────────────────────────────
+    north_path = result.get("north_chart_path", "")
+    if north_path:
+        write("\nNorth Indian Chart (SVG):")
+        write("-" * 85)
+        write(f"  Chart saved to: {north_path}")
+
+    # ── PDF Report ────────────────────────────────────────────────────────────
+    pdf_path = result.get("pdf_report_path", "")
+    if pdf_path:
+        write("\nPDF Report:")
+        write("-" * 85)
+        write(f"  Full report saved to: {pdf_path}")
 
     write("\n" + result.get("final_analysis", ""))
     write("\nNote: Highest probability when dasha + transit + gochara align.")

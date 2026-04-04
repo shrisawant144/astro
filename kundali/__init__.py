@@ -13,7 +13,11 @@ from .main import calculate_kundali
 from .spouse.predictor import AdvancedSpousePredictor
 from .pancha_pakshi import calculate_pancha_pakshi
 from .sky_chart import generate_sky_chart
-from .ai_astrologer import get_ai_interpretation, get_marriage_analysis, get_career_analysis
+from .ai_astrologer import (
+    get_ai_interpretation,
+    get_marriage_analysis,
+    get_career_analysis,
+)
 
 __all__ = [
     "calculate_kundali",

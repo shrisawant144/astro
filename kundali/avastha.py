@@ -16,38 +16,63 @@ Reference: Phaladeepika Ch. 4, BPHS Ch. 45.
 from .constants import zodiac_signs, sign_lords, NATURAL_BENEFICS, NATURAL_MALEFICS
 
 _MOOLATRIKONA = {
-    "Su": "Leo",       "Mo": "Taurus",  "Ma": "Aries",
-    "Me": "Virgo",     "Ju": "Sagittarius", "Ve": "Libra", "Sa": "Aquarius",
+    "Su": "Leo",
+    "Mo": "Taurus",
+    "Ma": "Aries",
+    "Me": "Virgo",
+    "Ju": "Sagittarius",
+    "Ve": "Libra",
+    "Sa": "Aquarius",
 }
 
 _EXALT_SIGNS = {
-    "Su": "Aries",     "Mo": "Taurus",  "Ma": "Capricorn",
-    "Me": "Virgo",     "Ju": "Cancer",  "Ve": "Pisces",    "Sa": "Libra",
+    "Su": "Aries",
+    "Mo": "Taurus",
+    "Ma": "Capricorn",
+    "Me": "Virgo",
+    "Ju": "Cancer",
+    "Ve": "Pisces",
+    "Sa": "Libra",
 }
 
 _DEB_SIGNS = {
-    "Su": "Libra",     "Mo": "Scorpio", "Ma": "Cancer",
-    "Me": "Pisces",    "Ju": "Capricorn", "Ve": "Virgo", "Sa": "Aries",
+    "Su": "Libra",
+    "Mo": "Scorpio",
+    "Ma": "Cancer",
+    "Me": "Pisces",
+    "Ju": "Capricorn",
+    "Ve": "Virgo",
+    "Sa": "Aries",
 }
 
 _OWN_SIGNS = {
-    "Su": ["Leo"],             "Mo": ["Cancer"],
-    "Ma": ["Aries", "Scorpio"], "Me": ["Gemini", "Virgo"],
-    "Ju": ["Sagittarius", "Pisces"], "Ve": ["Taurus", "Libra"],
+    "Su": ["Leo"],
+    "Mo": ["Cancer"],
+    "Ma": ["Aries", "Scorpio"],
+    "Me": ["Gemini", "Virgo"],
+    "Ju": ["Sagittarius", "Pisces"],
+    "Ve": ["Taurus", "Libra"],
     "Sa": ["Capricorn", "Aquarius"],
 }
 
 _WATERY_SIGNS = {"Cancer", "Scorpio", "Pisces"}
 
 _NAT_FRIENDS = {
-    "Su": {"Mo", "Ma", "Ju"},  "Mo": {"Su", "Me"},
-    "Ma": {"Su", "Mo", "Ju"},  "Me": {"Su", "Ve"},
-    "Ju": {"Su", "Mo", "Ma"},  "Ve": {"Me", "Sa"},
+    "Su": {"Mo", "Ma", "Ju"},
+    "Mo": {"Su", "Me"},
+    "Ma": {"Su", "Mo", "Ju"},
+    "Me": {"Su", "Ve"},
+    "Ju": {"Su", "Mo", "Ma"},
+    "Ve": {"Me", "Sa"},
     "Sa": {"Me", "Ve"},
 }
 _NAT_ENEMIES = {
-    "Su": {"Ve", "Sa"},  "Mo": set(),   "Ma": {"Me"},
-    "Me": {"Mo"},        "Ju": {"Me", "Ve"}, "Ve": {"Su", "Mo"},
+    "Su": {"Ve", "Sa"},
+    "Mo": set(),
+    "Ma": {"Me"},
+    "Me": {"Mo"},
+    "Ju": {"Me", "Ve"},
+    "Ve": {"Su", "Mo"},
     "Sa": {"Su", "Mo", "Ma"},
 }
 
@@ -89,7 +114,7 @@ def calculate_avasthas(result):
     }}
     """
     planet_data = result["planets"]
-    houses      = result["houses"]
+    houses = result["houses"]
 
     # house_map: planet → house number (1-12)
     house_map = {}
@@ -98,33 +123,40 @@ def calculate_avasthas(result):
             if p != "Asc":
                 house_map[p] = h
 
-    malefics  = NATURAL_MALEFICS   # {"Sa","Ma","Su","Ra","Ke"}
-    benefics  = NATURAL_BENEFICS   # {"Ju","Ve","Mo"}
+    malefics = NATURAL_MALEFICS  # {"Sa","Ma","Su","Ra","Ke"}
+    benefics = NATURAL_BENEFICS  # {"Ju","Ve","Mo"}
 
     avasthas_all = {}
 
     for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
         if pl not in planet_data:
             continue
-        pd    = planet_data[pl]
-        sign  = pd["sign"]
+        pd = planet_data[pl]
+        sign = pd["sign"]
         house = house_map.get(pl, 1)
         states = []
-        descs  = []
+        descs = []
 
         # ── 1. Lajjita (Shamed) ─────────────────────────────────────────
         if pl in ("Ju", "Ve") and house == 5:
-            co_5h = [p for p in house_map if house_map[p] == 5
-                     and p not in ("Ju", "Ve", "Asc")]
+            co_5h = [
+                p
+                for p in house_map
+                if house_map[p] == 5 and p not in ("Ju", "Ve", "Asc")
+            ]
             if any(p in {"Ra", "Ke", "Sa"} for p in co_5h):
                 states.append("Lajjita")
-                descs.append("Shamed: 5th-house conjunction with Rahu/Ketu/Saturn "
-                              "weakens the planet's creative and child significations")
+                descs.append(
+                    "Shamed: 5th-house conjunction with Rahu/Ketu/Saturn "
+                    "weakens the planet's creative and child significations"
+                )
 
         # ── 2. Garvita (Proud) ──────────────────────────────────────────
         if sign == _EXALT_SIGNS.get(pl) or sign == _MOOLATRIKONA.get(pl):
             states.append("Garvita")
-            descs.append("Proud: exaltation / Moolatrikona — full expression of strength")
+            descs.append(
+                "Proud: exaltation / Moolatrikona — full expression of strength"
+            )
 
         # ── 3. Kshudita (Starved) ───────────────────────────────────────
         # In enemy sign with enemy aspect and no friendly aspect
@@ -133,14 +165,18 @@ def calculate_avasthas(result):
         friend_asp = _is_aspected_by(house, house_map, _NAT_FRIENDS.get(pl, set()))
         if in_enemy and enemy_asp and not friend_asp:
             states.append("Kshudita")
-            descs.append("Starved: enemy sign + enemy aspect + no friend — severely weakened")
+            descs.append(
+                "Starved: enemy sign + enemy aspect + no friend — severely weakened"
+            )
 
         # ── 4. Trishita (Thirsty) ───────────────────────────────────────
         if sign in _WATERY_SIGNS:
             mal_asp = _is_aspected_by(house, house_map, malefics - {"Su"})
             if mal_asp:
                 states.append("Trishita")
-                descs.append("Thirsty: watery sign + malefic aspect — emotionally depleted")
+                descs.append(
+                    "Thirsty: watery sign + malefic aspect — emotionally depleted"
+                )
 
         # ── 5. Mudita (Delighted) ───────────────────────────────────────
         own_list = _OWN_SIGNS.get(pl, [])
@@ -148,14 +184,18 @@ def calculate_avasthas(result):
         ju_asp = _is_aspected_by(house, house_map, {"Ju"})
         if sign in own_list or in_friend or ju_asp:
             states.append("Mudita")
-            descs.append("Delighted: own/friendly sign or Jupiter aspect — content and productive")
+            descs.append(
+                "Delighted: own/friendly sign or Jupiter aspect — content and productive"
+            )
 
         # ── 6. Kshobita (Agitated) ──────────────────────────────────────
         if pd.get("combust", False):
             mal_asp = _is_aspected_by(house, house_map, malefics)
             if mal_asp:
                 states.append("Kshobita")
-                descs.append("Agitated: combust + malefic aspect — severely disturbed results")
+                descs.append(
+                    "Agitated: combust + malefic aspect — severely disturbed results"
+                )
 
         # Default if no state detected
         if not states:
@@ -169,9 +209,9 @@ def calculate_avasthas(result):
 
         # Primary = first (most severe / significant)
         avasthas_all[pl] = {
-            "avasthas":    states,
+            "avasthas": states,
             "description": descs,
-            "primary":     states[0],
+            "primary": states[0],
         }
 
     return avasthas_all
@@ -186,19 +226,20 @@ def calculate_arudha_lagna(result):
     Returns (sign_str, house_number).
     """
     from .constants import sign_lords as sl
+
     lagna_sign = result["lagna_sign"]
-    lagna_idx  = zodiac_signs.index(lagna_sign)
-    lagna_lord = sl[lagna_sign]   # e.g. "Sa" for Capricorn
+    lagna_idx = zodiac_signs.index(lagna_sign)
+    lagna_lord = sl[lagna_sign]  # e.g. "Sa" for Capricorn
 
     pd = result["planets"]
     if lagna_lord not in pd:
         return lagna_sign, 1
 
     lord_sign = pd[lagna_lord]["sign"]
-    lord_idx  = zodiac_signs.index(lord_sign)
+    lord_idx = zodiac_signs.index(lord_sign)
 
     # Distance from lagna to lord (in signs, 1-indexed)
-    dist = (lord_idx - lagna_idx) % 12   # 0-11
+    dist = (lord_idx - lagna_idx) % 12  # 0-11
     if dist == 0:
         dist = 12
 
@@ -208,7 +249,7 @@ def calculate_arudha_lagna(result):
     # Special rule: if Arudha falls on Lagna or 7th from Lagna, move 10 signs
     seventh_idx = (lagna_idx + 6) % 12
     if arudha_idx == lagna_idx or arudha_idx == seventh_idx:
-        arudha_idx = (arudha_idx + 9) % 12   # +10 signs (−2 from same)
+        arudha_idx = (arudha_idx + 9) % 12  # +10 signs (−2 from same)
 
     arudha_sign = zodiac_signs[arudha_idx]
     arudha_house = (arudha_idx - lagna_idx) % 12 + 1

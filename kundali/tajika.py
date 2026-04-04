@@ -16,6 +16,7 @@ from .constants import sign_lords, zodiac_signs
 
 # ─── Solar Return (Varsha Pravesh) ────────────────────────────────────────────
 
+
 def find_solar_return_jd(natal_sun_lon, year, birth_jd):
     """
     Find Julian Day when Sun returns to natal longitude in a given year.
@@ -68,16 +69,25 @@ def get_tajika_planets(jd, lat, lon):
     flags = swe.FLG_SIDEREAL | swe.FLG_SPEED
 
     planet_map = {
-        "Su": swe.SUN, "Mo": swe.MOON, "Ma": swe.MARS,
-        "Me": swe.MERCURY, "Ju": swe.JUPITER, "Ve": swe.VENUS,
-        "Sa": swe.SATURN, "Ra": swe.MEAN_NODE,
+        "Su": swe.SUN,
+        "Mo": swe.MOON,
+        "Ma": swe.MARS,
+        "Me": swe.MERCURY,
+        "Ju": swe.JUPITER,
+        "Ve": swe.VENUS,
+        "Sa": swe.SATURN,
+        "Ra": swe.MEAN_NODE,
     }
     result = {}
     for code, sweid in planet_map.items():
         data = swe.calc_ut(jd, sweid, flags)[0]
         lon_val = data[0] % 360
         speed = data[3]
-        result[code] = {"lon": lon_val, "sign_idx": int(lon_val / 30) % 12, "speed": speed}
+        result[code] = {
+            "lon": lon_val,
+            "sign_idx": int(lon_val / 30) % 12,
+            "speed": speed,
+        }
     # Ketu = opposite Rahu
     ra_lon = result["Ra"]["lon"]
     ke_lon = (ra_lon + 180) % 360
@@ -96,6 +106,7 @@ def get_tajika_planets(jd, lat, lon):
 
 # ─── Muntha ───────────────────────────────────────────────────────────────────
 
+
 def calculate_muntha(birth_lagna_sign_idx, age_years):
     """
     Calculate Muntha (annual Ascendant progressor).
@@ -110,15 +121,15 @@ def calculate_muntha(birth_lagna_sign_idx, age_years):
         dict: {sign_idx, sign, lord, house_from_lagna}
     """
     muntha_sign_idx = (birth_lagna_sign_idx + age_years) % 12
-    muntha_sign     = zodiac_signs[muntha_sign_idx]
-    muntha_lord     = sign_lords[muntha_sign]
+    muntha_sign = zodiac_signs[muntha_sign_idx]
+    muntha_lord = sign_lords[muntha_sign]
     house_from_lagna = muntha_sign_idx - birth_lagna_sign_idx + 1
     if house_from_lagna <= 0:
         house_from_lagna += 12
     return {
-        "sign_idx":        muntha_sign_idx,
-        "sign":            muntha_sign,
-        "lord":            muntha_lord,
+        "sign_idx": muntha_sign_idx,
+        "sign": muntha_sign,
+        "lord": muntha_lord,
         "house_from_lagna": house_from_lagna,
     }
 
@@ -126,6 +137,7 @@ def calculate_muntha(birth_lagna_sign_idx, age_years):
 # ─── Year Lord (Varshesha) ────────────────────────────────────────────────────
 
 _YEAR_LORD_ORDER = ["Su", "Ve", "Me", "Mo", "Sa", "Ju", "Ma"]
+
 
 def calculate_year_lord(solar_return_jd):
     """
@@ -155,12 +167,13 @@ def calculate_year_lord(solar_return_jd):
 # Tajika aspect orbs (tighter than Parashari)
 TAJIKA_ASPECTS = {
     "conjunction": 0,
-    "sextile":     60,
-    "square":      90,
-    "trine":       120,
-    "opposition":  180,
+    "sextile": 60,
+    "square": 90,
+    "trine": 120,
+    "opposition": 180,
 }
 TAJIKA_ORB = 12  # degrees
+
 
 def check_tajika_aspects(p1_code, p1_lon, p1_speed, p2_code, p2_lon, p2_speed):
     """
@@ -179,15 +192,17 @@ def check_tajika_aspects(p1_code, p1_lon, p1_speed, p2_code, p2_lon, p2_speed):
             # If both direct: faster planet approaching slower
             relative_speed = p1_speed - p2_speed
             applying = relative_speed < 0 if p1_lon < p2_lon else relative_speed > 0
-            aspects.append({
-                "aspect":    aspect_name,
-                "angle":     aspect_angle,
-                "orb":       round(angular_diff, 2),
-                "applying":  applying,
-                "type":      "Itthasala" if applying else "Ishrafa",
-                "p1":        p1_code,
-                "p2":        p2_code,
-            })
+            aspects.append(
+                {
+                    "aspect": aspect_name,
+                    "angle": aspect_angle,
+                    "orb": round(angular_diff, 2),
+                    "applying": applying,
+                    "type": "Itthasala" if applying else "Ishrafa",
+                    "p1": p1_code,
+                    "p2": p2_code,
+                }
+            )
     return aspects
 
 
@@ -197,7 +212,7 @@ def get_all_tajika_aspects(tajika_planets):
     all_aspects = []
     checked = set()
     for i, p1 in enumerate(planet_codes):
-        for p2 in planet_codes[i+1:]:
+        for p2 in planet_codes[i + 1 :]:
             key = frozenset({p1, p2})
             if key in checked:
                 continue
@@ -205,14 +220,19 @@ def get_all_tajika_aspects(tajika_planets):
             d1 = tajika_planets[p1]
             d2 = tajika_planets[p2]
             aspects = check_tajika_aspects(
-                p1, d1["lon"], d1.get("speed", 0),
-                p2, d2["lon"], d2.get("speed", 0),
+                p1,
+                d1["lon"],
+                d1.get("speed", 0),
+                p2,
+                d2["lon"],
+                d2.get("speed", 0),
             )
             all_aspects.extend(aspects)
     return all_aspects
 
 
 # ─── Main Tajika Function ─────────────────────────────────────────────────────
+
 
 def calculate_tajika(result, target_year=None, lat=None, lon=None):
     """
@@ -232,6 +252,7 @@ def calculate_tajika(result, target_year=None, lat=None, lon=None):
         }
     """
     import datetime
+
     if target_year is None:
         target_year = datetime.date.today().year
 
@@ -276,26 +297,30 @@ def calculate_tajika(result, target_year=None, lat=None, lon=None):
     if muntha_house in [1, 10, 11]:
         interp_parts.append("Muntha in angular/11th house — generally favorable year.")
     elif muntha_house in [6, 8, 12]:
-        interp_parts.append("Muntha in dusthana — year may have challenges and obstacles.")
+        interp_parts.append(
+            "Muntha in dusthana — year may have challenges and obstacles."
+        )
     elif muntha_house in [5, 9]:
         interp_parts.append("Muntha in trikona — spiritually enriching year.")
 
     itthasala_count = len(applying)
     if itthasala_count > 3:
-        interp_parts.append(f"Many applying aspects ({itthasala_count}) — active and eventful year.")
+        interp_parts.append(
+            f"Many applying aspects ({itthasala_count}) — active and eventful year."
+        )
     elif itthasala_count == 0:
         interp_parts.append("No applying aspects — quieter, reflective year.")
 
     return {
-        "year":             target_year,
-        "age":              age_years,
-        "solar_return_jd":  sr_jd,
+        "year": target_year,
+        "age": age_years,
+        "solar_return_jd": sr_jd,
         "solar_return_date": sr_date,
-        "tajika_planets":   tajika_planets,
-        "muntha":           muntha,
-        "year_lord":        year_lord,
-        "aspects":          aspects,
+        "tajika_planets": tajika_planets,
+        "muntha": muntha,
+        "year_lord": year_lord,
+        "aspects": aspects,
         "applying_aspects": applying,
-        "natal_sun_lon":    natal_sun_lon,
-        "interpretation":   interp_parts,
+        "natal_sun_lon": natal_sun_lon,
+        "interpretation": interp_parts,
     }
