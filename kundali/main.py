@@ -57,6 +57,8 @@ from .utils import (
     get_d24_sign_and_deg,
     get_d27_sign_and_deg,
     get_d30_sign_and_deg,
+    get_d40_sign_and_deg,
+    get_d45_sign_and_deg,
 )
 from .neecha_bhanga import check_neecha_bhanga
 from .yoga_detection import detect_yogas
@@ -88,6 +90,15 @@ from .shadbala import calculate_shadbala
 from .upagrahas import calculate_upagrahas
 from .avastha import calculate_avasthas, calculate_arudha_lagna
 from .numerology import calculate_numerology
+from .muhurtha import evaluate_muhurtha
+from .tajika import calculate_tajika
+from .dasha import (
+    calculate_yogini_dasha,
+    calculate_yogini_antardashas,
+    find_current_yogini,
+)
+from .pancha_pakshi import calculate_pancha_pakshi
+from .sky_chart import generate_sky_chart
 
 
 # -------------------------------------------------------------------
@@ -297,6 +308,8 @@ def calculate_kundali(
             "d24_sign": None, "d24_deg": None,
             "d27_sign": None, "d27_deg": None,
             "d30_sign": None, "d30_deg": None,
+            "d40_sign": None, "d40_deg": None,
+            "d45_sign": None, "d45_deg": None,
             "d60_sign": None, "d60_deg": None,
         }
         nakshatras_d1[code] = nak
@@ -364,6 +377,8 @@ def calculate_kundali(
         "d24_sign": None, "d24_deg": None,
         "d27_sign": None, "d27_deg": None,
         "d30_sign": None, "d30_deg": None,
+        "d40_sign": None, "d40_deg": None,
+        "d45_sign": None, "d45_deg": None,
         "d60_sign": None, "d60_deg": None,
     }
     nakshatras_d1["Ke"] = ke_nak
@@ -431,6 +446,8 @@ def calculate_kundali(
             (get_d24_sign_and_deg,     "d24"),
             (get_d27_sign_and_deg,     "d27"),
             (get_d30_sign_and_deg,     "d30"),
+            (get_d40_sign_and_deg,     "d40"),
+            (get_d45_sign_and_deg,     "d45"),
             (get_d60_sign_and_deg,     "d60"),
         ]:
             s, deg = fn(p_lon)
@@ -526,6 +543,8 @@ def calculate_kundali(
         "planets": planet_data,
         "houses": house_planets,
         "moon_sign": moon_sign,
+        "lat": lat,
+        "lon": lon,
         "moon_nakshatra": moon_nakshatra,
         "vimshottari": {
             "starting_lord": start_lord,
@@ -563,6 +582,8 @@ def calculate_kundali(
         "d24": {p: {"sign": d["d24_sign"], "deg": d["d24_deg"]} for p, d in planet_data.items()},
         "d27": {p: {"sign": d["d27_sign"], "deg": d["d27_deg"]} for p, d in planet_data.items()},
         "d30": {p: {"sign": d["d30_sign"], "deg": d["d30_deg"]} for p, d in planet_data.items()},
+        "d40": {p: {"sign": d["d40_sign"], "deg": d["d40_deg"]} for p, d in planet_data.items()},
+        "d45": {p: {"sign": d["d45_sign"], "deg": d["d45_deg"]} for p, d in planet_data.items()},
         "d60": {p: {"sign": d["d60_sign"], "deg": d["d60_deg"]} for p, d in planet_data.items()},
         "transits": transits,
         "birth_year": y,
@@ -637,6 +658,62 @@ def calculate_kundali(
         result["numerology"] = calculate_numerology(result, result.get("name", ""))
     except Exception:
         result["numerology"] = {}
+
+    # ── Tier 2: New modules ───────────────────────────────────────────────────
+    try:
+        result["muhurtha"] = evaluate_muhurtha(birth_jd, result, result["lat"], result["lon"])
+    except Exception:
+        result["muhurtha"] = {}
+
+    try:
+        result["tajika"] = calculate_tajika(result)
+    except Exception:
+        result["tajika"] = {}
+
+    try:
+        moon_lon_val = planet_data["Mo"]["full_lon"]
+        y_start, y_balance, y_dashas = calculate_yogini_dasha(moon_lon_val, birth_jd)
+        # Populate antardashas first so find_current_yogini can read them
+        y_antardashas = {}
+        for yd in y_dashas:
+            try:
+                calculate_yogini_antardashas(yd)   # mutates yd["antardashas"] in place
+                y_antardashas[yd["yogini"]] = yd
+            except Exception:
+                pass
+        now_jd = swe.julday(
+            datetime.datetime.now().year,
+            datetime.datetime.now().month,
+            datetime.datetime.now().day,
+            12.0,
+        )
+        current_yog = find_current_yogini(birth_jd, now_jd, y_dashas)
+        cur_yd_md, cur_yd_md_lord, cur_yd_ad, cur_yd_ad_lord = (
+            current_yog if current_yog[0] else (None, None, None, None)
+        )
+        result["yogini_dasha"] = {
+            "start_yogini":  y_start,
+            "balance_years": y_balance,
+            "dashas":        y_dashas,
+            "current": {
+                "yogini":     cur_yd_md,
+                "lord":       cur_yd_md_lord,
+                "antardasha": {"yogini": cur_yd_ad, "lord": cur_yd_ad_lord} if cur_yd_ad else None,
+            },
+            "antardashas":   y_antardashas,
+        }
+    except Exception:
+        result["yogini_dasha"] = {}
+
+    try:
+        result["pancha_pakshi"] = calculate_pancha_pakshi(result)
+    except Exception:
+        result["pancha_pakshi"] = {}
+
+    try:
+        result["sky_chart_path"] = generate_sky_chart(result)
+    except Exception:
+        result["sky_chart_path"] = ""
 
     # Additional fields for spouse predictor
     result["functional_nature"] = calculate_functional_nature(result)

@@ -199,8 +199,32 @@ def generate_spouse_report(pred):
         lines.append("─" * 90)
         mt = pred["marriage_type"]
         if isinstance(mt, dict):
-            for k, v in mt.items():
-                lines.append(f"{k}: {v}")
+            category   = mt.get("category", "—")
+            prob       = mt.get("probability", "—")
+            love_score = mt.get("love_score", 0)
+            arr_score  = mt.get("arranged_score", 0)
+            indicators = mt.get("indicators", [])
+
+            # Category badge
+            badge = "💕" if "Love" in category else ("🤝" if "Arranged" in category else "💑")
+            lines.append(f"  {badge}  Type        : {category}")
+            lines.append(f"      Probability : {prob}")
+
+            # Score bar
+            total = love_score + arr_score or 1
+            love_pct  = int(round(love_score  / total * 10))
+            arr_pct   = int(round(arr_score   / total * 10))
+            love_bar  = "█" * love_pct  + "░" * (10 - love_pct)
+            arr_bar   = "█" * arr_pct   + "░" * (10 - arr_pct)
+            lines.append(f"")
+            lines.append(f"  Love/Romance Score    [{love_bar}]  {love_score}")
+            lines.append(f"  Arranged/Family Score [{arr_bar}]  {arr_score}")
+
+            if indicators:
+                lines.append(f"")
+                lines.append(f"  Indicators:")
+                for ind in indicators:
+                    lines.append(f"    ✦ {ind}")
         else:
             lines.append(str(mt))
 

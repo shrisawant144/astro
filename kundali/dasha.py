@@ -328,3 +328,141 @@ def find_current_ashtottari(birth_jd, current_jd, dashas):
                 if as_ <= years_since < ae:
                     return md["lord"], ad["lord"]
     return None, None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Yogini Dasha (36-year cycle)
+# ─────────────────────────────────────────────────────────────────────────────
+# 8 Yoginis with their ruling planets and durations (total = 36 years)
+_YOGINI_LORDS = ["Mo", "Su", "Ju", "Ma", "Me", "Sa", "Ve", "Ra"]
+_YOGINI_NAMES = [
+    "Mangala", "Pingala", "Dhanya", "Bhramari",
+    "Bhadrika", "Ulka", "Siddha", "Sankata",
+]
+_YOGINI_PERIODS = {
+    "Mangala":  1,   # Moon
+    "Pingala":  2,   # Sun
+    "Dhanya":   3,   # Jupiter
+    "Bhramari": 4,   # Mars
+    "Bhadrika": 5,   # Mercury
+    "Ulka":     6,   # Saturn
+    "Siddha":   7,   # Venus
+    "Sankata":  8,   # Rahu
+}   # total = 36 years
+
+# Nakshatra → starting Yogini index (0-7) for Yogini Dasha
+# Maps nak_index % 8 → Yogini sequence start
+_YOGINI_NAK_MAP = {
+    0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7,
+    8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 6, 15: 7,
+    16: 0, 17: 1, 18: 2, 19: 3, 20: 4, 21: 5, 22: 6, 23: 7,
+    24: 0, 25: 1, 26: 2,
+}
+
+
+def calculate_yogini_dasha(moon_deg, birth_jd):
+    """
+    Calculate Yogini Dasha from birth.
+
+    Yogini Dasha is a 36-year cycle of 8 Yoginis.
+    Each Yogini has a ruling planet and a period of 1-8 years.
+
+    Args:
+        moon_deg (float): Moon's longitude at birth (sidereal, 0-360).
+        birth_jd (float): Julian Day of birth.
+
+    Returns:
+        tuple: (starting_yogini, balance_years, list_of_dashas)
+    """
+    nak_span = 360 / 27
+    nak_index = int(moon_deg / nak_span) % 27
+    yogini_idx = _YOGINI_NAK_MAP.get(nak_index, 0)
+    start_yogini = _YOGINI_NAMES[yogini_idx]
+
+    # Progress within nakshatra
+    progress = (moon_deg % nak_span) / nak_span
+    full_period = _YOGINI_PERIODS[start_yogini]
+    balance_years = (1 - progress) * full_period
+
+    dashas = []
+    current_jd = birth_jd
+    current_idx = yogini_idx
+
+    # Balance period
+    balance_days = balance_years * 365.25
+    dashas.append({
+        "yogini":   start_yogini,
+        "lord":     _YOGINI_LORDS[current_idx],
+        "start_jd": current_jd,
+        "end_jd":   current_jd + balance_days,
+        "years":    round(balance_years, 3),
+        "antardashas": [],
+    })
+    current_jd += balance_days
+    total_years = balance_years
+
+    while total_years < 72:   # 2 cycles of 36 years
+        current_idx = (current_idx + 1) % 8
+        yogini = _YOGINI_NAMES[current_idx]
+        period = _YOGINI_PERIODS[yogini]
+        days = period * 365.25
+        dashas.append({
+            "yogini":   yogini,
+            "lord":     _YOGINI_LORDS[current_idx],
+            "start_jd": current_jd,
+            "end_jd":   current_jd + days,
+            "years":    period,
+            "antardashas": [],
+        })
+        current_jd += days
+        total_years += period
+
+    return start_yogini, balance_years, dashas
+
+
+def calculate_yogini_antardashas(md_dasha):
+    """
+    Calculate Yogini sub-periods (Antardashas) within a Yogini Mahadasha.
+
+    Sub-period duration = (MD_years × sub_years) / 36
+    """
+    md_yogini = md_dasha["yogini"]
+    md_years = (md_dasha["end_jd"] - md_dasha["start_jd"]) / 365.25
+    total_cycle = 36.0
+    md_idx = _YOGINI_NAMES.index(md_yogini)
+    antardashas = []
+    current_jd = md_dasha["start_jd"]
+
+    for i in range(8):
+        ad_idx = (md_idx + i) % 8
+        ad_yogini = _YOGINI_NAMES[ad_idx]
+        ad_full = _YOGINI_PERIODS[ad_yogini]
+        ad_prop = ad_full / total_cycle
+        ad_years = md_years * ad_prop
+        ad_end = current_jd + ad_years * 365.25
+        antardashas.append({
+            "yogini":   ad_yogini,
+            "lord":     _YOGINI_LORDS[ad_idx],
+            "start_jd": current_jd,
+            "end_jd":   ad_end,
+            "years":    round(ad_years, 3),
+        })
+        current_jd = ad_end
+
+    md_dasha["antardashas"] = antardashas
+    return md_dasha
+
+
+def find_current_yogini(birth_jd, current_jd, dashas):
+    """Find current Yogini MD and AD at current_jd."""
+    years_since = (current_jd - birth_jd) / 365.25
+    for md in dashas:
+        ms = (md["start_jd"] - birth_jd) / 365.25
+        me = (md["end_jd"] - birth_jd) / 365.25
+        if ms <= years_since < me:
+            for ad in md.get("antardashas", []):
+                as_ = (ad["start_jd"] - birth_jd) / 365.25
+                ae  = (ad["end_jd"] - birth_jd) / 365.25
+                if as_ <= years_since < ae:
+                    return md["yogini"], md["lord"], ad["yogini"], ad["lord"]
+    return None, None, None, None

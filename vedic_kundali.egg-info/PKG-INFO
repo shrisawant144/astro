@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: vedic-kundali
+Version: 1.0.0
+Summary: Vedic astrology calculation and prediction engine
+Requires-Python: >=3.8
+Requires-Dist: pyswisseph>=2.10
+Requires-Dist: geopy>=2.4
+Requires-Dist: timezonefinder>=6.0
+Requires-Dist: pytz>=2022.1
+Provides-Extra: transits
+Requires-Dist: astropy>=5.0; extra == "transits"

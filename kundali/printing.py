@@ -654,6 +654,8 @@ def print_kundali(result, file=None):
         ("d24", "Chaturvimsha (D24 – Education/Learning)"),
         ("d27", "Bhamsha (D27 – Strengths/Weaknesses)"),
         ("d30", "Trimsha (D30 – Evils/Misfortune Mitigation)"),
+        ("d40", "Khavedamsha (D40 – Auspicious/Inauspicious Effects)"),
+        ("d45", "Akshavedamsha (D45 – All-round Strength)"),
     ]
     write("\nAdditional Divisional Charts:")
     write("-" * 85)
@@ -681,6 +683,113 @@ def print_kundali(result, file=None):
         write(f"  Lucky Color    : {num['lucky_color']}")
         write(f"  Lucky Gem      : {num['lucky_gem']}")
         write(f"  Compatibility  : {num['compatibility']}")
+
+    # ── Yogini Dasha ──────────────────────────────────────────────────────────
+    yd = result.get("yogini_dasha", {})
+    if yd:
+        write("\nYogini Dasha (36-Year Cycle):")
+        write("-" * 85)
+        write(f"  Birth Yogini   : {yd.get('start_yogini','?')} | Balance: {yd.get('balance_years',0):.2f} years")
+        cur = yd.get("current", {})
+        if cur:
+            write(f"  Current Yogini : {cur.get('yogini','?')} (Lord: {cur.get('lord','?')})")
+            ad_info = cur.get("antardasha")
+            if ad_info:
+                write(f"  Current AD     : {ad_info.get('yogini','?')} (Lord: {ad_info.get('lord','?')})")
+        write("")
+        write(f"  {'Yogini':<14} {'Lord':<10} {'Years':<6}  Period")
+        write("  " + "-" * 60)
+        for md in yd.get("dashas", [])[:12]:
+            start_yr = md.get("start_jd", 0)
+            end_yr   = md.get("end_jd", 0)
+            try:
+                by = result.get("birth_year", 2000)
+                bjd = result.get("birth_jd", 0)
+                s_yr = int(by + (md["start_jd"] - bjd) / 365.25)
+                e_yr = int(by + (md["end_jd"]   - bjd) / 365.25)
+                period_str = f"{s_yr}–{e_yr}"
+            except Exception:
+                period_str = ""
+            write(f"  {md['yogini']:<14} {md['lord']:<10} {md['years']:<6.1f}  {period_str}")
+
+    # ── Tajika / Solar Return ─────────────────────────────────────────────────
+    taj = result.get("tajika", {})
+    if taj:
+        write("\nTajika Solar Return Analysis:")
+        write("-" * 85)
+        write(f"  Year          : {taj.get('year','?')} (Age {taj.get('age','?')})")
+        write(f"  Solar Return  : {taj.get('solar_return_date','?')}")
+        write(f"  Year Lord     : {taj.get('year_lord','?')}")
+        mun = taj.get("muntha", {})
+        if mun:
+            write(f"  Muntha Sign   : {mun.get('sign','?')} (House {mun.get('house_from_lagna','?')}, Lord: {mun.get('lord','?')})")
+        for line in taj.get("interpretation", [])[:6]:
+            write(f"  • {line}")
+        applying = taj.get("applying_aspects", [])
+        if applying:
+            write(f"  Applying Aspects ({len(applying)}):")
+            for a in applying:
+                write(f"    {a.get('p1', a.get('planet1','?'))} → {a.get('p2', a.get('planet2','?'))} : {a.get('aspect','?')} (orb {a.get('orb','?')}°)")
+
+    # ── Muhurtha (Birth Moment Quality) ───────────────────────────────────────
+    muh = result.get("muhurtha", {})
+    if muh:
+        write("\nMuhurtha — Birth Moment Quality:")
+        write("-" * 85)
+        score = muh.get("total_score", muh.get("overall_score", "?"))
+        grade = muh.get("grade", "?")
+        write(f"  Overall Score : {score}/{muh.get('max_score',100)}")
+        write(f"  Grade         : {grade}")
+        if muh.get("tarabala"):
+            tb = muh["tarabala"]
+            write(f"  Tarabala      : {tb.get('tara_name','?')} (Score {tb.get('score','?')}/5)")
+        if muh.get("chandrabala"):
+            cb = muh["chandrabala"]
+            write(f"  Chandrabala   : H{cb.get('count','?')} from Moon — Score {cb.get('score','?')}/5")
+        if muh.get("panchanga"):
+            mp = muh["panchanga"]
+            write(f"  Tithi         : {mp.get('tithi_name', mp.get('tithi','?'))}")
+            write(f"  Yoga          : {mp.get('yoga_name', mp.get('yoga','?'))}")
+        for w in muh.get("warnings", [])[:5]:
+            write(f"  ⚠  {w}")
+
+    # ── Pancha Pakshi ─────────────────────────────────────────────────────────
+    pp = result.get("pancha_pakshi", {})
+    if pp:
+        write("\nPancha Pakshi — Five Bird Activity System:")
+        write("-" * 85)
+        write(f"  Birth Bird     : {pp.get('birth_bird','?')} (Moon in {pp.get('moon_nakshatra','?')})")
+        write(f"  Today ({pp.get('query_weekday','?')}):")
+        write(f"    Period       : {'Day' if pp.get('is_day') else 'Night'} Yama {pp.get('current_yama','?')}")
+        write(f"    Activity     : {pp.get('current_activity','?')} (Strength {pp.get('current_strength','?')}/5)")
+        write(f"    Advice       : {pp.get('current_advice','')}")
+        write(f"  Ruling Bird Now: {pp.get('ruling_bird_now','?')}")
+        day_yamas   = pp.get("auspicious_day_yamas", [])
+        night_yamas = pp.get("auspicious_night_yamas", [])
+        if day_yamas:
+            write(f"  Best Day Yamas : {', '.join(f'Yama {y}' for y in day_yamas)}")
+        if night_yamas:
+            write(f"  Best Night Yamas: {', '.join(f'Yama {y}' for y in night_yamas)}")
+        write("")
+        write("  All Birds — Current Activity:")
+        for bird, info in pp.get("all_bird_activities", {}).items():
+            write(f"    {bird:<10}: {info['activity']:<10} ({info['strength']}/5)")
+        write("")
+        write("  Today's Full Forecast (Birth Bird activities):")
+        write(f"  {'Period':<18} {'Activity':<12} {'Str':<4} Advice (short)")
+        write("  " + "-" * 70)
+        for slot in pp.get("day_forecast", []):
+            advice_short = slot["advice"].split(";")[0][:38]
+            strength_bar = "★" * slot["strength"] + "☆" * (5 - slot["strength"])
+            write(f"  {slot['period']:<18} {slot['activity']:<12} {strength_bar}  {advice_short}")
+
+    # ── Sky Chart SVG ─────────────────────────────────────────────────────────
+    sky_path = result.get("sky_chart_path", "")
+    if sky_path:
+        write("\nSky Chart (SVG):")
+        write("-" * 85)
+        write(f"  South Indian chart saved to: {sky_path}")
+        write("  Open the SVG file in any browser or vector graphics editor.")
 
     write("\n" + result.get("final_analysis", ""))
     write("\nNote: Highest probability when dasha + transit + gochara align.")

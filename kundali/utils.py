@@ -395,6 +395,43 @@ def get_d30_sign_and_deg(full_lon):
     return zodiac_signs[sign_idx], 29.99
 
 
+# D40 Khavedamsha — 40 equal divisions (each 0.75°)
+# Rule: odd signs → start from Aries; even signs → start from Libra
+def get_d40_sign_and_deg(full_lon):
+    """D40 Khavedamsha — 40 divisions; odd signs start Aries, even start Libra."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    part = int(deg_in_rasi / 0.75)   # 0-39
+    frac = (deg_in_rasi % 0.75) / 0.75
+    if rasi_idx % 2 == 0:   # odd sign (Aries, Gemini...)
+        sign_idx = part % 12
+    else:                    # even sign (Taurus, Cancer...)
+        sign_idx = (part + 6) % 12  # start from Libra (idx 6)
+    return zodiac_signs[sign_idx], round(frac * 30, 2)
+
+
+# D45 Akshavedamsha — 45 equal divisions (each 0.6667°)
+# Rule: movable → Aries; fixed → Leo; dual → Sag
+def get_d45_sign_and_deg(full_lon):
+    """D45 Akshavedamsha — 45 divisions; movable→Aries, fixed→Leo, dual→Sag."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    part_size = 30.0 / 45
+    part = int(deg_in_rasi / part_size)
+    frac = (deg_in_rasi % part_size) / part_size
+    rasi_type = rasi_idx % 3  # 0=movable, 1=fixed, 2=dual
+    if rasi_type == 0:
+        base = 0   # Aries
+    elif rasi_type == 1:
+        base = 4   # Leo
+    else:
+        base = 8   # Sagittarius
+    sign_idx = (base + part) % 12
+    return zodiac_signs[sign_idx], round(frac * 30, 2)
+
+
 def get_navamsa_sign(deg):
     """Return D9 sign for a given longitude."""
     from .constants import zodiac_signs
