@@ -741,7 +741,7 @@ def main():
             from datetime import datetime as dt
 
             try:
-                from spouse_predictor import AdvancedSpousePredictor
+                from spouse.predictor import AdvancedSpousePredictor
 
                 # Spouse analysis
                 predictor = AdvancedSpousePredictor(result)

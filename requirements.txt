@@ -1,0 +1,4 @@
+pyswisseph==2.10.3.2
+geopy==2.4.1
+timezonefinder==8.2.0
+pytz==2022.1

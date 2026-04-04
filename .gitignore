@@ -9,12 +9,9 @@ __pycache__/
 # Compiled Python
 *.so
 
-# Text files and outputs
-*.txt
-
-# Directories (recursive ignore)
+# Output reports (generated files)
 kundali/outputs/
-__pycache__/
+outputs/
 
 # IDE/Editor
 .vscode/
@@ -25,3 +22,12 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Stray files
+=7.0,
+
+# Env
+.env
+venv/
+.venv/
+env/
