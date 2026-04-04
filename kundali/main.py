@@ -543,7 +543,7 @@ def calculate_kundali(
     }
 
     # Jaimini Charakaraka (moved here after result dict exists)
-    from jaimini import calculate_charakaraka, get_karakamsa_lagna
+    from .jaimini import calculate_charakaraka, get_karakamsa_lagna
 
     charakaraka = calculate_charakaraka(planet_data, result["navamsa"])
     atmakaraka = charakaraka.get("Atmakaraka")

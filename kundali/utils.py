@@ -285,7 +285,7 @@ def get_d60_sign_and_deg(full_lon):
 
 def get_navamsa_sign(deg):
     """Return D9 sign for a given longitude."""
-    from constants import zodiac_signs
+    from .constants import zodiac_signs
 
     rasi_idx = int(deg // 30)
     deg_in_rasi = deg % 30
@@ -312,8 +312,6 @@ def has_aspect(planet_house, target_house, planet):
 
 def get_seventh_sign(lagna_lon):
     """Get 7th house sign index (0-11) from Lagna longitude."""
-    from utils import get_sign
-
     return (get_sign(lagna_lon) + 6) % 12
 
 
