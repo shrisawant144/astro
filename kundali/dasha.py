@@ -1,11 +1,28 @@
 # dasha.py
 """
-Vimshottari Dasha calculations: Mahadasha, Antardasha, Pratyantar Dasha.
+Dasha calculations:
+  - Vimshottari: Mahadasha → Antardasha → Pratyantar → Sookshma (4 levels)
+  - Ashtottari : alternate 108-year dasha system (Rahu-based)
 """
 
 import swisseph as swe
 from .constants import dasha_lords, dasha_periods, nakshatra_lord_index
 from .utils import get_nakshatra_progress
+
+# ─── Ashtottari constants ────────────────────────────────────────────────────
+# Order: Su, Mo, Ma, Me, Ve, Sa, Ju, Ra  (8 planets, total 108 years)
+_ASHTO_LORDS   = ["Su", "Mo", "Ma", "Me", "Ve", "Sa", "Ju", "Ra"]
+_ASHTO_PERIODS = {
+    "Su": 6, "Mo": 15, "Ma": 8, "Me": 17,
+    "Ve": 21, "Sa": 10, "Ju": 19, "Ra": 12,
+}   # total = 108 years
+_ASHTO_NAK_LORD = {
+    # Nakshatra index (0-26) → Ashtottari starting lord index
+    # Lord of each nakshatra in Ashtottari (different from Vimshottari)
+    0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 0, 8: 1,
+    9: 2, 10: 3, 11: 4, 12: 5, 13: 6, 14: 7, 15: 0, 16: 1, 17: 2,
+    18: 3, 19: 4, 20: 5, 21: 6, 22: 7, 23: 0, 24: 1, 25: 2, 26: 3,
+}
 
 
 def calculate_vimshottari_dasha(moon_deg, birth_jd):
@@ -176,3 +193,138 @@ def get_current_pratyantar(birth_jd, current_jd, current_md, current_ad, dashas)
                     return pd_lord, current_pd_jd, pd_end_jd
                 current_pd_jd = pd_end_jd
     return None, None, None
+
+
+def get_current_sookshma(birth_jd, current_jd, current_md, current_ad, current_pd, dashas):
+    """
+    Compute current Sookshma Dasha (4th level, ~days precision).
+
+    Returns (sd_lord, sd_start_jd, sd_end_jd) or (None, None, None).
+    """
+    years_since = (current_jd - birth_jd) / 365.25
+    for md in dashas:
+        if md["lord"] != current_md:
+            continue
+        for ad in md["antardashas"]:
+            if ad["lord"] != current_ad:
+                continue
+            ad_years = (ad["end_jd"] - ad["start_jd"]) / 365.25
+            ad_idx = dasha_lords.index(current_ad)
+            pd_jd = ad["start_jd"]
+            for i in range(9):
+                pd_idx = (ad_idx + i) % 9
+                pd_lord_name = dasha_lords[pd_idx]
+                pd_years = ad_years * (dasha_periods[pd_lord_name] / 120.0)
+                pd_end_jd = pd_jd + pd_years * 365.25
+                if pd_lord_name != current_pd:
+                    pd_jd = pd_end_jd
+                    continue
+                # Now iterate Sookshma within this PD
+                sd_jd = pd_jd
+                pd_idx2 = dasha_lords.index(current_pd)
+                for j in range(9):
+                    sd_idx = (pd_idx2 + j) % 9
+                    sd_lord_name = dasha_lords[sd_idx]
+                    sd_years = pd_years * (dasha_periods[sd_lord_name] / 120.0)
+                    sd_end = sd_jd + sd_years * 365.25
+                    sd_start_y = (sd_jd - birth_jd) / 365.25
+                    sd_end_y = (sd_end - birth_jd) / 365.25
+                    if sd_start_y <= years_since < sd_end_y:
+                        return sd_lord_name, sd_jd, sd_end
+                    sd_jd = sd_end
+    return None, None, None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ashtottari Dasha (108-year system)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def calculate_ashtottari_dasha(moon_deg, birth_jd):
+    """
+    Calculate Ashtottari Mahadashas from birth.
+
+    Returns: (starting_lord, balance_years, list_of_mahadashas)
+    """
+    nak_span = 360 / 27
+    nak_index = int(moon_deg / nak_span) % 27
+    lord_idx = _ASHTO_NAK_LORD.get(nak_index, 0)
+    start_lord = _ASHTO_LORDS[lord_idx]
+
+    progress = get_nakshatra_progress(moon_deg)
+    full_period = _ASHTO_PERIODS[start_lord]
+    balance_years = (1 - progress) * full_period
+
+    dashas = []
+    current_jd = birth_jd
+    current_idx = lord_idx
+
+    # Balance period
+    balance_days = balance_years * 365.25
+    dashas.append({
+        "lord": start_lord,
+        "start_jd": current_jd,
+        "end_jd": current_jd + balance_days,
+        "years": round(balance_years, 3),
+        "antardashas": [],
+    })
+    current_jd += balance_days
+    total_years = balance_years
+
+    while total_years < 108:
+        current_idx = (current_idx + 1) % 8
+        lord = _ASHTO_LORDS[current_idx]
+        period = _ASHTO_PERIODS[lord]
+        days = period * 365.25
+        dashas.append({
+            "lord": lord,
+            "start_jd": current_jd,
+            "end_jd": current_jd + days,
+            "years": period,
+            "antardashas": [],
+        })
+        current_jd += days
+        total_years += period
+
+    return start_lord, balance_years, dashas
+
+
+def calculate_ashtottari_antardashas(md_dasha):
+    """Calculate Ashtottari sub-periods within a Mahadasha."""
+    md_lord = md_dasha["lord"]
+    md_years = (md_dasha["end_jd"] - md_dasha["start_jd"]) / 365.25
+    antardashas = []
+    current_jd = md_dasha["start_jd"]
+    md_idx = _ASHTO_LORDS.index(md_lord)
+
+    for i in range(8):
+        ad_idx = (md_idx + i) % 8
+        ad_lord = _ASHTO_LORDS[ad_idx]
+        ad_full = _ASHTO_PERIODS[ad_lord]
+        ad_prop = ad_full / 108.0
+        ad_years = md_years * ad_prop
+        ad_end = current_jd + ad_years * 365.25
+        antardashas.append({
+            "lord": ad_lord,
+            "start_jd": current_jd,
+            "end_jd": ad_end,
+            "years": round(ad_years, 3),
+        })
+        current_jd = ad_end
+
+    md_dasha["antardashas"] = antardashas
+    return md_dasha
+
+
+def find_current_ashtottari(birth_jd, current_jd, dashas):
+    """Find current Ashtottari MD and AD."""
+    years_since = (current_jd - birth_jd) / 365.25
+    for md in dashas:
+        ms = (md["start_jd"] - birth_jd) / 365.25
+        me = (md["end_jd"] - birth_jd) / 365.25
+        if ms <= years_since < me:
+            for ad in md["antardashas"]:
+                as_ = (ad["start_jd"] - birth_jd) / 365.25
+                ae  = (ad["end_jd"] - birth_jd) / 365.25
+                if as_ <= years_since < ae:
+                    return md["lord"], ad["lord"]
+    return None, None

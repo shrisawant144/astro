@@ -539,6 +539,149 @@ def print_kundali(result, file=None):
     if seventh_rem:
         write(f"  For {_seventh_lord_full} (7th Lord – marital harmony): {seventh_rem}")
 
+    # ── Ashtottari Dasha ─────────────────────────────────────────────────────
+    ashto = result.get("ashtottari", {})
+    if ashto and ashto.get("current_md"):
+        write("\nAshtottari Dasha (108-year system — alternate method):")
+        write("-" * 85)
+        write(
+            f"Starting MD : {ashto['starting_lord']} (balance {ashto['balance_at_birth_years']} yrs)"
+        )
+        write(f"Current MD/AD : {ashto['current_md']} / {ashto['current_ad']}")
+
+    # ── Sookshma Dasha (4th level) ────────────────────────────────────────────
+    sd_info = result.get("vimshottari_sd", {})
+    current_sd = sd_info.get("current_sd")
+    if current_sd:
+        sd_end = sd_info.get("sd_end_jd")
+        sd_end_yr = (
+            int(result["birth_year"] + (sd_end - result["birth_jd"]) / 365.25)
+            if sd_end else "?"
+        )
+        vim = result.get("vimshottari", {})
+        pd_info = result.get("vimshottari_pd", {})
+        write(
+            f"  Sookshma (4th level): {vim.get('current_md','?')} / "
+            f"{vim.get('current_ad','?')} / {pd_info.get('current_pd','?')} / "
+            f"{current_sd} (until ~{sd_end_yr})"
+        )
+
+    # ── Upagrahas ─────────────────────────────────────────────────────────────
+    upagrahas = result.get("upagrahas", {})
+    if upagrahas:
+        write("\nUpagrahas (Shadow / Sub-Planets):")
+        write("-" * 85)
+        for name, data in upagrahas.items():
+            write(f"  {name:14}: {data['sign']:12} {data['deg']:5.2f}°")
+
+    # ── Arudha Lagna ──────────────────────────────────────────────────────────
+    al = result.get("arudha_lagna", {})
+    if al:
+        write(f"\nArudha Lagna (AL1) : {al.get('sign','?')} (House {al.get('house','?')})")
+        write("  (Reflects worldly image/perception — the 'mask' shown to society)")
+
+    # ── Avasthas ──────────────────────────────────────────────────────────────
+    avasthas = result.get("avasthas", {})
+    if avasthas:
+        write("\nPlanetary Avasthas (States):")
+        write("-" * 85)
+        write("(Qualitative states that modify how each planet delivers its results)")
+        for pl in order:
+            if pl in avasthas:
+                av = avasthas[pl]
+                pl_full = short_to_full.get(pl, pl)
+                state_str = ", ".join(av["avasthas"])
+                write(f"  {pl_full:9}: {state_str}")
+                for desc in av["description"]:
+                    write(f"             → {desc}")
+
+    # ── Shadbala ──────────────────────────────────────────────────────────────
+    shadbala = result.get("shadbala", {})
+    if shadbala:
+        write("\nShadbala — Six Sources of Planetary Strength:")
+        write("-" * 85)
+        write(
+            "(Total strength in Rupas. Minimum for strength: Su≥5, Mo≥6, Ma≥5, Me≥7, Ju≥6.5, Ve≥5.5, Sa≥5)"
+        )
+        write(f"{'Planet':<10} {'Rupas':>6} {'Min':>5} {'Status':<10} "
+              f"{'Sthana':>7} {'Dig':>5} {'Kala':>6} {'Chesta':>7} "
+              f"{'Naisarg':>8} {'Drik':>6} {'Ishta':>6} {'Kashta':>7}")
+        write("-" * 85)
+        for pl in order:
+            if pl in shadbala:
+                sb = shadbala[pl]
+                c = sb["components"]
+                status = "STRONG" if sb["strong"] else "weak"
+                bar = "█" * int(sb["rupas"]) + "░" * max(0, 8 - int(sb["rupas"]))
+                write(
+                    f"  {short_to_full.get(pl,pl):<9} {sb['rupas']:>6.2f} "
+                    f"{sb['min_rupas']:>5.1f} {status:<10} "
+                    f"{c['sthana_bala']:>7.1f} {c['dig_bala']:>5.1f} "
+                    f"{c['kala_bala']:>6.1f} {c['chesta_bala']:>7.1f} "
+                    f"{c['naisargika_bala']:>8.1f} {c['drik_bala']:>6.1f} "
+                    f"{sb['ishta']:>6.1f} {sb['kashta']:>7.1f}"
+                )
+        write("  Ishta = benefic potential (higher=better); Kashta = malefic tendency (lower=better)")
+
+    # ── Bhinnashtakavarga ─────────────────────────────────────────────────────
+    ashtak = result.get("ashtakavarga", {})
+    by_house = ashtak.get("by_house", {})
+    if by_house:
+        write("\nBhinnashtakavarga — Per-Planet Bindus per House:")
+        write("-" * 85)
+        write("(Number of benefic dots each planet contributes to each house)")
+        header = f"{'House':<8} {'Sign':<12}" + "".join(
+            f"{short_to_full.get(pl,pl):>8}" for pl in ["Su","Mo","Ma","Me","Ju","Ve","Sa"]
+        ) + f"{'SAV':>6} {'Strength':<10}"
+        write(header)
+        write("-" * 85)
+        for h in range(1, 13):
+            hd = by_house[h]
+            planet_cols = "".join(
+                f"{hd['planets'].get(pl, 0):>8}" for pl in ["Su","Mo","Ma","Me","Ju","Ve","Sa"]
+            )
+            write(
+                f"  H{h:02d} ({hd['sign']:<10}) {planet_cols}  {hd['sav']:>3}  {hd['strength']}"
+            )
+
+    # ── Additional Divisional Charts ──────────────────────────────────────────
+    extra_vargas = [
+        ("d3",  "Drekkana (D3 – Siblings/Courage/Vitality)"),
+        ("d4",  "Chaturthamsha (D4 – Property/Fortune)"),
+        ("d12", "Dwadashamsha (D12 – Parents/Ancestral Karma)"),
+        ("d16", "Shodasha (D16 – Vehicles/Comforts)"),
+        ("d20", "Vimsha (D20 – Spiritual Practice)"),
+        ("d24", "Chaturvimsha (D24 – Education/Learning)"),
+        ("d27", "Bhamsha (D27 – Strengths/Weaknesses)"),
+        ("d30", "Trimsha (D30 – Evils/Misfortune Mitigation)"),
+    ]
+    write("\nAdditional Divisional Charts:")
+    write("-" * 85)
+    for chart_key, chart_title in extra_vargas:
+        chart_data = result.get(chart_key, {})
+        if not chart_data:
+            continue
+        write(f"\n{chart_title}:")
+        write("-" * 50)
+        for pl in order:
+            if pl in chart_data:
+                d = chart_data[pl]
+                write(f"  {pl:>3}: {d.get('deg', 0):5.2f}° {d.get('sign','?'):<12}")
+
+    # ── Numerology ────────────────────────────────────────────────────────────
+    num = result.get("numerology", {})
+    if num:
+        write("\nVedic Numerology:")
+        write("-" * 85)
+        write(f"  Birth Number   : {num['birth_number']} ({num['birth_planet']}) — {num['birth_meaning']}")
+        write(f"  Destiny Number : {num['destiny_number']} ({num['destiny_planet']}) — {num['destiny_meaning']}")
+        if num.get("name_number"):
+            write(f"  Name Number    : {num['name_number']} ({num.get('name_planet','')}) — {num.get('name_meaning','')}")
+        write(f"  Lucky Days     : {num['lucky_days']}")
+        write(f"  Lucky Color    : {num['lucky_color']}")
+        write(f"  Lucky Gem      : {num['lucky_gem']}")
+        write(f"  Compatibility  : {num['compatibility']}")
+
     write("\n" + result.get("final_analysis", ""))
     write("\nNote: Highest probability when dasha + transit + gochara align.")
     birth_year = result.get("birth_year", "N/A")

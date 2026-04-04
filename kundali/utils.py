@@ -280,7 +280,119 @@ def get_d60_sign_and_deg(full_lon):
     return zodiac_signs[sign_idx], round(deg_in_d60, 2)
 
 
-# Add to utils.py
+# -------------------------------------------------------------------
+# Additional Divisional Charts (D3, D4, D12, D16, D20, D24, D27, D30)
+# -------------------------------------------------------------------
+
+def get_d3_sign_and_deg(full_lon):
+    """D3 Drekkana — 3 parts of 10° each. Same triplicity element."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    decan = int(deg_in_rasi / 10)          # 0, 1, 2
+    # Same element: 0→same, 1→+4, 2→+8
+    new_idx = (rasi_idx + decan * 4) % 12
+    frac = (deg_in_rasi % 10) / 10
+    return zodiac_signs[new_idx], round(frac * 30, 2)
+
+
+def get_d4_sign_and_deg(full_lon):
+    """D4 Chaturthamsha — 4 parts of 7.5° each. 1st=same, 4th=10th."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    part = int(deg_in_rasi / 7.5)          # 0–3
+    new_idx = (rasi_idx + part * 3) % 12   # +0, +3, +6, +9
+    frac = (deg_in_rasi % 7.5) / 7.5
+    return zodiac_signs[new_idx], round(frac * 30, 2)
+
+
+def get_d12_sign_and_deg(full_lon):
+    """D12 Dwadashamsha — 12 parts of 2.5° each. Starts from same sign."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    part = int(deg_in_rasi / 2.5)          # 0–11
+    new_idx = (rasi_idx + part) % 12
+    frac = (deg_in_rasi % 2.5) / 2.5
+    return zodiac_signs[new_idx], round(frac * 30, 2)
+
+
+def get_d16_sign_and_deg(full_lon):
+    """D16 Shodasha — 16 parts of 1.875° each.
+    Movable → Aries, Fixed → Leo, Dual → Sagittarius."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    part = int(deg_in_rasi / 1.875)        # 0–15
+    rasi_type = rasi_idx % 3               # 0=movable, 1=fixed, 2=dual
+    start = [0, 4, 8][rasi_type]           # Aries, Leo, Sagittarius
+    new_idx = (start + part) % 12
+    frac = (deg_in_rasi % 1.875) / 1.875
+    return zodiac_signs[new_idx], round(frac * 30, 2)
+
+
+def get_d20_sign_and_deg(full_lon):
+    """D20 Vimsha — 20 parts of 1.5° each.
+    Movable → Aries, Fixed → Sagittarius, Dual → Leo."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    part = int(deg_in_rasi / 1.5)          # 0–19
+    rasi_type = rasi_idx % 3
+    start = [0, 8, 4][rasi_type]           # Aries, Sagittarius, Leo
+    new_idx = (start + part) % 12
+    frac = (deg_in_rasi % 1.5) / 1.5
+    return zodiac_signs[new_idx], round(frac * 30, 2)
+
+
+def get_d24_sign_and_deg(full_lon):
+    """D24 Chaturvimsha — 24 parts of 1.25° each.
+    Odd signs → Leo, Even signs → Cancer."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    part = int(deg_in_rasi / 1.25)         # 0–23
+    start = 4 if rasi_idx % 2 == 0 else 3  # Leo for odd, Cancer for even
+    new_idx = (start + part) % 12
+    frac = (deg_in_rasi % 1.25) / 1.25
+    return zodiac_signs[new_idx], round(frac * 30, 2)
+
+
+def get_d27_sign_and_deg(full_lon):
+    """D27 Bhamsha/Nakshatramsha — 27 parts (≈1.111° each).
+    Fire → Aries, Earth → Cancer, Air → Libra, Water → Capricorn."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    part_size = 30.0 / 27
+    part = int(deg_in_rasi / part_size)    # 0–26
+    element = rasi_idx % 4                 # 0=fire, 1=earth, 2=air, 3=water
+    start = [0, 3, 6, 9][element]          # Aries, Cancer, Libra, Capricorn
+    new_idx = (start + part) % 12
+    frac = (deg_in_rasi % part_size) / part_size
+    return zodiac_signs[new_idx], round(frac * 30, 2)
+
+
+# D30 Trimsha — unequal divisions, planet-ruled sections
+_D30_ODD = [(5, 0), (10, 10), (18, 8), (25, 2), (30, 6)]   # (boundary°, sign_idx)
+_D30_EVEN = [(5, 1), (12, 5), (20, 11), (25, 9), (30, 7)]
+
+def get_d30_sign_and_deg(full_lon):
+    """D30 Trimsha — unequal divisions for odd/even signs."""
+    full_lon = full_lon % 360
+    rasi_idx = int(full_lon // 30)
+    deg_in_rasi = full_lon % 30
+    table = _D30_ODD if rasi_idx % 2 == 0 else _D30_EVEN
+    prev_bound = 0
+    for boundary, sign_idx in table:
+        if deg_in_rasi < boundary:
+            span = boundary - prev_bound
+            frac = (deg_in_rasi - prev_bound) / span
+            return zodiac_signs[sign_idx], round(frac * 30, 2)
+        prev_bound = boundary
+    sign_idx = table[-1][1]
+    return zodiac_signs[sign_idx], 29.99
 
 
 def get_navamsa_sign(deg):

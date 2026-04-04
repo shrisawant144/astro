@@ -49,6 +49,14 @@ from .utils import (
     get_d10_sign_and_deg,
     get_d2_sign_and_deg,
     get_d60_sign_and_deg,
+    get_d3_sign_and_deg,
+    get_d4_sign_and_deg,
+    get_d12_sign_and_deg,
+    get_d16_sign_and_deg,
+    get_d20_sign_and_deg,
+    get_d24_sign_and_deg,
+    get_d27_sign_and_deg,
+    get_d30_sign_and_deg,
 )
 from .neecha_bhanga import check_neecha_bhanga
 from .yoga_detection import detect_yogas
@@ -58,6 +66,10 @@ from .dasha import (
     calculate_antardashas,
     find_current_dasha,
     get_current_pratyantar,
+    get_current_sookshma,
+    calculate_ashtottari_dasha,
+    calculate_ashtottari_antardashas,
+    find_current_ashtottari,
 )
 from .marriage_scoring import calculate_marriage_score
 from .timings import generate_timings
@@ -72,6 +84,10 @@ from .interpretations import (
 )
 from .printing import print_kundali
 from .rectification import rectify_birth_time
+from .shadbala import calculate_shadbala
+from .upagrahas import calculate_upagrahas
+from .avastha import calculate_avasthas, calculate_arudha_lagna
+from .numerology import calculate_numerology
 
 
 # -------------------------------------------------------------------
@@ -266,14 +282,22 @@ def calculate_kundali(
             "nakshatra": nak,
             "dignity": dignity,
             "retro": retro,
+            "speed": round(speed, 4),
             "combust": False,  # filled after Sun lon is known
             "neecha_bhanga": False,  # filled after all planets are placed
-            "navamsa_sign": None,
-            "navamsa_deg": None,
-            "d7_sign": None,
-            "d7_deg": None,
-            "d10_sign": None,
-            "d10_deg": None,
+            "navamsa_sign": None, "navamsa_deg": None,
+            "d7_sign": None,  "d7_deg": None,
+            "d10_sign": None, "d10_deg": None,
+            "d2_sign": None,  "d2_deg": None,
+            "d3_sign": None,  "d3_deg": None,
+            "d4_sign": None,  "d4_deg": None,
+            "d12_sign": None, "d12_deg": None,
+            "d16_sign": None, "d16_deg": None,
+            "d20_sign": None, "d20_deg": None,
+            "d24_sign": None, "d24_deg": None,
+            "d27_sign": None, "d27_deg": None,
+            "d30_sign": None, "d30_deg": None,
+            "d60_sign": None, "d60_deg": None,
         }
         nakshatras_d1[code] = nak
         if code == "Mo":
@@ -325,14 +349,22 @@ def calculate_kundali(
         "nakshatra": ke_nak,
         "dignity": ke_dignity,
         "retro": True,
+        "speed": -0.053,
         "combust": False,
         "neecha_bhanga": False,
-        "navamsa_sign": None,
-        "navamsa_deg": None,
-        "d7_sign": None,
-        "d7_deg": None,
-        "d10_sign": None,
-        "d10_deg": None,
+        "navamsa_sign": None, "navamsa_deg": None,
+        "d7_sign": None,  "d7_deg": None,
+        "d10_sign": None, "d10_deg": None,
+        "d2_sign": None,  "d2_deg": None,
+        "d3_sign": None,  "d3_deg": None,
+        "d4_sign": None,  "d4_deg": None,
+        "d12_sign": None, "d12_deg": None,
+        "d16_sign": None, "d16_deg": None,
+        "d20_sign": None, "d20_deg": None,
+        "d24_sign": None, "d24_deg": None,
+        "d27_sign": None, "d27_deg": None,
+        "d30_sign": None, "d30_deg": None,
+        "d60_sign": None, "d60_deg": None,
     }
     nakshatras_d1["Ke"] = ke_nak
     ke_idx = zodiac_signs.index(ke_sign)
@@ -383,31 +415,27 @@ def calculate_kundali(
     moon_lon_birth = swe.calc_ut(birth_jd, swe.MOON, swe.FLG_SIDEREAL)[0][0]
     panchanga = get_panchanga(birth_jd, sun_lon_birth, moon_lon_birth)
 
-    # Divisional Charts
+    # Divisional Charts — all 11 vargas
     for code in planet_data:
-        if code == "Ra":
-            p_lon = ra_lon
-        elif code == "Ke":
-            p_lon = ke_lon
-        else:
-            p_lon = (zodiac_signs.index(planet_data[code]["sign"]) * 30) + planet_data[
-                code
-            ]["deg"]
-        ns, nd = get_navamsa_sign_and_deg(p_lon)
-        d7s, d7d = get_d7_sign_and_deg(p_lon)
-        d10s, d10d = get_d10_sign_and_deg(p_lon)
-        d2s, d2d = get_d2_sign_and_deg(p_lon)
-        d60s, d60d = get_d60_sign_and_deg(p_lon)
-        planet_data[code]["navamsa_sign"] = ns
-        planet_data[code]["navamsa_deg"] = nd
-        planet_data[code]["d7_sign"] = d7s
-        planet_data[code]["d7_deg"] = d7d
-        planet_data[code]["d10_sign"] = d10s
-        planet_data[code]["d10_deg"] = d10d
-        planet_data[code]["d2_sign"] = d2s
-        planet_data[code]["d2_deg"] = d2d
-        planet_data[code]["d60_sign"] = d60s
-        planet_data[code]["d60_deg"] = d60d
+        p_lon = planet_data[code]["full_lon"]
+        for fn, k in [
+            (get_navamsa_sign_and_deg, "navamsa"),
+            (get_d2_sign_and_deg,      "d2"),
+            (get_d3_sign_and_deg,      "d3"),
+            (get_d4_sign_and_deg,      "d4"),
+            (get_d7_sign_and_deg,      "d7"),
+            (get_d10_sign_and_deg,     "d10"),
+            (get_d12_sign_and_deg,     "d12"),
+            (get_d16_sign_and_deg,     "d16"),
+            (get_d20_sign_and_deg,     "d20"),
+            (get_d24_sign_and_deg,     "d24"),
+            (get_d27_sign_and_deg,     "d27"),
+            (get_d30_sign_and_deg,     "d30"),
+            (get_d60_sign_and_deg,     "d60"),
+        ]:
+            s, deg = fn(p_lon)
+            planet_data[code][f"{k}_sign"] = s
+            planet_data[code][f"{k}_deg"]  = deg
 
     # Vimshottari
     moon_lon = swe.calc_ut(birth_jd, swe.MOON, swe.FLG_SIDEREAL)[0][0]
@@ -421,6 +449,14 @@ def calculate_kundali(
     current_pd, pd_start_jd, pd_end_jd = get_current_pratyantar(
         birth_jd, current_jd, current_md, current_ad, dashas
     )
+    current_sd, sd_start_jd, sd_end_jd = get_current_sookshma(
+        birth_jd, current_jd, current_md, current_ad, current_pd, dashas
+    )
+
+    # Ashtottari Dasha
+    ashto_start, ashto_balance, ashto_raw = calculate_ashtottari_dasha(moon_lon, birth_jd)
+    ashto_dashas = [calculate_ashtottari_antardashas(md) for md in ashto_raw]
+    ashto_md, ashto_ad = find_current_ashtottari(birth_jd, current_jd, ashto_dashas)
 
     # Aspects
     aspects = {h: [] for h in range(1, 13)}
@@ -498,6 +534,13 @@ def calculate_kundali(
             "current_md": current_md,
             "current_ad": current_ad,
         },
+        "ashtottari": {
+            "starting_lord": ashto_start,
+            "balance_at_birth_years": round(ashto_balance, 2),
+            "mahadasas": ashto_dashas,
+            "current_md": ashto_md,
+            "current_ad": ashto_ad,
+        },
         "aspects": aspects,
         "navamsa": {
             p: {"sign": d["navamsa_sign"], "deg": d["navamsa_deg"]}
@@ -511,16 +554,16 @@ def calculate_kundali(
             p: {"sign": d["d10_sign"], "deg": d["d10_deg"]}
             for p, d in planet_data.items()
         },
-        "d2": {
-            p: {"sign": d["d2_sign"], "deg": d["d2_deg"]}
-            for p, d in planet_data.items()
-            if "d2_sign" in d
-        },
-        "d60": {
-            p: {"sign": d["d60_sign"], "deg": d["d60_deg"]}
-            for p, d in planet_data.items()
-            if "d60_sign" in d
-        },
+        "d2":  {p: {"sign": d["d2_sign"],  "deg": d["d2_deg"]}  for p, d in planet_data.items()},
+        "d3":  {p: {"sign": d["d3_sign"],  "deg": d["d3_deg"]}  for p, d in planet_data.items()},
+        "d4":  {p: {"sign": d["d4_sign"],  "deg": d["d4_deg"]}  for p, d in planet_data.items()},
+        "d12": {p: {"sign": d["d12_sign"], "deg": d["d12_deg"]} for p, d in planet_data.items()},
+        "d16": {p: {"sign": d["d16_sign"], "deg": d["d16_deg"]} for p, d in planet_data.items()},
+        "d20": {p: {"sign": d["d20_sign"], "deg": d["d20_deg"]} for p, d in planet_data.items()},
+        "d24": {p: {"sign": d["d24_sign"], "deg": d["d24_deg"]} for p, d in planet_data.items()},
+        "d27": {p: {"sign": d["d27_sign"], "deg": d["d27_deg"]} for p, d in planet_data.items()},
+        "d30": {p: {"sign": d["d30_sign"], "deg": d["d30_deg"]} for p, d in planet_data.items()},
+        "d60": {p: {"sign": d["d60_sign"], "deg": d["d60_deg"]} for p, d in planet_data.items()},
         "transits": transits,
         "birth_year": y,
         "birth_month": m,
@@ -537,6 +580,11 @@ def calculate_kundali(
             "current_pd": current_pd,
             "pd_start_jd": pd_start_jd,
             "pd_end_jd": pd_end_jd,
+        },
+        "vimshottari_sd": {
+            "current_sd": current_sd,
+            "sd_start_jd": sd_start_jd,
+            "sd_end_jd": sd_end_jd,
         },
         "nakshatras_d1": nakshatras_d1,
         "neecha_bhanga_planets": neecha_bhanga_planets,
@@ -562,6 +610,33 @@ def calculate_kundali(
     result["timings"] = generate_timings(result, y, birth_jd)
     result["problems"] = detect_problems(result)
     result["ashtakavarga"] = calculate_ashtakavarga(result)
+
+    # New modules — Tier 1 features
+    try:
+        result["shadbala"] = calculate_shadbala(result)
+    except Exception:
+        result["shadbala"] = {}
+
+    try:
+        result["upagrahas"] = calculate_upagrahas(result)
+    except Exception:
+        result["upagrahas"] = {}
+
+    try:
+        result["avasthas"] = calculate_avasthas(result)
+    except Exception:
+        result["avasthas"] = {}
+
+    try:
+        arudha_sign, arudha_house = calculate_arudha_lagna(result)
+        result["arudha_lagna"] = {"sign": arudha_sign, "house": arudha_house}
+    except Exception:
+        result["arudha_lagna"] = {}
+
+    try:
+        result["numerology"] = calculate_numerology(result, result.get("name", ""))
+    except Exception:
+        result["numerology"] = {}
 
     # Additional fields for spouse predictor
     result["functional_nature"] = calculate_functional_nature(result)

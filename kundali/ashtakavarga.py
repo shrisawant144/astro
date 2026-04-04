@@ -1,90 +1,99 @@
 # ashtakavarga.py
 """
-Ashtakavarga (Sarvashtakavarga) calculation.
-Computes benefic points for each planet and the SAV for all houses.
+Ashtakavarga calculations:
+  - Bhinnashtakavarga  : individual planet charts (7 planets × 12 houses)
+  - Sarvashtakavarga   : total SAV (sum of all 7)
+  - Prastaraka display : per-planet bindus per house in sign order
 """
 
 from .constants import ASHTAKAVARGA_REKHAS, zodiac_signs
 
 
+def _planet_positions(result):
+    """Return dict of {planet/As: zodiac_index 0-11}."""
+    pd = result["planets"]
+    lagna_idx = zodiac_signs.index(result["lagna_sign"])
+    pos = {"As": lagna_idx}
+    for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
+        if pl in pd:
+            pos[pl] = zodiac_signs.index(pd[pl]["sign"])
+    return pos
+
+
+def _compute_bindus(target_planet, planet_positions):
+    """Return list of 12 bindu counts (zodiac order) for one planet."""
+    house_bindus = [0] * 12
+    rekhas = ASHTAKAVARGA_REKHAS.get(target_planet, {})
+    for ref_point, ref_pos in planet_positions.items():
+        if ref_point not in rekhas:
+            continue
+        for house_offset in rekhas[ref_point]:
+            actual_house = (ref_pos + house_offset) % 12
+            house_bindus[actual_house] += 1
+    return house_bindus
+
+
 def calculate_ashtakavarga(result):
     """
-    Calculate Ashtakavarga (SAV - Sarvashtakavarga) for all houses.
+    Calculate Bhinnashtakavarga (per-planet) and Sarvashtakavarga (SAV).
 
-    Args:
-        result (dict): The kundali result dictionary containing:
-            - planets: D1 planet data with 'sign'
-            - lagna_sign: Lagna sign name
-
-    Returns:
-        dict: {
-            'individual': {planet: [12 house scores]},
-            'sav': [12 house scores for SAV],
-            'interpretation': {house: {'score': int, 'strength': str}}
-        }
+    Returns
+    -------
+    dict with keys:
+      'individual'     : {planet: [12 bindus in zodiac order]}
+      'sav'            : [12 SAV bindus in zodiac order]
+      'by_house'       : {house_num 1-12: {'sign':str, 'sav':int,
+                           'planets':{pl:int}, 'strength':str}}
+      'interpretation' : {house_num: {'score':int, 'strength':str}}
     """
-    planets_d1 = result["planets"]
-    lagna_sign = result["lagna_sign"]
-    lagna_idx = zodiac_signs.index(lagna_sign)
+    planet_positions = _planet_positions(result)
+    lagna_idx = zodiac_signs.index(result["lagna_sign"])
 
-    # Get planet positions (0-11 from zodiac, not from lagna)
-    planet_positions = {}
-    for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
-        if pl in planets_d1:
-            pl_sign = planets_d1[pl]["sign"]
-            pl_idx = zodiac_signs.index(pl_sign)
-            planet_positions[pl] = pl_idx
-
-    planet_positions["As"] = lagna_idx  # Ascendant
-
-    # Calculate individual Ashtakavarga for each planet
+    # --- Bhinnashtakavarga ---
     individual_av = {}
+    for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
+        if pl in planet_positions:
+            individual_av[pl] = _compute_bindus(pl, planet_positions)
 
-    for target_planet in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
-        if target_planet not in planet_positions:
-            continue
-
-        house_bindus = [0] * 12  # Initialize 12 houses with 0 benefic dots
-
-        rekhas = ASHTAKAVARGA_REKHAS.get(target_planet, {})
-
-        # For each reference point (planets + Ascendant)
-        for ref_point, ref_pos in planet_positions.items():
-            if ref_point not in rekhas:
-                continue
-
-            benefic_houses = rekhas[ref_point]
-
-            # Add benefic dots to appropriate houses
-            for house_offset in benefic_houses:
-                # Calculate actual house (0-11) from reference position
-                actual_house = (ref_pos + house_offset) % 12
-                house_bindus[actual_house] += 1
-
-        individual_av[target_planet] = house_bindus
-
-    # Calculate SAV (Sarvashtakavarga) - sum of all individual Ashtakavargas
+    # --- SAV ---
     sav = [0] * 12
-    for planet_bindus in individual_av.values():
+    for bindus in individual_av.values():
         for i in range(12):
-            sav[i] += planet_bindus[i]
+            sav[i] += bindus[i]
 
-    # Interpret SAV scores
-    interpretation = {}
-    for house_num in range(1, 13):
-        # House index in zodiac order (0-11)
-        house_idx = (house_num - 1 + lagna_idx) % 12
-        score = sav[house_idx]
+    # --- Per-house summary (house 1–12, each mapped to its zodiac sign) ---
+    by_house = {}
+    for h in range(1, 13):
+        z_idx = (lagna_idx + h - 1) % 12
+        sign = zodiac_signs[z_idx]
+        sav_score = sav[z_idx]
+        planet_bindus = {pl: individual_av[pl][z_idx] for pl in individual_av}
 
-        if score >= 28:
-            interp = "Excellent (Very strong support)"
-        elif score >= 25:
-            interp = "Good (Positive support)"
-        elif score >= 22:
-            interp = "Average (Normal karma)"
+        if sav_score >= 28:
+            strength = "Excellent"
+        elif sav_score >= 25:
+            strength = "Good"
+        elif sav_score >= 22:
+            strength = "Average"
         else:
-            interp = "Weak (Challenges/delays likely)"
+            strength = "Weak"
 
-        interpretation[house_num] = {"score": score, "strength": interp}
+        by_house[h] = {
+            "sign": sign,
+            "sav": sav_score,
+            "planets": planet_bindus,
+            "strength": strength,
+        }
 
-    return {"individual": individual_av, "sav": sav, "interpretation": interpretation}
+    # Legacy key kept for backward-compat with printing.py
+    interpretation = {
+        h: {"score": by_house[h]["sav"], "strength": by_house[h]["strength"]}
+        for h in range(1, 13)
+    }
+
+    return {
+        "individual": individual_av,
+        "sav": sav,
+        "by_house": by_house,
+        "interpretation": interpretation,
+    }
