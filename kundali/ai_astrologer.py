@@ -26,7 +26,7 @@ except ImportError:
     _ANTHROPIC_AVAILABLE = False
 
 # Default model — can override via env var VEDIC_AI_MODEL
-DEFAULT_MODEL   = os.environ.get("VEDIC_AI_MODEL", "claude-sonnet-4-5")
+DEFAULT_MODEL   = os.environ.get("VEDIC_AI_MODEL", "claude-sonnet-4-6")
 MAX_TOKENS      = int(os.environ.get("VEDIC_AI_MAX_TOKENS", "2048"))
 SYSTEM_PROMPT   = textwrap.dedent("""\
     You are an expert Vedic astrologer with deep knowledge of:
@@ -113,11 +113,18 @@ def _format_dasha(result: dict) -> str:
     lines.append(f"  Current Antardasha: {ad}")
     lines.append(f"  Current Pratyantar: {pd}")
     # Upcoming dashas
+    birth_jd = result.get("birth_jd", 0)
+    birth_yr = result.get("birth_year", 2000)
     mds = vim.get("mahadasas", [])[:5]
     if mds:
         lines.append("  Upcoming Mahadashas:")
         for m in mds:
-            lines.append(f"    {m['lord']:8} (yrs {m.get('start_year','?'):.0f}–{m.get('end_year','?'):.0f})")
+            try:
+                s_yr = int(birth_yr + (m["start_jd"] - birth_jd) / 365.25)
+                e_yr = int(birth_yr + (m["end_jd"]   - birth_jd) / 365.25)
+                lines.append(f"    {m['lord']:8} ({s_yr}–{e_yr})")
+            except Exception:
+                lines.append(f"    {m.get('lord','?')}")
     return "\n".join(lines)
 
 
@@ -138,8 +145,9 @@ def _format_shadbala(result: dict) -> str:
     rows = []
     for pl, data in sb_data.items():
         if isinstance(data, dict):
-            total = data.get("total_rupas", data.get("total", 0))
-            rows.append(f"  {pl}: {total:.2f} Rupas")
+            rupas  = data.get("rupas", data.get("total_rupas", data.get("total", 0)))
+            strong = "STRONG" if data.get("strong") else "weak"
+            rows.append(f"  {pl}: {rupas:.2f} Rupas ({strong})")
     return "\n".join(rows) if rows else "  Shadbala unavailable."
 
 
@@ -266,15 +274,18 @@ def build_kundali_prompt(result: dict, question: str | None = None) -> str:
     tajika = result.get("tajika", {})
     if tajika:
         year_lord = tajika.get("year_lord", "?")
-        muntha    = tajika.get("muntha_sign", "?")
-        prompt += f"TAJIKA SOLAR RETURN\n───────────────────\n"
-        prompt += f"  Year Lord : {year_lord}\n  Muntha    : {muntha}\n\n"
+        muntha    = tajika.get("muntha", {}).get("sign", "?")
+        mun_house = tajika.get("muntha", {}).get("house_from_lagna", "?")
+        prompt += "TAJIKA SOLAR RETURN\n───────────────────\n"
+        prompt += f"  Year : {tajika.get('year','?')} | Year Lord: {year_lord}\n"
+        prompt += f"  Muntha: {muntha} (House {mun_house})\n\n"
 
     muhurtha = result.get("muhurtha", {})
     if muhurtha:
-        overall = muhurtha.get("overall_score", "?")
-        prompt += f"MUHURTHA (Birth Moment Quality)\n─────────────────────────────────\n"
-        prompt += f"  Overall Score: {overall}\n\n"
+        score = muhurtha.get("total_score", muhurtha.get("overall_score", "?"))
+        grade = muhurtha.get("grade", "?")
+        prompt += "MUHURTHA (Birth Moment Quality)\n─────────────────────────────────\n"
+        prompt += f"  Score: {score}/100 ({grade})\n\n"
 
     prompt += "════════════════════════════════════════════════════════════════\n"
 
@@ -322,7 +333,7 @@ def get_ai_interpretation(
     Args:
         result:   Kundali result dict (from calculate_kundali).
         question: Optional specific question (e.g. "When will I marry?").
-        model:    Anthropic model ID (default: claude-sonnet-4-5).
+        model:    Anthropic model ID (default: claude-sonnet-4-6).
         api_key:  Anthropic API key. Falls back to ANTHROPIC_API_KEY env var.
 
     Returns:
