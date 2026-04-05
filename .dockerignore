@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.eggs/
+*.egg-info/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Tests
+tests/
+*.test.py
+
+# Build artifacts
+*.log
+.coverage
+htmlcov/
+dist/
+build/
+
+# Local outputs
+kundali/outputs/*.txt
+kundali/outputs/*.pdf
+kundali/outputs/*.svg
+
+# Config files not needed in container
+railpack.json
+nixpacks.toml
