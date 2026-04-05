@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vedic-kundali"
-version = "1.0.0"
+version = "2.0.0"
 description = "Vedic astrology calculation and prediction engine"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "pyswisseph>=2.10",
     "geopy>=2.4",
@@ -16,6 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 transits = ["astropy>=5.0"]
+server = ["fastapi>=0.100", "uvicorn>=0.20"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0"]
 
 [project.scripts]
 kundali = "kundali.main:main"
@@ -25,3 +27,7 @@ include = ["kundali*"]
 
 [tool.setuptools.package-data]
 kundali = ["*.se1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

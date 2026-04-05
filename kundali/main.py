@@ -6,11 +6,10 @@ Coordinates all calculations and provides the primary API.
 
 import os
 import datetime
+import re as _re
 import warnings
 import swisseph as swe
 import pytz
-from geopy.geocoders import Nominatim
-from timezonefinder import TimezoneFinder
 
 from .constants import (
     zodiac_signs,
@@ -221,9 +220,7 @@ def extract_dasha_periods_for_marriage(timings):
     periods = []
     marriage_lines = timings.get("Marriage", [])
     for line in marriage_lines:
-        import re
-
-        m = re.search(r"[└─]\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)", line)
+        m = _re.search(r"[└─]\s*(\w+)/(\w+)\s*\((\d{4})-(\d{4})\)", line)
         if m:
             md = m.group(1)
             ad = m.group(2)
@@ -250,14 +247,45 @@ def calculate_kundali(
 
     Returns:
         dict: Complete kundali result with all calculated data.
+
+    Raises:
+        ValueError: On invalid date/time/place/gender/ayanamsa input.
     """
+    # --- Input validation ---
+    if not birth_date_str or not _re.fullmatch(r"\d{4}-\d{2}-\d{2}", birth_date_str):
+        raise ValueError(f"Invalid date format '{birth_date_str}'. Use YYYY-MM-DD.")
+    if not birth_time_str or not _re.fullmatch(r"\d{1,2}:\d{2}", birth_time_str):
+        raise ValueError(f"Invalid time format '{birth_time_str}'. Use HH:MM (24h).")
+    if not place or not place.strip():
+        raise ValueError("Birth place cannot be empty.")
+    if gender not in ("Male", "Female"):
+        raise ValueError(f"Gender must be 'Male' or 'Female', got '{gender}'.")
+    if ayanamsa_name not in AYANAMSA_OPTIONS:
+        raise ValueError(
+            f"Unknown ayanamsa '{ayanamsa_name}'. "
+            f"Choose from: {', '.join(AYANAMSA_OPTIONS)}"
+        )
+
     y, m, d = map(int, birth_date_str.split("-"))
     hh, mm = map(int, birth_time_str.split(":"))
+
+    # Validate ranges
+    if not (1 <= m <= 12):
+        raise ValueError(f"Month {m} out of range 1-12.")
+    if not (1 <= d <= 31):
+        raise ValueError(f"Day {d} out of range 1-31.")
+    if not (0 <= hh <= 23):
+        raise ValueError(f"Hour {hh} out of range 0-23.")
+    if not (0 <= mm <= 59):
+        raise ValueError(f"Minute {mm} out of range 0-59.")
+
     lat, lon = get_lat_lon(place)
     result = {}
     result["lat"] = lat
     result["lon"] = lon
-    tf = TimezoneFinder()
+
+    from .cache import get_timezone_finder
+    tf = get_timezone_finder()
     tz_name = tf.timezone_at(lat=lat, lng=lon)
     if not tz_name:
         raise ValueError("Timezone could not be determined")
@@ -910,9 +938,7 @@ def generate_final_analysis(result):
     for _event, _periods in timings.items():
         if _periods:
             first_event = _event
-            import re
-
-            _m = re.search(r"\((\d{4}-\d{4})\)", _periods[0])
+            _m = _re.search(r"\((\d{4}-\d{4})\)", _periods[0])
             first_range = _m.group(1) if _m else "upcoming years"
             break
 
@@ -984,165 +1010,135 @@ def main():
     """Command-line entry point."""
     print("Vedic Kundali Generator – Full Version with D7, D10 & Marriage Timing")
     print("─────────────────────────────────────────────────────────────────────\n")
-    while True:
-        name = input("Enter Name : ").strip()
-        gender_input = input("Gender (M/F) : ").strip().upper()
-        while gender_input not in ("M", "F"):
-            print("Please enter M for Male or F for Female")
+    try:
+        while True:
+            name = input("Enter Name : ").strip()
             gender_input = input("Gender (M/F) : ").strip().upper()
-        gender = "Male" if gender_input == "M" else "Female"
-        date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
-        time_str = input("Birth Time (HH:MM 24h) : ").strip()
-        place = input("Birth Place (City, Country) : ").strip()
+            while gender_input not in ("M", "F"):
+                print("Please enter M for Male or F for Female")
+                gender_input = input("Gender (M/F) : ").strip().upper()
+            gender = "Male" if gender_input == "M" else "Female"
+            date_str = input("Birth Date (YYYY-MM-DD) : ").strip()
+            time_str = input("Birth Time (HH:MM 24h) : ").strip()
+            place = input("Birth Place (City, Country) : ").strip()
 
-        print(
-            "\nAyanamsa options: Lahiri, Raman, KP (Krishnamurti), True Chitra, Yukteshwar, Djwhal Khul"
-        )
-        ayanamsa_choice = input("Choose ayanamsa (default Lahiri): ").strip()
-        if not ayanamsa_choice:
-            ayanamsa_choice = "Lahiri"
-        # validate (optional)
-        if ayanamsa_choice not in AYANAMSA_OPTIONS:
-            print("Invalid choice, using Lahiri.")
-            ayanamsa_choice = "Lahiri"
-        try:
-            result = calculate_kundali(
-                date_str, time_str, place, gender=gender, ayanamsa_name=ayanamsa_choice
+            print(
+                "\nAyanamsa options: Lahiri, Raman, KP (Krishnamurti), True Chitra, Yukteshwar, Djwhal Khul"
             )
-            result["name"] = name  # Store name in result
-            import os
-
-            outputs_dir = os.path.join(os.path.dirname(__file__), "outputs")
-            os.makedirs(outputs_dir, exist_ok=True)
-            filename = os.path.join(outputs_dir, f"{name}_kundali_report.txt")
-            with open(filename, "w", encoding="utf-8") as f:
-                print_kundali(result, file=f)
-            print(f"\nReport saved as '{filename}'")
-
-            # Full spouse + marriage date prediction
-            from datetime import datetime as dt
-
+            ayanamsa_choice = input("Choose ayanamsa (default Lahiri): ").strip()
+            if not ayanamsa_choice:
+                ayanamsa_choice = "Lahiri"
+            if ayanamsa_choice not in AYANAMSA_OPTIONS:
+                print("Invalid choice, using Lahiri.")
+                ayanamsa_choice = "Lahiri"
             try:
-                from .spouse.predictor import AdvancedSpousePredictor
-
-                # Spouse analysis
-                predictor = AdvancedSpousePredictor(result)
-                spouse_report = predictor.generate_report()
-
-                # Match outer filename pattern: input_basename.replace(".txt", "_spouse_prediction.txt")
-                report_base = f"{name}_kundali_report"
-                spouse_filename = os.path.join(
-                    outputs_dir, f"{report_base}_spouse_prediction.txt"
+                result = calculate_kundali(
+                    date_str, time_str, place, gender=gender, ayanamsa_name=ayanamsa_choice
                 )
+                result["name"] = name
 
-                with open(spouse_filename, "w", encoding="utf-8") as f:
-                    f.write(spouse_report)
-                print(f"Full spouse + marriage prediction saved as '{spouse_filename}'")
+                outputs_dir = os.path.join(os.path.dirname(__file__), "outputs")
+                os.makedirs(outputs_dir, exist_ok=True)
+                filename = os.path.join(outputs_dir, f"{name}_kundali_report.txt")
+                with open(filename, "w", encoding="utf-8") as f:
+                    print_kundali(result, file=f)
+                print(f"\nReport saved as '{filename}'")
 
+                # Full spouse + marriage date prediction
+                try:
+                    from .spouse.predictor import AdvancedSpousePredictor
+
+                    predictor = AdvancedSpousePredictor(result)
+                    spouse_report = predictor.generate_report()
+                    report_base = f"{name}_kundali_report"
+                    spouse_filename = os.path.join(
+                        outputs_dir, f"{report_base}_spouse_prediction.txt"
+                    )
+                    with open(spouse_filename, "w", encoding="utf-8") as f:
+                        f.write(spouse_report)
+                    print(f"Full spouse + marriage prediction saved as '{spouse_filename}'")
+                except Exception as e:
+                    print(f"Spouse predictor error: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    print("Continuing with basic kundali report...")
+
+                # Optional: Birth Time Rectification
+                rectify_choice = (
+                    input("\nWould you like to rectify birth time using life events? (y/n): ")
+                    .strip()
+                    .lower()
+                )
+                if rectify_choice == "y":
+                    print("\nEnter 3+ major life events.")
+                    events = []
+                    while len(events) < 10:
+                        event_date = input(
+                            f"Event {len(events)+1} date (YYYY-MM-DD) [enter to finish]: "
+                        ).strip()
+                        if not event_date:
+                            break
+                        try:
+                            ev_dt = datetime.datetime.strptime(event_date, "%Y-%m-%d")
+                        except ValueError:
+                            print("Invalid date. Skipping.")
+                            continue
+                        event_desc = input("Description (e.g. 'marriage'): ").strip()
+                        event_house = input("House (1-12): ").strip()
+                        try:
+                            house_num = int(event_house)
+                            if not 1 <= house_num <= 12:
+                                raise ValueError
+                        except ValueError:
+                            print("Invalid house. Skipping.")
+                            continue
+                        planets_input = input("Planets (e.g. Ve,Ju,Mo) [skip]: ").strip()
+                        pl_list = (
+                            [p.strip().upper() for p in planets_input.split(",") if p.strip()]
+                            if planets_input
+                            else []
+                        )
+                        events.append(
+                            {"date": ev_dt, "house": house_num, "description": event_desc, "planets": pl_list}
+                        )
+                        print(f"Added event {len(events)}.")
+                    if len(events) >= 3:
+                        rect_result = rectify_birth_time(result, events)
+                        print("\n" + "=" * 60)
+                        print("BIRTH TIME RECTIFICATION RESULT (KP + Prenatal Epoch)")
+                        print("=" * 60)
+                        print(f"Original: {rect_result['original_birth_time']}")
+                        print(f"Corrected: {rect_result['corrected_birth_time']}")
+                        print(f"Offset: {rect_result['offset_minutes']:+d} minutes")
+                        print(f"Confidence: {rect_result['confidence_score']} (based on {rect_result['events_used']} events)")
+                        regen = input("\nRegenerate kundali with corrected time? (y/n): ").strip().lower()
+                        if regen == "y":
+                            corr_dt = datetime.datetime.strptime(
+                                rect_result["corrected_birth_time"], "%Y-%m-%d %H:%M"
+                            )
+                            result = calculate_kundali(
+                                corr_dt.strftime("%Y-%m-%d"),
+                                corr_dt.strftime("%H:%M"),
+                                place,
+                                gender=gender,
+                                ayanamsa_name=ayanamsa_choice,
+                            )
+                            result["name"] = name
+                            rect_filename = os.path.join(outputs_dir, f"{name}_kundali_rectified.txt")
+                            with open(rect_filename, "w", encoding="utf-8") as f:
+                                print_kundali(result, file=f)
+                            print(f"Rectified report: '{rect_filename}'")
+                    else:
+                        print("Need 3+ events for rectification.")
+
+                break
             except Exception as e:
-                print(f"Spouse predictor error: {e}")
-                import traceback
-
-                traceback.print_exc()
-                print("Continuing with basic kundali report...")
-
-            # Optional: Birth Time Rectification
-            rectify_choice = (
-                input(
-                    "\nWould you like to rectify birth time using life events? (y/n): "
-                )
-                .strip()
-                .lower()
-            )
-            if rectify_choice == "y":
-                print("\nEnter 3+ major life events.")
-                events = []
-                while len(events) < 10:  # Max 10
-                    event_date = input(
-                        f"Event {len(events)+1} date (YYYY-MM-DD) [enter to finish]: "
-                    ).strip()
-                    if not event_date:
-                        break
-                    try:
-                        ev_dt = datetime.datetime.strptime(event_date, "%Y-%m-%d")
-                    except ValueError:
-                        print("Invalid date. Skipping.")
-                        continue
-                    event_desc = input("Description (e.g. 'marriage'): ").strip()
-                    event_house = input("House (1-12): ").strip()
-                    try:
-                        house_num = int(event_house)
-                        if not 1 <= house_num <= 12:
-                            raise ValueError
-                    except ValueError:
-                        print("Invalid house. Skipping.")
-                        continue
-                    planets_input = input("Planets (e.g. Ve,Ju,Mo) [skip]: ").strip()
-                    planets = (
-                        [
-                            p.strip().upper()
-                            for p in planets_input.split(",")
-                            if p.strip()
-                        ]
-                        if planets_input
-                        else []
-                    )
-                    events.append(
-                        {
-                            "date": ev_dt,
-                            "house": house_num,
-                            "description": event_desc,
-                            "planets": planets,
-                        }
-                    )
-                    print(f"Added event {len(events)}.")
-                if len(events) >= 3:
-                    rect_result = rectify_birth_time(result, events)
-                    print("\n" + "=" * 60)
-                    print("BIRTH TIME RECTIFICATION RESULT (KP + Prenatal Epoch)")
-                    print("=" * 60)
-                    print(f"Original: {rect_result['original_birth_time']}")
-                    print(f"Corrected: {rect_result['corrected_birth_time']}")
-                    print(f"Offset: {rect_result['offset_minutes']:+d} minutes")
-                    print(
-                        f"Confidence: {rect_result['confidence_score']} (based on {rect_result['events_used']} events)"
-                    )
-                    regen = (
-                        input("\nRegenerate kundali with corrected time? (y/n): ")
-                        .strip()
-                        .lower()
-                    )
-                    if regen == "y":
-                        corr_dt = datetime.datetime.strptime(
-                            rect_result["corrected_birth_time"], "%Y-%m-%d %H:%M"
-                        )
-                        corr_date_str = corr_dt.strftime("%Y-%m-%d")
-                        corr_time_str = corr_dt.strftime("%H:%M")
-                        result = calculate_kundali(
-                            corr_date_str,
-                            corr_time_str,
-                            place,
-                            gender=gender,
-                            ayanamsa_name=ayanamsa_choice,
-                        )
-                        result["name"] = name
-                        rect_filename = os.path.join(
-                            outputs_dir, f"{name}_kundali_rectified.txt"
-                        )
-                        with open(rect_filename, "w", encoding="utf-8") as f:
-                            print_kundali(result, file=f)
-                        print(f"Rectified report: '{rect_filename}'")
-                else:
-                    print("Need 3+ events for rectification.")
-
-            break
-        except Exception as e:
-            print(f"\nError: {e}")
-            print("Tips: Use place='Mumbai, Maharashtra, India'")
-            print(" Make sure Swiss Ephemeris .se1 files are in the same folder")
-            print("Please re-enter the details.\n")
-
-    swe.close()
+                print(f"\nError: {e}")
+                print("Tips: Use place='Mumbai, Maharashtra, India'")
+                print("  Make sure Swiss Ephemeris .se1 files are in the same folder")
+                print("Please re-enter the details.\n")
+    finally:
+        swe.close()
 
 
 if __name__ == "__main__":

@@ -1,12 +1,15 @@
 """
 Vedic Kundali — Vedic astrology calculation and prediction engine.
 
-Public API:
+Public API (low-level):
     calculate_kundali(birth_date, birth_time, place, gender="Male")
     AdvancedSpousePredictor(chart_data)
-    calculate_pancha_pakshi(result)
-    generate_sky_chart(result)
-    get_ai_interpretation(result, question=None)
+
+GUI-ready API (recommended for frontends):
+    api.calculate(birth_date, birth_time, place, ...)
+    api.serialize_result(result)
+    api.get_spouse_prediction(chart_data)
+    api.get_matching(chart1, chart2)
 """
 
 from .main import calculate_kundali
@@ -18,6 +21,7 @@ from .ai_astrologer import (
     get_marriage_analysis,
     get_career_analysis,
 )
+from . import api
 
 __all__ = [
     "calculate_kundali",
@@ -27,4 +31,5 @@ __all__ = [
     "get_ai_interpretation",
     "get_marriage_analysis",
     "get_career_analysis",
+    "api",
 ]

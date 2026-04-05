@@ -1,0 +1,296 @@
+"""
+GUI-ready API layer for the Vedic Kundali engine.
+
+All functions accept plain Python types and return JSON-serializable dicts.
+No file I/O, no print statements — suitable for any frontend:
+  - CLI (run.py)
+  - Web (FastAPI / Flask)
+  - Desktop GUI (Tkinter / PyQt / Electron)
+  - Mobile (via JSON-RPC or REST)
+
+Usage:
+    from kundali.api import calculate, get_spouse_prediction, serialize_result
+
+    result = calculate("1990-05-15", "08:30", "Mumbai, India")
+    json_safe = serialize_result(result)
+"""
+
+import datetime
+
+
+# ---------------------------------------------------------------------------
+# JSON serializer — handles numpy, datetime, and other non-JSON types
+# ---------------------------------------------------------------------------
+
+def to_json(obj):
+    """Recursively make *obj* JSON-serialisable."""
+    try:
+        import numpy as np
+        _NP_TYPES = (np.integer, np.floating, np.bool_)
+        _NP_ARRAY = np.ndarray
+    except ImportError:
+        _NP_TYPES = ()
+        _NP_ARRAY = None
+
+    if obj is None:
+        return None
+    if isinstance(obj, bool):
+        return obj
+    if isinstance(obj, (int, float, str)):
+        return obj
+    if _NP_TYPES and isinstance(obj, _NP_TYPES):
+        return obj.item()
+    if _NP_ARRAY is not None and isinstance(obj, _NP_ARRAY):
+        return obj.tolist()
+    if isinstance(obj, dict):
+        return {str(k): to_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [to_json(i) for i in obj]
+    if isinstance(obj, datetime.datetime):
+        return obj.isoformat()
+    if isinstance(obj, datetime.date):
+        return obj.isoformat()
+    try:
+        return str(obj)
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Planet name mapping
+# ---------------------------------------------------------------------------
+
+PLANET_FULL = {
+    "Su": "Sun", "Mo": "Moon", "Ma": "Mars", "Me": "Mercury",
+    "Ju": "Jupiter", "Ve": "Venus", "Sa": "Saturn",
+    "Ra": "Rahu", "Ke": "Ketu",
+}
+
+
+# ---------------------------------------------------------------------------
+# Core API functions
+# ---------------------------------------------------------------------------
+
+def calculate(birth_date, birth_time, place, gender="Male", ayanamsa="Lahiri", name=""):
+    """
+    Calculate a complete Vedic kundali.
+
+    Args:
+        birth_date: "YYYY-MM-DD"
+        birth_time: "HH:MM" (24-hour)
+        place: "City, Country"
+        gender: "Male" or "Female"
+        ayanamsa: Ayanamsa name (default "Lahiri")
+        name: Native's name (optional, stored in result)
+
+    Returns:
+        dict: Raw kundali result (pass to serialize_result() for JSON-safe output).
+    """
+    from .main import calculate_kundali
+    result = calculate_kundali(birth_date, birth_time, place, gender=gender, ayanamsa_name=ayanamsa)
+    if name:
+        result["name"] = name
+    return result
+
+
+def get_spouse_prediction(chart_data):
+    """
+    Run the advanced spouse predictor on a calculated chart.
+
+    Args:
+        chart_data: dict returned by calculate()
+
+    Returns:
+        dict: Spouse prediction result with keys like
+              'appearance', 'personality', 'timing', 'manglik', etc.
+    """
+    from .spouse.predictor import AdvancedSpousePredictor
+    predictor = AdvancedSpousePredictor(chart_data)
+    return {
+        "prediction": predictor.prediction,
+        "report_text": predictor.generate_report(),
+    }
+
+
+def get_matching(chart1, chart2):
+    """
+    Compute Ashtakoot Guna Milan + extra dosha checks between two charts.
+
+    Args:
+        chart1, chart2: dicts returned by calculate()
+
+    Returns:
+        dict with keys: person1, person2, ashtakoot, extra_doshas
+    """
+    from .kundali_matching import match_kundalis
+    from .constants import zodiac_signs
+
+    nak1 = chart1.get("moon_nakshatra", "")
+    sign1 = chart1.get("moon_sign", "")
+    nak2 = chart2.get("moon_nakshatra", "")
+    sign2 = chart2.get("moon_sign", "")
+
+    # Use the full matching module
+    try:
+        full_report = match_kundalis(chart1, chart2)
+    except Exception:
+        full_report = {}
+
+    return {
+        "person1": {"moon_sign": sign1, "moon_nakshatra": nak1},
+        "person2": {"moon_sign": sign2, "moon_nakshatra": nak2},
+        "full_report": to_json(full_report),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Serializer — convert raw kundali result to JSON-safe summary
+# ---------------------------------------------------------------------------
+
+def serialize_result(result):
+    """
+    Convert the full kundali result dict to a JSON-serialisable summary.
+
+    Suitable for sending over HTTP, storing in a database, or rendering in a GUI.
+    """
+    out = {}
+
+    # Basic birth details
+    for key in ("name", "birth_date", "birth_time", "birth_place", "gender",
+                "ayanamsa", "lagna_sign", "lagna_deg", "moon_sign",
+                "moon_nakshatra", "sade_sati", "birth_year", "birth_month",
+                "birth_day", "lat", "lon"):
+        out[key] = to_json(result.get(key))
+
+    # Panchanga
+    out["panchanga"] = to_json(result.get("panchanga", {}))
+
+    # Planets summary
+    planets_raw = result.get("planets", {})
+    planets_out = {}
+    for code, pdata in planets_raw.items():
+        if not isinstance(pdata, dict):
+            continue
+        planets_out[PLANET_FULL.get(code, code)] = {
+            "sign":       to_json(pdata.get("sign")),
+            "deg":        to_json(pdata.get("deg")),
+            "full_lon":   to_json(pdata.get("full_lon")),
+            "nakshatra":  to_json(pdata.get("nakshatra")),
+            "dignity":    to_json(pdata.get("dignity")),
+            "retro":      to_json(pdata.get("retro")),
+            "combust":    to_json(pdata.get("combust")),
+            "navamsa_sign": to_json(pdata.get("navamsa_sign")),
+        }
+    out["planets"] = planets_out
+
+    # Houses
+    houses_raw = result.get("houses", {})
+    out["houses"] = {
+        str(h): [PLANET_FULL.get(p, p) for p in pl if p != "Asc"]
+        for h, pl in houses_raw.items()
+    }
+
+    # Yogas
+    yogas_raw = result.get("yogas", [])
+    yogas_out = []
+    for y in yogas_raw:
+        if isinstance(y, dict):
+            yogas_out.append({
+                "name":        to_json(y.get("name", y.get("yoga", ""))),
+                "description": to_json(y.get("description", y.get("planets", ""))),
+                "strength":    to_json(y.get("strength", y.get("score", ""))),
+            })
+        else:
+            yogas_out.append({"name": str(y), "description": "", "strength": ""})
+    out["yogas"] = yogas_out
+
+    # Vimshottari dasha summary
+    vims = result.get("vimshottari", {})
+    cur_md = vims.get("current_md")
+    cur_ad = vims.get("current_ad")
+    vims_pd = result.get("vimshottari_pd", {}) or {}
+    cur_pd = vims_pd.get("current_pd")
+
+    def _period(d):
+        if not d:
+            return None
+        # current_md / current_ad may be plain strings (lord name) rather than dicts
+        if isinstance(d, str):
+            return {"lord": d, "start": None, "end": None}
+        return {
+            "lord":  to_json(d.get("lord", d.get("dasha_lord"))),
+            "start": to_json(d.get("start_date", d.get("start"))),
+            "end":   to_json(d.get("end_date", d.get("end"))),
+        }
+
+    out["vimshottari"] = {
+        "starting_lord":          to_json(vims.get("starting_lord")),
+        "balance_at_birth_years": to_json(vims.get("balance_at_birth_years")),
+        "current_md": _period(cur_md),
+        "current_ad": _period(cur_ad),
+        "current_pd": _period(cur_pd),
+        "mahadasas":  to_json([
+            {k: v for k, v in md.items() if k != "antardashas"}
+            for md in (vims.get("mahadasas") or [])
+        ]),
+    }
+
+    # Transits
+    transits_raw = result.get("transits", {})
+    out["transits"] = {
+        PLANET_FULL.get(code, code): {
+            "sign":            to_json(t.get("sign")),
+            "house_from_moon": to_json(t.get("house_from_moon")),
+            "effect":          to_json(t.get("effect")),
+        }
+        for code, t in transits_raw.items()
+        if isinstance(t, dict)
+    }
+
+    # Muhurtha
+    muh = result.get("muhurtha", {})
+    if isinstance(muh, dict):
+        out["muhurtha_score"] = to_json(muh.get("score", muh.get("total_score")))
+        out["muhurtha_summary"] = to_json(muh.get("summary", muh.get("verdict", "")))
+    else:
+        out["muhurtha_score"] = None
+        out["muhurtha_summary"] = None
+
+    # Tajika
+    tajika = result.get("tajika", {})
+    if isinstance(tajika, dict):
+        out["tajika"] = {
+            "solar_return_year": to_json(tajika.get("solar_return_year")),
+            "muntha_sign":       to_json(tajika.get("muntha_sign")),
+            "year_verdict":      to_json(tajika.get("year_verdict", tajika.get("verdict"))),
+        }
+    else:
+        out["tajika"] = {}
+
+    # Yogini dasha
+    yogini = result.get("yogini_dasha", {})
+    out["yogini_current"] = to_json(yogini.get("current")) if isinstance(yogini, dict) else None
+
+    # Neecha bhanga
+    out["neecha_bhanga_planets"] = [
+        PLANET_FULL.get(p, p) for p in (result.get("neecha_bhanga_planets") or [])
+    ]
+
+    # Jaimini
+    jaimini = result.get("jaimini", {})
+    if isinstance(jaimini, dict):
+        out["atmakaraka"] = to_json(jaimini.get("atmakaraka"))
+        out["karakamsa_lagna"] = to_json(jaimini.get("karakamsa_lagna"))
+
+    # Problems / Doshas
+    out["problems"] = to_json(result.get("problems", []))
+
+    # Final analysis text
+    out["final_analysis"] = to_json(result.get("final_analysis", ""))
+
+    # Chart file paths (GUI can use these to display)
+    out["north_chart_path"] = to_json(result.get("north_chart_path", ""))
+    out["sky_chart_path"] = to_json(result.get("sky_chart_path", ""))
+    out["pdf_report_path"] = to_json(result.get("pdf_report_path", ""))
+
+    return out

@@ -4,6 +4,8 @@ FastAPI REST server for the Vedic Kundali engine.
 Run with: uvicorn api_server:app --reload --port 8000
 
 Install: pip install fastapi uvicorn
+
+Thin HTTP layer — all heavy logic lives in kundali.api.
 """
 
 from fastapi import FastAPI, HTTPException
@@ -12,6 +14,13 @@ from pydantic import BaseModel
 from typing import Optional, List
 import datetime
 import traceback
+
+from kundali.api import (
+    calculate as api_calculate,
+    serialize_result,
+    to_json,
+    PLANET_FULL,
+)
 
 app = FastAPI(
     title="Vedic Kundali API",
@@ -55,196 +64,7 @@ class MatchRequest(BaseModel):
     person2: BirthData
 
 
-# ---------------------------------------------------------------------------
-# Serializer — convert kundali result dict to JSON-safe form
-# ---------------------------------------------------------------------------
-
-def _to_json(obj):
-    """Recursively make obj JSON-serialisable."""
-    try:
-        import numpy as np
-        _NP_TYPES = (np.integer, np.floating, np.bool_)
-        _NP_ARRAY = np.ndarray
-    except ImportError:
-        _NP_TYPES = ()
-        _NP_ARRAY = None
-
-    if obj is None:
-        return None
-    if isinstance(obj, bool):
-        return obj
-    if isinstance(obj, (int, float, str)):
-        return obj
-    if _NP_TYPES and isinstance(obj, _NP_TYPES):
-        return obj.item()
-    if _NP_ARRAY is not None and isinstance(obj, _NP_ARRAY):
-        return obj.tolist()
-    if isinstance(obj, dict):
-        return {str(k): _to_json(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_to_json(i) for i in obj]
-    if isinstance(obj, datetime.datetime):
-        return obj.isoformat()
-    if isinstance(obj, datetime.date):
-        return obj.isoformat()
-    # Fall-back: try str
-    try:
-        return str(obj)
-    except Exception:
-        return None
-
-
-def _serialize_result(result: dict) -> dict:
-    """
-    Convert the full kundali result dict to a JSON-serialisable summary.
-
-    Includes:
-      - lagna_sign, lagna_deg, moon_sign, moon_nakshatra
-      - planets summary (sign, deg, nakshatra, dignity, retro, combust)
-      - houses (house → planet list)
-      - yogas list (name / description)
-      - vimshottari summary (current MD, AD, PD)
-      - transits (sign, house_from_moon, effect)
-      - muhurtha score
-      - tajika summary
-      - yogini dasha current
-      - birth details
-    """
-    PLANET_FULL = {
-        "Su": "Sun", "Mo": "Moon", "Ma": "Mars", "Me": "Mercury",
-        "Ju": "Jupiter", "Ve": "Venus", "Sa": "Saturn",
-        "Ra": "Rahu",    "Ke": "Ketu",
-    }
-
-    out = {}
-
-    # Basic birth details
-    for key in ("name", "birth_date", "birth_time", "birth_place", "gender",
-                "ayanamsa", "lagna_sign", "lagna_deg", "moon_sign",
-                "moon_nakshatra", "sade_sati", "birth_year", "birth_month",
-                "birth_day"):
-        out[key] = _to_json(result.get(key))
-
-    # Panchanga
-    out["panchanga"] = _to_json(result.get("panchanga", {}))
-
-    # Planets summary
-    planets_raw = result.get("planets", {})
-    planets_out = {}
-    for code, pdata in planets_raw.items():
-        if not isinstance(pdata, dict):
-            continue
-        planets_out[PLANET_FULL.get(code, code)] = {
-            "sign":       _to_json(pdata.get("sign")),
-            "deg":        _to_json(pdata.get("deg")),
-            "nakshatra":  _to_json(pdata.get("nakshatra")),
-            "dignity":    _to_json(pdata.get("dignity")),
-            "retro":      _to_json(pdata.get("retro")),
-            "combust":    _to_json(pdata.get("combust")),
-            "navamsa_sign": _to_json(pdata.get("navamsa_sign")),
-        }
-    out["planets"] = planets_out
-
-    # Houses
-    houses_raw = result.get("houses", {})
-    out["houses"] = {
-        str(h): [PLANET_FULL.get(p, p) for p in pl if p != "Asc"]
-        for h, pl in houses_raw.items()
-    }
-
-    # Yogas (keep name + description + strength)
-    yogas_raw = result.get("yogas", [])
-    yogas_out = []
-    for y in yogas_raw:
-        if isinstance(y, dict):
-            yogas_out.append({
-                "name":        _to_json(y.get("name",        y.get("yoga", ""))),
-                "description": _to_json(y.get("description", y.get("planets", ""))),
-                "strength":    _to_json(y.get("strength",    y.get("score", ""))),
-            })
-        else:
-            yogas_out.append({"name": str(y), "description": "", "strength": ""})
-    out["yogas"] = yogas_out
-
-    # Vimshottari summary
-    vims = result.get("vimshottari", {})
-    cur_md = vims.get("current_md", {}) or {}
-    cur_ad = vims.get("current_ad", {}) or {}
-    vims_pd = result.get("vimshottari_pd", {}) or {}
-    cur_pd  = vims_pd.get("current_pd", {}) or {}
-
-    def _period(d):
-        if not d:
-            return None
-        return {
-            "lord":  _to_json(d.get("lord", d.get("dasha_lord"))),
-            "start": _to_json(d.get("start_date", d.get("start"))),
-            "end":   _to_json(d.get("end_date",   d.get("end"))),
-        }
-
-    out["vimshottari"] = {
-        "starting_lord":           _to_json(vims.get("starting_lord")),
-        "balance_at_birth_years":  _to_json(vims.get("balance_at_birth_years")),
-        "current_md": _period(cur_md),
-        "current_ad": _period(cur_ad),
-        "current_pd": _period(cur_pd),
-        "mahadasas":  _to_json([
-            {k: v for k, v in md.items() if k not in ("antardashas",)}
-            for md in (vims.get("mahadasas") or [])
-        ]),
-    }
-
-    # Transits
-    transits_raw = result.get("transits", {})
-    out["transits"] = {
-        PLANET_FULL.get(code, code): {
-            "sign":           _to_json(t.get("sign")),
-            "house_from_moon": _to_json(t.get("house_from_moon")),
-            "effect":         _to_json(t.get("effect")),
-        }
-        for code, t in transits_raw.items()
-        if isinstance(t, dict)
-    }
-
-    # Muhurtha score
-    muh = result.get("muhurtha", {})
-    if isinstance(muh, dict):
-        out["muhurtha_score"] = _to_json(muh.get("score", muh.get("total_score")))
-        out["muhurtha_summary"] = _to_json(muh.get("summary", muh.get("verdict", "")))
-    else:
-        out["muhurtha_score"] = None
-        out["muhurtha_summary"] = None
-
-    # Tajika summary
-    tajika = result.get("tajika", {})
-    if isinstance(tajika, dict):
-        out["tajika"] = {
-            "solar_return_year": _to_json(tajika.get("solar_return_year")),
-            "muntha_sign":       _to_json(tajika.get("muntha_sign")),
-            "year_verdict":      _to_json(tajika.get("year_verdict", tajika.get("verdict"))),
-        }
-    else:
-        out["tajika"] = {}
-
-    # Yogini dasha current
-    yogini = result.get("yogini_dasha", {})
-    if isinstance(yogini, dict):
-        out["yogini_current"] = _to_json(yogini.get("current"))
-    else:
-        out["yogini_current"] = None
-
-    # Neecha bhanga
-    out["neecha_bhanga_planets"] = [
-        PLANET_FULL.get(p, p) for p in (result.get("neecha_bhanga_planets") or [])
-    ]
-
-    # Jaimini Atmakaraka
-    jaimini = result.get("jaimini", {})
-    if isinstance(jaimini, dict):
-        out["atmakaraka"] = _to_json(jaimini.get("atmakaraka"))
-        out["karakamsa_lagna"] = _to_json(jaimini.get("karakamsa_lagna"))
-
-    return out
+# Serialization is now in kundali.api — imported at the top
 
 
 # ---------------------------------------------------------------------------
@@ -573,19 +393,13 @@ async def health():
 async def calculate(data: BirthData):
     """Calculate complete kundali. Returns serialised result dict."""
     try:
-        from kundali.main import calculate_kundali
-        result = calculate_kundali(
-            name=data.name,
-            year=data.year,
-            month=data.month,
-            day=data.day,
-            hour=data.hour,
-            minute=data.minute,
-            place=data.place,
-            gender=data.gender,
-            ayanamsa=data.ayanamsa,
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        result = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
         )
-        return _serialize_result(result)
+        return serialize_result(result)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc) + "\n" + traceback.format_exc())
 
@@ -600,15 +414,15 @@ async def find_muhurtha(req: MuhurthaRequest):
     by score (descending).
     """
     try:
-        from kundali.main import calculate_kundali
         from kundali.muhurtha import evaluate_muhurtha, get_panchanga
         import swisseph as swe
 
         bd = req.birth_data
-        natal = calculate_kundali(
-            name=bd.name, year=bd.year, month=bd.month, day=bd.day,
-            hour=bd.hour, minute=bd.minute, place=bd.place,
-            gender=bd.gender, ayanamsa=bd.ayanamsa,
+        birth_date = f"{bd.year:04d}-{bd.month:02d}-{bd.day:02d}"
+        birth_time = f"{bd.hour:02d}:{bd.minute:02d}"
+        natal = api_calculate(
+            birth_date, birth_time, bd.place,
+            gender=bd.gender, ayanamsa=bd.ayanamsa, name=bd.name,
         )
 
         start_dt = datetime.datetime.fromisoformat(req.start_date)
@@ -630,7 +444,7 @@ async def find_muhurtha(req: MuhurthaRequest):
                 panchanga = get_panchanga(jd, lat, lon)
                 windows.append({
                     "datetime":  cur.isoformat(),
-                    "score":     _to_json(score),
+                    "score":     to_json(score),
                     "tithi":     panchanga.get("tithi_name"),
                     "vara":      panchanga.get("vara_name"),
                     "nakshatra": panchanga.get("nakshatra"),
@@ -665,13 +479,12 @@ async def match_compatibility(req: MatchRequest):
     when available.
     """
     try:
-        from kundali.main import calculate_kundali
-
         def _calc(bd: BirthData):
-            return calculate_kundali(
-                name=bd.name, year=bd.year, month=bd.month, day=bd.day,
-                hour=bd.hour, minute=bd.minute, place=bd.place,
-                gender=bd.gender, ayanamsa=bd.ayanamsa,
+            birth_date = f"{bd.year:04d}-{bd.month:02d}-{bd.day:02d}"
+            birth_time = f"{bd.hour:02d}:{bd.minute:02d}"
+            return api_calculate(
+                birth_date, birth_time, bd.place,
+                gender=bd.gender, ayanamsa=bd.ayanamsa, name=bd.name,
             )
 
         r1 = _calc(req.person1)
@@ -694,7 +507,7 @@ async def match_compatibility(req: MatchRequest):
                         "kuja_dosha_p1", "kuja_dosha_p2",
                         "mahendra", "stree_deergha"):
                 if key in full_report:
-                    extra_doshas[key] = _to_json(full_report[key])
+                    extra_doshas[key] = to_json(full_report[key])
         except Exception:
             pass
 
@@ -725,15 +538,15 @@ async def transit_calendar_endpoint(data: BirthData, months: int = 12):
     Returns month-by-month gochara data for all planets.
     """
     try:
-        from kundali.main import calculate_kundali
         import swisseph as swe
         from kundali.utils import get_sign
         from kundali.constants import gochara_effects, zodiac_signs
 
-        natal = calculate_kundali(
-            name=data.name, year=data.year, month=data.month, day=data.day,
-            hour=data.hour, minute=data.minute, place=data.place,
-            gender=data.gender, ayanamsa=data.ayanamsa,
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        natal = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
         )
 
         moon_sign = natal.get("moon_sign", "")
@@ -770,7 +583,7 @@ async def transit_calendar_endpoint(data: BirthData, months: int = 12):
                 month_transits[PLANET_FULL.get(code, code)] = {
                     "sign":            sign,
                     "house_from_moon": house_from_moon,
-                    "effect":          _to_json(effect),
+                    "effect":          to_json(effect),
                 }
             # Ketu
             ra_lon = swe.calc_ut(jd, swe.MEAN_NODE, swe.FLG_SIDEREAL)[0][0]
@@ -781,7 +594,7 @@ async def transit_calendar_endpoint(data: BirthData, months: int = 12):
             month_transits["Ketu"] = {
                 "sign":            ke_sign,
                 "house_from_moon": ke_house,
-                "effect":          _to_json(gochara_effects.get("Ke", {}).get(ke_house, "Neutral")),
+                "effect":          to_json(gochara_effects.get("Ke", {}).get(ke_house, "Neutral")),
             }
 
             calendar.append({

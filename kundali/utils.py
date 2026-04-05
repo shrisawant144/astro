@@ -7,8 +7,6 @@ location, time conversion, divisional charts, and Panchanga.
 import re
 import swisseph as swe
 import datetime
-from geopy.geocoders import Nominatim
-from timezonefinder import TimezoneFinder
 import pytz
 
 from .constants import (
@@ -98,14 +96,9 @@ def get_dignity(planet, sign):
 
 
 def get_lat_lon(place):
-    """Return (latitude, longitude) for a place string using Nominatim."""
-    geo = Nominatim(user_agent="vedic_kundali_cli")
-    loc = geo.geocode(place, timeout=15)
-    if not loc:
-        raise ValueError(
-            f"Location not found: {place}. Try 'Mumbai, Maharashtra, India'"
-        )
-    return loc.latitude, loc.longitude
+    """Return (latitude, longitude) for a place string (cached singleton)."""
+    from .cache import get_lat_lon_cached
+    return get_lat_lon_cached(place)
 
 
 def is_retrograde(speed):
