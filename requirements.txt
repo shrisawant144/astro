@@ -2,3 +2,7 @@ pyswisseph==2.10.3.2
 geopy==2.4.1
 timezonefinder==8.2.0
 pytz==2022.1
+fastapi>=0.100
+uvicorn>=0.20
+fpdf2>=2.7.0
+python-multipart>=0.0.6
