@@ -528,7 +528,7 @@ def generate_transit_calendar(result, months=24):
 
     Args:
         result: kundali result dict; expected keys used:
-                  - birth_jd     : Julian day of birth (used as scan start)
+                  - birth_jd     : Julian day of birth (used for natal positions)
                   - planets      : dict of planet dicts, each with 'longitude' key
         months : number of months ahead to scan (default 24)
 
@@ -544,14 +544,11 @@ def generate_transit_calendar(result, months=24):
     """
     swe.set_sid_mode(swe.SIDM_LAHIRI)
 
-    # Determine scan start: today if birth_jd is unavailable
-    if result and "birth_jd" in result:
-        current_jd = result["birth_jd"]
-    else:
-        now = datetime.datetime.utcnow()
-        current_jd = swe.julday(
-            now.year, now.month, now.day, now.hour + now.minute / 60.0
-        )
+    # Always use current date for transit calendar (not birth date)
+    now = datetime.datetime.utcnow()
+    current_jd = swe.julday(
+        now.year, now.month, now.day, now.hour + now.minute / 60.0
+    )
 
     # Compute all event lists
     ingresses = get_upcoming_ingresses(current_jd, months)

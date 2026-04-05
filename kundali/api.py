@@ -294,3 +294,67 @@ def serialize_result(result):
     out["pdf_report_path"] = to_json(result.get("pdf_report_path", ""))
 
     return out
+
+
+# ---------------------------------------------------------------------------
+# Decision Engine API — actionable life guidance
+# ---------------------------------------------------------------------------
+
+def get_career_decision(chart_data):
+    """Career guidance from the chart (10th house, D10, Atmakaraka)."""
+    from .decisions import get_career_decision as _career
+    return to_json(_career(chart_data))
+
+
+def get_marriage_decision(chart_data):
+    """Marriage timing and readiness analysis."""
+    from .decisions import get_marriage_decision as _marriage
+    return to_json(_marriage(chart_data))
+
+
+def get_business_decision(chart_data):
+    """Business, investment, and financial timing guidance."""
+    from .decisions import get_business_decision as _business
+    return to_json(_business(chart_data))
+
+
+def get_health_decision(chart_data):
+    """Health vulnerabilities and risky periods."""
+    from .decisions import get_health_decision as _health
+    return to_json(_health(chart_data))
+
+
+def get_travel_decision(chart_data):
+    """Travel and relocation guidance (directions, foreign settlement)."""
+    from .decisions import get_travel_decision as _travel
+    return to_json(_travel(chart_data))
+
+
+def get_daily_guidance(chart_data):
+    """Daily/weekly guidance from transits, dasha, and panchanga."""
+    from .decisions import get_daily_guidance as _daily
+    return to_json(_daily(chart_data))
+
+
+def get_compatibility_decision(chart1, chart2):
+    """Compatibility analysis between two charts."""
+    from .decisions import get_compatibility_decision as _compat
+    return to_json(_compat(chart1, chart2))
+
+
+def get_education_decision(chart_data):
+    """Education field recommendations and timing."""
+    from .decisions import get_education_decision as _edu
+    return to_json(_edu(chart_data))
+
+
+def get_all_decisions(chart_data):
+    """All 7 single-chart decision categories at once."""
+    from .decisions import get_all_decisions as _all
+    return to_json(_all(chart_data))
+
+
+def get_all_decisions_with_compatibility(chart1, chart2):
+    """All 8 decision categories including compatibility."""
+    from .decisions import get_all_decisions_with_compatibility as _all_compat
+    return to_json(_all_compat(chart1, chart2))

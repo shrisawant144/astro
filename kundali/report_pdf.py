@@ -14,6 +14,8 @@ except ImportError:
 import os
 import datetime
 
+from . import decisions
+
 
 # ---------------------------------------------------------------------------
 # Colour palette (R, G, B)
@@ -326,6 +328,11 @@ def generate_pdf_report(result, output_path=None):
     # Page 12 – Chara Dasha
     # ================================================================
     _page_chara_dasha(pdf, result)
+
+    # ================================================================
+    # Page 13 – Life Guidance (Decision Engines)
+    # ================================================================
+    _page_decisions(pdf, result)
 
     pdf.output(output_path)
     return os.path.abspath(output_path)
@@ -1173,3 +1180,335 @@ def _page_chara_dasha(pdf, result):
         pdf.set_text_color(120, 120, 120)
         pdf.cell(0, 8, "Chara Dasha data not available in this chart.", ln=True)
         pdf.set_text_color(*TEXT_COLOR)
+
+
+# ---------------------------------------------------------------------------
+# Life Guidance / Decision Engines
+# ---------------------------------------------------------------------------
+
+def _page_decisions(pdf, result):
+    """Generate pages for all 7 decision engine outputs."""
+    
+    # Get all decisions at once
+    try:
+        all_decisions = decisions.get_all_decisions(result)
+    except Exception:
+        return  # Skip if decisions module fails
+    
+    if not all_decisions:
+        return
+
+    # ========== CAREER GUIDANCE ==========
+    career = all_decisions.get("career", {})
+    if career:
+        pdf.add_page()
+        pdf.section_title("Career Guidance")
+        
+        # Recommended Fields
+        fields = career.get("recommended_fields", [])
+        if fields:
+            pdf.sub_section("Recommended Career Fields")
+            for i, field in enumerate(fields[:10]):
+                pdf.set_font("Helvetica", "", 10)
+                pdf.cell(8, 6, f"{i+1}.", align="R")
+                pdf.cell(0, 6, f"  {field}", ln=True)
+        
+        # Current Period
+        period = career.get("current_period", {})
+        if period:
+            pdf.ln(3)
+            pdf.sub_section("Current Career Period")
+            items = [
+                ("Mahadasha", period.get("mahadasha", "-")),
+                ("Antardasha", period.get("antardasha", "-")),
+                ("Good for Career", "Yes" if period.get("good_for_career") else "No"),
+            ]
+            for i, (k, v) in enumerate(items):
+                pdf.kv_row(k, str(v), row_idx=i)
+        
+        # Advice
+        advice = career.get("advice", "")
+        if advice:
+            pdf.ln(3)
+            pdf.sub_section("Career Advice")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(advice)))
+        
+        # D10 Insights
+        d10 = career.get("d10_insights", [])
+        if d10:
+            pdf.ln(3)
+            pdf.sub_section("Dasamsa (D10) Insights")
+            for insight in d10[:5]:
+                pdf.set_font("Helvetica", "", 10)
+                pdf.multi_cell(pdf.epw, 5, f"• {pdf.normalize_text(str(insight))}")
+
+    # ========== MARRIAGE GUIDANCE ==========
+    marriage = all_decisions.get("marriage", {})
+    if marriage:
+        pdf.add_page()
+        pdf.section_title("Marriage & Relationships")
+        
+        # Readiness
+        readiness = marriage.get("readiness", "")
+        if readiness:
+            pdf.sub_section("Marriage Readiness")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(readiness)))
+        
+        # Favorable Windows
+        windows = marriage.get("favorable_windows", [])
+        if windows:
+            pdf.ln(3)
+            pdf.sub_section("Favorable Marriage Windows")
+            for i, window in enumerate(windows[:6]):
+                pdf.set_font("Helvetica", "", 10)
+                if isinstance(window, dict):
+                    period = window.get("period", window.get("window", str(window)))
+                    pdf.cell(0, 6, f"{i+1}. {period}", ln=True)
+                else:
+                    pdf.cell(0, 6, f"{i+1}. {window}", ln=True)
+        
+        # Spouse Characteristics
+        spouse = marriage.get("spouse_characteristics", {})
+        if spouse:
+            pdf.ln(3)
+            pdf.sub_section("Spouse Characteristics")
+            for i, (k, v) in enumerate(list(spouse.items())[:8]):
+                pdf.kv_row(str(k).replace("_", " ").title(), str(v), row_idx=i)
+        
+        # Advice
+        advice = marriage.get("advice", "")
+        if advice:
+            pdf.ln(3)
+            pdf.sub_section("Marriage Advice")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(advice)))
+
+    # ========== BUSINESS & FINANCE ==========
+    business = all_decisions.get("business", {})
+    if business:
+        pdf.add_page()
+        pdf.section_title("Business & Finance Guidance")
+        
+        # Business Aptitude
+        aptitude = business.get("aptitude", business.get("business_aptitude", ""))
+        if aptitude:
+            pdf.sub_section("Business Aptitude")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(aptitude)))
+        
+        # Recommended Sectors
+        sectors = business.get("recommended_sectors", business.get("sectors", []))
+        if sectors:
+            pdf.ln(3)
+            pdf.sub_section("Recommended Business Sectors")
+            for i, sector in enumerate(sectors[:8]):
+                pdf.set_font("Helvetica", "", 10)
+                pdf.cell(0, 6, f"{i+1}. {sector}", ln=True)
+        
+        # Financial Periods
+        fin_period = business.get("financial_period", business.get("current_period", {}))
+        if fin_period and isinstance(fin_period, dict):
+            pdf.ln(3)
+            pdf.sub_section("Current Financial Period")
+            for i, (k, v) in enumerate(list(fin_period.items())[:6]):
+                pdf.kv_row(str(k).replace("_", " ").title(), str(v), row_idx=i)
+        
+        # Investment Advice
+        invest = business.get("investment_advice", business.get("advice", ""))
+        if invest:
+            pdf.ln(3)
+            pdf.sub_section("Financial Advice")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(invest)))
+
+    # ========== HEALTH GUIDANCE ==========
+    health = all_decisions.get("health", {})
+    if health:
+        pdf.add_page()
+        pdf.section_title("Health Guidance")
+        
+        # Constitution
+        constitution = health.get("constitution", health.get("body_type", ""))
+        if constitution:
+            pdf.sub_section("Constitution & Body Type")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(constitution)))
+        
+        # Vulnerable Areas
+        areas = health.get("vulnerable_areas", health.get("health_concerns", []))
+        if areas:
+            pdf.ln(3)
+            pdf.sub_section("Areas Requiring Attention")
+            for i, area in enumerate(areas[:8]):
+                pdf.set_font("Helvetica", "", 10)
+                if isinstance(area, dict):
+                    name = area.get("area", area.get("name", str(area)))
+                    pdf.cell(0, 6, f"• {name}", ln=True)
+                else:
+                    pdf.cell(0, 6, f"• {area}", ln=True)
+        
+        # Favorable Practices
+        practices = health.get("favorable_practices", health.get("recommendations", []))
+        if practices:
+            pdf.ln(3)
+            pdf.sub_section("Recommended Health Practices")
+            for i, practice in enumerate(practices[:8]):
+                pdf.set_font("Helvetica", "", 10)
+                pdf.cell(0, 6, f"• {practice}", ln=True)
+        
+        # Health Advice
+        advice = health.get("advice", "")
+        if advice:
+            pdf.ln(3)
+            pdf.sub_section("Health Advice")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(advice)))
+
+    # ========== TRAVEL GUIDANCE ==========
+    travel = all_decisions.get("travel", {})
+    if travel:
+        pdf.add_page()
+        pdf.section_title("Travel & Relocation Guidance")
+        
+        # Favorable Directions
+        directions = travel.get("favorable_directions", travel.get("directions", []))
+        if directions:
+            pdf.sub_section("Favorable Directions")
+            for i, direction in enumerate(directions[:8]):
+                pdf.set_font("Helvetica", "", 10)
+                if isinstance(direction, dict):
+                    dir_name = direction.get("direction", str(direction))
+                    reason = direction.get("reason", "")
+                    text = f"• {dir_name}" + (f" — {reason}" if reason else "")
+                else:
+                    text = f"• {direction}"
+                pdf.cell(0, 6, text, ln=True)
+        
+        # Foreign Settlement
+        foreign = travel.get("foreign_settlement", travel.get("foreign", {}))
+        if foreign:
+            pdf.ln(3)
+            pdf.sub_section("Foreign Settlement Potential")
+            if isinstance(foreign, dict):
+                for i, (k, v) in enumerate(list(foreign.items())[:6]):
+                    pdf.kv_row(str(k).replace("_", " ").title(), str(v), row_idx=i)
+            else:
+                pdf.set_font("Helvetica", "", 10)
+                pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(foreign)))
+        
+        # Travel Timing
+        timing = travel.get("favorable_periods", travel.get("timing", []))
+        if timing:
+            pdf.ln(3)
+            pdf.sub_section("Favorable Travel Periods")
+            for i, period in enumerate(timing[:5]):
+                pdf.set_font("Helvetica", "", 10)
+                pdf.cell(0, 6, f"• {period}", ln=True)
+        
+        # Travel Advice
+        advice = travel.get("advice", "")
+        if advice:
+            pdf.ln(3)
+            pdf.sub_section("Travel Advice")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(advice)))
+
+    # ========== EDUCATION GUIDANCE ==========
+    education = all_decisions.get("education", {})
+    if education:
+        pdf.add_page()
+        pdf.section_title("Education Guidance")
+        
+        # Learning Style
+        style = education.get("learning_style", "")
+        if style:
+            pdf.sub_section("Learning Style")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(style)))
+        
+        # Recommended Fields
+        fields = education.get("recommended_fields", education.get("fields", []))
+        if fields:
+            pdf.ln(3)
+            pdf.sub_section("Recommended Fields of Study")
+            for i, field in enumerate(fields[:10]):
+                pdf.set_font("Helvetica", "", 10)
+                pdf.cell(0, 6, f"{i+1}. {field}", ln=True)
+        
+        # Academic Periods
+        periods = education.get("favorable_periods", education.get("academic_periods", []))
+        if periods:
+            pdf.ln(3)
+            pdf.sub_section("Favorable Academic Periods")
+            for i, period in enumerate(periods[:5]):
+                pdf.set_font("Helvetica", "", 10)
+                if isinstance(period, dict):
+                    pdf.cell(0, 6, f"• {period.get('period', str(period))}", ln=True)
+                else:
+                    pdf.cell(0, 6, f"• {period}", ln=True)
+        
+        # Education Advice
+        advice = education.get("advice", "")
+        if advice:
+            pdf.ln(3)
+            pdf.sub_section("Education Advice")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(advice)))
+
+    # ========== DAILY GUIDANCE ==========
+    daily = all_decisions.get("daily_guidance", {})
+    if daily:
+        pdf.add_page()
+        pdf.section_title("Daily Guidance & Muhurtha")
+        
+        # Today's Overview
+        overview = daily.get("overview", daily.get("today", ""))
+        if overview:
+            pdf.sub_section("Today's Overview")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(overview)))
+        
+        # Auspicious Activities
+        auspicious = daily.get("auspicious_activities", daily.get("favorable", []))
+        if auspicious:
+            pdf.ln(3)
+            pdf.sub_section("Auspicious Activities for Today")
+            for activity in auspicious[:8]:
+                pdf.set_font("Helvetica", "", 10)
+                pdf.cell(0, 6, f"• {activity}", ln=True)
+        
+        # Activities to Avoid
+        avoid = daily.get("activities_to_avoid", daily.get("unfavorable", []))
+        if avoid:
+            pdf.ln(3)
+            pdf.sub_section("Activities to Avoid")
+            for activity in avoid[:8]:
+                pdf.set_font("Helvetica", "", 10)
+                pdf.cell(0, 6, f"• {activity}", ln=True)
+        
+        # Lucky Elements
+        lucky = daily.get("lucky_elements", {})
+        if lucky:
+            pdf.ln(3)
+            pdf.sub_section("Lucky Elements")
+            items = []
+            if lucky.get("color"):
+                items.append(("Lucky Color", lucky["color"]))
+            if lucky.get("number"):
+                items.append(("Lucky Number", str(lucky["number"])))
+            if lucky.get("direction"):
+                items.append(("Lucky Direction", lucky["direction"]))
+            if lucky.get("gemstone"):
+                items.append(("Lucky Gemstone", lucky["gemstone"]))
+            for i, (k, v) in enumerate(items):
+                pdf.kv_row(k, v, row_idx=i)
+        
+        # Daily Advice
+        advice = daily.get("advice", daily.get("general_advice", ""))
+        if advice:
+            pdf.ln(3)
+            pdf.sub_section("Daily Advice")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(advice)))

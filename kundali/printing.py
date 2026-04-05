@@ -27,6 +27,247 @@ from .interpretations import (
     calculate_functional_strength_index,
     get_aspect_quality_score,
 )
+from . import decisions
+
+
+def _write_decisions_section(write, all_decisions):
+    """Write the Life Guidance / Decision Engines section to the report."""
+    
+    write("\n" + "═" * 95)
+    write(" LIFE GUIDANCE — Decision Engines")
+    write("═" * 95)
+    
+    # ── Career Guidance ──────────────────────────────────────────────────────
+    career = all_decisions.get("career", {})
+    if career:
+        write("\n┌─ CAREER GUIDANCE ─────────────────────────────────────────────────────────────────────┐")
+        
+        fields = career.get("recommended_fields", [])
+        if fields:
+            write("\n  Recommended Career Fields:")
+            for i, field in enumerate(fields[:10], 1):
+                write(f"    {i:2d}. {field}")
+        
+        period = career.get("current_period", {})
+        if period:
+            write("\n  Current Career Period:")
+            write(f"    Mahadasha   : {period.get('mahadasha', '-')}")
+            write(f"    Antardasha  : {period.get('antardasha', '-')}")
+            good = "Yes ✓" if period.get("good_for_career") else "No"
+            write(f"    Good Period : {good}")
+        
+        advice = career.get("advice", "")
+        if advice:
+            write(f"\n  Career Advice: {advice}")
+        
+        d10 = career.get("d10_insights", [])
+        if d10:
+            write("\n  Dasamsa (D10) Insights:")
+            for insight in d10[:5]:
+                write(f"    • {insight}")
+        
+        write("└" + "─" * 89 + "┘")
+
+    # ── Marriage Guidance ────────────────────────────────────────────────────
+    marriage = all_decisions.get("marriage", {})
+    if marriage:
+        write("\n┌─ MARRIAGE & RELATIONSHIPS ────────────────────────────────────────────────────────────┐")
+        
+        readiness = marriage.get("readiness", "")
+        if readiness:
+            write(f"\n  Marriage Readiness: {readiness}")
+        
+        windows = marriage.get("favorable_windows", [])
+        if windows:
+            write("\n  Favorable Marriage Windows:")
+            for i, window in enumerate(windows[:6], 1):
+                if isinstance(window, dict):
+                    period = window.get("period", window.get("window", str(window)))
+                    write(f"    {i}. {period}")
+                else:
+                    write(f"    {i}. {window}")
+        
+        spouse = marriage.get("spouse_characteristics", {})
+        if spouse:
+            write("\n  Spouse Characteristics:")
+            for k, v in list(spouse.items())[:8]:
+                label = str(k).replace("_", " ").title()
+                write(f"    {label:20}: {v}")
+        
+        advice = marriage.get("advice", "")
+        if advice:
+            write(f"\n  Marriage Advice: {advice}")
+        
+        write("└" + "─" * 89 + "┘")
+
+    # ── Business & Finance ───────────────────────────────────────────────────
+    business = all_decisions.get("business", {})
+    if business:
+        write("\n┌─ BUSINESS & FINANCE ──────────────────────────────────────────────────────────────────┐")
+        
+        aptitude = business.get("aptitude", business.get("business_aptitude", ""))
+        if aptitude:
+            write(f"\n  Business Aptitude: {aptitude}")
+        
+        sectors = business.get("recommended_sectors", business.get("sectors", []))
+        if sectors:
+            write("\n  Recommended Business Sectors:")
+            for i, sector in enumerate(sectors[:8], 1):
+                write(f"    {i}. {sector}")
+        
+        fin_period = business.get("financial_period", business.get("current_period", {}))
+        if fin_period and isinstance(fin_period, dict):
+            write("\n  Current Financial Period:")
+            for k, v in list(fin_period.items())[:6]:
+                label = str(k).replace("_", " ").title()
+                write(f"    {label:20}: {v}")
+        
+        invest = business.get("investment_advice", business.get("advice", ""))
+        if invest:
+            write(f"\n  Financial Advice: {invest}")
+        
+        write("└" + "─" * 89 + "┘")
+
+    # ── Health Guidance ──────────────────────────────────────────────────────
+    health = all_decisions.get("health", {})
+    if health:
+        write("\n┌─ HEALTH GUIDANCE ─────────────────────────────────────────────────────────────────────┐")
+        
+        constitution = health.get("constitution", health.get("body_type", ""))
+        if constitution:
+            write(f"\n  Constitution: {constitution}")
+        
+        areas = health.get("vulnerable_areas", health.get("health_concerns", []))
+        if areas:
+            write("\n  Areas Requiring Attention:")
+            for area in areas[:8]:
+                if isinstance(area, dict):
+                    name = area.get("area", area.get("name", str(area)))
+                    write(f"    • {name}")
+                else:
+                    write(f"    • {area}")
+        
+        practices = health.get("favorable_practices", health.get("recommendations", []))
+        if practices:
+            write("\n  Recommended Health Practices:")
+            for practice in practices[:8]:
+                write(f"    • {practice}")
+        
+        advice = health.get("advice", "")
+        if advice:
+            write(f"\n  Health Advice: {advice}")
+        
+        write("└" + "─" * 89 + "┘")
+
+    # ── Travel Guidance ──────────────────────────────────────────────────────
+    travel = all_decisions.get("travel", {})
+    if travel:
+        write("\n┌─ TRAVEL & RELOCATION ─────────────────────────────────────────────────────────────────┐")
+        
+        directions = travel.get("favorable_directions", travel.get("directions", []))
+        if directions:
+            write("\n  Favorable Directions:")
+            for direction in directions[:8]:
+                if isinstance(direction, dict):
+                    dir_name = direction.get("direction", str(direction))
+                    reason = direction.get("reason", "")
+                    text = f"    • {dir_name}" + (f" — {reason}" if reason else "")
+                else:
+                    text = f"    • {direction}"
+                write(text)
+        
+        foreign = travel.get("foreign_settlement", travel.get("foreign", {}))
+        if foreign:
+            write("\n  Foreign Settlement Potential:")
+            if isinstance(foreign, dict):
+                for k, v in list(foreign.items())[:6]:
+                    label = str(k).replace("_", " ").title()
+                    write(f"    {label:20}: {v}")
+            else:
+                write(f"    {foreign}")
+        
+        timing = travel.get("favorable_periods", travel.get("timing", []))
+        if timing:
+            write("\n  Favorable Travel Periods:")
+            for period in timing[:5]:
+                write(f"    • {period}")
+        
+        advice = travel.get("advice", "")
+        if advice:
+            write(f"\n  Travel Advice: {advice}")
+        
+        write("└" + "─" * 89 + "┘")
+
+    # ── Education Guidance ───────────────────────────────────────────────────
+    education = all_decisions.get("education", {})
+    if education:
+        write("\n┌─ EDUCATION GUIDANCE ──────────────────────────────────────────────────────────────────┐")
+        
+        style = education.get("learning_style", "")
+        if style:
+            write(f"\n  Learning Style: {style}")
+        
+        fields = education.get("recommended_fields", education.get("fields", []))
+        if fields:
+            write("\n  Recommended Fields of Study:")
+            for i, field in enumerate(fields[:10], 1):
+                write(f"    {i:2d}. {field}")
+        
+        periods = education.get("favorable_periods", education.get("academic_periods", []))
+        if periods:
+            write("\n  Favorable Academic Periods:")
+            for period in periods[:5]:
+                if isinstance(period, dict):
+                    write(f"    • {period.get('period', str(period))}")
+                else:
+                    write(f"    • {period}")
+        
+        advice = education.get("advice", "")
+        if advice:
+            write(f"\n  Education Advice: {advice}")
+        
+        write("└" + "─" * 89 + "┘")
+
+    # ── Daily Guidance ───────────────────────────────────────────────────────
+    daily = all_decisions.get("daily_guidance", {})
+    if daily:
+        write("\n┌─ DAILY GUIDANCE & MUHURTHA ───────────────────────────────────────────────────────────┐")
+        
+        overview = daily.get("overview", daily.get("today", ""))
+        if overview:
+            write(f"\n  Today's Overview: {overview}")
+        
+        auspicious = daily.get("auspicious_activities", daily.get("favorable", []))
+        if auspicious:
+            write("\n  Auspicious Activities for Today:")
+            for activity in auspicious[:8]:
+                write(f"    ✓ {activity}")
+        
+        avoid = daily.get("activities_to_avoid", daily.get("unfavorable", []))
+        if avoid:
+            write("\n  Activities to Avoid:")
+            for activity in avoid[:8]:
+                write(f"    ✗ {activity}")
+        
+        lucky = daily.get("lucky_elements", {})
+        if lucky:
+            write("\n  Lucky Elements:")
+            if lucky.get("color"):
+                write(f"    Color     : {lucky['color']}")
+            if lucky.get("number"):
+                write(f"    Number    : {lucky['number']}")
+            if lucky.get("direction"):
+                write(f"    Direction : {lucky['direction']}")
+            if lucky.get("gemstone"):
+                write(f"    Gemstone  : {lucky['gemstone']}")
+        
+        advice = daily.get("advice", daily.get("general_advice", ""))
+        if advice:
+            write(f"\n  Daily Advice: {advice}")
+        
+        write("└" + "─" * 89 + "┘")
+
+    write("")
 
 
 def print_kundali(result, file=None):
@@ -965,7 +1206,13 @@ def print_kundali(result, file=None):
         write("\nPDF Report:")
         write("-" * 85)
         write(f"  Full report saved to: {pdf_path}")
-
+    # ── Life Guidance (Decision Engines) ─────────────────────────────────────────────
+    try:
+        all_decisions = decisions.get_all_decisions(result)
+        if all_decisions:
+            _write_decisions_section(write, all_decisions)
+    except Exception:
+        pass  # Skip if decisions module fails
     write("\n" + result.get("final_analysis", ""))
     write("\nNote: Highest probability when dasha + transit + gochara align.")
     birth_year = result.get("birth_year", "N/A")

@@ -21,6 +21,15 @@ from kundali.api import (
     serialize_result,
     to_json,
     PLANET_FULL,
+    get_career_decision,
+    get_marriage_decision,
+    get_business_decision,
+    get_health_decision,
+    get_travel_decision,
+    get_daily_guidance,
+    get_compatibility_decision,
+    get_education_decision,
+    get_all_decisions,
 )
 
 app = FastAPI(
@@ -1944,3 +1953,371 @@ async def transit_calendar_endpoint(data: BirthData, months: int = 12):
 
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc) + "\n" + traceback.format_exc())
+
+
+# ---------------------------------------------------------------------------
+# Decision Engine Endpoints
+# ---------------------------------------------------------------------------
+
+@app.post("/decisions/career")
+async def career_decision(data: BirthData):
+    """
+    🎯 **Career Decision Engine**
+    
+    Analyze the chart for career guidance based on:
+    - 10th house lord and planets
+    - D10 (Dasamsa) chart analysis
+    - Atmakaraka placement
+    - Current dasha period
+    - Ashtakavarga strength
+    
+    Returns recommended career fields, current period analysis, and actionable advice.
+    """
+    try:
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        result = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
+        )
+        return to_json(get_career_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/decisions/career/simple")
+async def career_decision_simple(
+    name: str = Query(..., description="Name of the person"),
+    date: str = Query(..., description="Birth date (YYYY-MM-DD)"),
+    time: str = Query(..., description="Birth time (HH:MM)"),
+    place: str = Query(..., description="Birth place"),
+    gender: str = Query("Male"),
+    ayanamsa: str = Query("Lahiri"),
+):
+    """🎯 Career guidance via URL parameters."""
+    try:
+        result = api_calculate(date, time, place, gender=gender, ayanamsa=ayanamsa, name=name)
+        return to_json(get_career_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/decisions/marriage")
+async def marriage_decision(data: BirthData):
+    """
+    💍 **Marriage Decision Engine**
+    
+    Analyze optimal marriage timing based on:
+    - 7th house lord and Venus condition
+    - Dasha periods favorable for marriage
+    - Transit triggers (Jupiter, Venus over 7th)
+    - Manglik/Kuja dosha assessment
+    
+    Returns marriage windows, favorable periods, and relationship advice.
+    """
+    try:
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        result = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
+        )
+        return to_json(get_marriage_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/decisions/marriage/simple")
+async def marriage_decision_simple(
+    name: str = Query(..., description="Name of the person"),
+    date: str = Query(..., description="Birth date (YYYY-MM-DD)"),
+    time: str = Query(..., description="Birth time (HH:MM)"),
+    place: str = Query(..., description="Birth place"),
+    gender: str = Query("Male"),
+    ayanamsa: str = Query("Lahiri"),
+):
+    """💍 Marriage timing guidance via URL parameters."""
+    try:
+        result = api_calculate(date, time, place, gender=gender, ayanamsa=ayanamsa, name=name)
+        return to_json(get_marriage_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/decisions/business")
+async def business_decision(data: BirthData):
+    """
+    💼 **Business Decision Engine**
+    
+    Analyze business and investment timing based on:
+    - 2nd, 10th, 11th house analysis (wealth houses)
+    - Current dasha for financial gains/losses
+    - Saturn and Jupiter transit effects
+    - Ashtakavarga strength in wealth houses
+    
+    Returns business timing advice, investment windows, and risk periods.
+    """
+    try:
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        result = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
+        )
+        return to_json(get_business_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/decisions/business/simple")
+async def business_decision_simple(
+    name: str = Query(..., description="Name of the person"),
+    date: str = Query(..., description="Birth date (YYYY-MM-DD)"),
+    time: str = Query(..., description="Birth time (HH:MM)"),
+    place: str = Query(..., description="Birth place"),
+    gender: str = Query("Male"),
+    ayanamsa: str = Query("Lahiri"),
+):
+    """💼 Business & investment guidance via URL parameters."""
+    try:
+        result = api_calculate(date, time, place, gender=gender, ayanamsa=ayanamsa, name=name)
+        return to_json(get_business_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/decisions/health")
+async def health_decision(data: BirthData):
+    """
+    🏥 **Health Decision Engine**
+    
+    Analyze health vulnerabilities based on:
+    - 6th house (disease), 8th house (chronic), 12th house (hospitalization)
+    - Weak/afflicted planets and their body parts
+    - Current dasha health implications
+    - Vulnerable periods to watch
+    
+    Returns health focus areas, vulnerable periods, and preventive advice.
+    """
+    try:
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        result = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
+        )
+        return to_json(get_health_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/decisions/health/simple")
+async def health_decision_simple(
+    name: str = Query(..., description="Name of the person"),
+    date: str = Query(..., description="Birth date (YYYY-MM-DD)"),
+    time: str = Query(..., description="Birth time (HH:MM)"),
+    place: str = Query(..., description="Birth place"),
+    gender: str = Query("Male"),
+    ayanamsa: str = Query("Lahiri"),
+):
+    """🏥 Health guidance via URL parameters."""
+    try:
+        result = api_calculate(date, time, place, gender=gender, ayanamsa=ayanamsa, name=name)
+        return to_json(get_health_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/decisions/travel")
+async def travel_decision(data: BirthData):
+    """
+    ✈️ **Travel Decision Engine**
+    
+    Analyze travel and relocation guidance based on:
+    - 3rd house (short travel), 9th house (long travel), 12th house (foreign)
+    - Rahu/Ketu axis for foreign connections
+    - Best directions based on planetary strengths
+    - Current dasha for travel timing
+    
+    Returns favorable directions, travel timing, and relocation advice.
+    """
+    try:
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        result = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
+        )
+        return to_json(get_travel_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/decisions/travel/simple")
+async def travel_decision_simple(
+    name: str = Query(..., description="Name of the person"),
+    date: str = Query(..., description="Birth date (YYYY-MM-DD)"),
+    time: str = Query(..., description="Birth time (HH:MM)"),
+    place: str = Query(..., description="Birth place"),
+    gender: str = Query("Male"),
+    ayanamsa: str = Query("Lahiri"),
+):
+    """✈️ Travel & relocation guidance via URL parameters."""
+    try:
+        result = api_calculate(date, time, place, gender=gender, ayanamsa=ayanamsa, name=name)
+        return to_json(get_travel_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/decisions/daily")
+async def daily_guidance(data: BirthData):
+    """
+    📅 **Daily Guidance Engine**
+    
+    Get personalized guidance for today based on:
+    - Current transits over natal chart
+    - Pancha Pakshi system (5-bird activity)
+    - Moon transit and Tarabala
+    - Hora (planetary hour) recommendations
+    
+    Returns today's favorable/unfavorable activities and timing.
+    """
+    try:
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        result = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
+        )
+        return to_json(get_daily_guidance(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/decisions/daily/simple")
+async def daily_guidance_simple(
+    name: str = Query(..., description="Name of the person"),
+    date: str = Query(..., description="Birth date (YYYY-MM-DD)"),
+    time: str = Query(..., description="Birth time (HH:MM)"),
+    place: str = Query(..., description="Birth place"),
+    gender: str = Query("Male"),
+    ayanamsa: str = Query("Lahiri"),
+):
+    """📅 Daily guidance via URL parameters."""
+    try:
+        result = api_calculate(date, time, place, gender=gender, ayanamsa=ayanamsa, name=name)
+        return to_json(get_daily_guidance(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/decisions/education")
+async def education_decision(data: BirthData):
+    """
+    📚 **Education Decision Engine**
+    
+    Analyze best fields of study based on:
+    - 4th house (basic education), 5th house (higher learning)
+    - D24 (Siddhamsa) chart for educational specialization
+    - Mercury and Jupiter strength
+    - Current dasha for learning periods
+    
+    Returns recommended fields, learning style, and academic timing.
+    """
+    try:
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        result = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
+        )
+        return to_json(get_education_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/decisions/education/simple")
+async def education_decision_simple(
+    name: str = Query(..., description="Name of the person"),
+    date: str = Query(..., description="Birth date (YYYY-MM-DD)"),
+    time: str = Query(..., description="Birth time (HH:MM)"),
+    place: str = Query(..., description="Birth place"),
+    gender: str = Query("Male"),
+    ayanamsa: str = Query("Lahiri"),
+):
+    """📚 Education guidance via URL parameters."""
+    try:
+        result = api_calculate(date, time, place, gender=gender, ayanamsa=ayanamsa, name=name)
+        return to_json(get_education_decision(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/decisions/compatibility")
+async def compatibility_decision(req: MatchRequest):
+    """
+    💑 **Compatibility Decision Engine**
+    
+    Deep compatibility analysis between two people:
+    - Ashtakoot Guna Milan (36 points)
+    - Manglik dosha comparison
+    - Nakshatra compatibility
+    - Dasha synchronization
+    
+    Returns compatibility score, detailed breakdown, and relationship advice.
+    """
+    try:
+        def _calc(bd: BirthData):
+            birth_date = f"{bd.year:04d}-{bd.month:02d}-{bd.day:02d}"
+            birth_time = f"{bd.hour:02d}:{bd.minute:02d}"
+            return api_calculate(
+                birth_date, birth_time, bd.place,
+                gender=bd.gender, ayanamsa=bd.ayanamsa, name=bd.name,
+            )
+
+        r1 = _calc(req.person1)
+        r2 = _calc(req.person2)
+        return to_json(get_compatibility_decision(r1, r2))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/decisions/all")
+async def all_decisions(data: BirthData):
+    """
+    🌟 **All Decisions Engine**
+    
+    Get comprehensive life guidance across all 8 decision areas:
+    - Career, Marriage, Business, Health
+    - Travel, Daily, Education
+    
+    Returns a complete decision report for holistic life planning.
+    """
+    try:
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        result = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
+        )
+        return to_json(get_all_decisions(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/decisions/all/simple")
+async def all_decisions_simple(
+    name: str = Query(..., description="Name of the person"),
+    date: str = Query(..., description="Birth date (YYYY-MM-DD)"),
+    time: str = Query(..., description="Birth time (HH:MM)"),
+    place: str = Query(..., description="Birth place"),
+    gender: str = Query("Male"),
+    ayanamsa: str = Query("Lahiri"),
+):
+    """🌟 All decisions via URL parameters."""
+    try:
+        result = api_calculate(date, time, place, gender=gender, ayanamsa=ayanamsa, name=name)
+        return to_json(get_all_decisions(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
