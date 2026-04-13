@@ -28,6 +28,21 @@ class TestApiCalculate:
     def test_has_planets(self, result):
         assert "planets" in result
 
+    def test_supports_precise_location_inputs(self):
+        from kundali.api import calculate
+
+        result = calculate(
+            MUMBAI_BIRTH["date"],
+            MUMBAI_BIRTH["time"],
+            "",
+            gender=MUMBAI_BIRTH["gender"],
+            latitude=19.0760,
+            longitude=72.8777,
+            timezone_name="Asia/Kolkata",
+        )
+        assert result["location_source"] == "coordinates"
+        assert result["timezone_source"] == "manual"
+
 
 class TestSerializeResult:
     """Test that serialize_result produces JSON-safe output."""
@@ -84,6 +99,14 @@ class TestSerializeResult:
         assert "life_analysis" in serialized
         assert isinstance(serialized["life_analysis"], dict)
 
+    def test_has_accuracy_metadata(self, serialized):
+        assert "input_quality" in serialized
+        assert isinstance(serialized["input_quality"], dict)
+        assert "birth_time_rectification" in serialized
+        assert isinstance(serialized["birth_time_rectification"], dict)
+        assert "decision_confidence_summary" in serialized
+        assert isinstance(serialized["decision_confidence_summary"], dict)
+
 
 class TestToJson:
     """Test the to_json serializer handles edge cases."""
@@ -106,3 +129,28 @@ class TestToJson:
         import datetime
         dt = datetime.datetime(2024, 1, 15, 10, 30)
         assert to_json(dt) == "2024-01-15T10:30:00"
+
+
+class TestBenchmarkApi:
+    def test_run_benchmark(self):
+        from kundali.api import run_benchmark
+
+        result = run_benchmark(
+            cases=[
+                {
+                    "id": "api_benchmark",
+                    "birth": {
+                        "date": MUMBAI_BIRTH["date"],
+                        "time": MUMBAI_BIRTH["time"],
+                        "place": MUMBAI_BIRTH["place"],
+                        "gender": MUMBAI_BIRTH["gender"],
+                    },
+                    "expectations": [
+                        {"path": "chart.birth_place", "equals": MUMBAI_BIRTH["place"]},
+                    ],
+                }
+            ]
+        )
+
+        assert result["total_cases"] == 1
+        assert result["cases"][0]["status"] == "PASS"

@@ -63,6 +63,7 @@ def test_decision_pages_render_runtime_payload_keys(chart):
     pdf_bytes = _pdf_bytes(lambda pdf: _page_decisions(pdf, chart))
 
     expected_titles = [
+        b"Prediction Confidence & Data Quality",
         b"Current Career Dasha",
         b"Favorable Marriage Periods",
         b"Financial Advice",

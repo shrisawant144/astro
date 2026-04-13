@@ -108,6 +108,74 @@ def _ordinal(n):
     return f"{n}{suffix}"
 
 
+def _clean_items(items, limit=6):
+    seen = set()
+    cleaned = []
+    for item in items or []:
+        text = str(item or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        cleaned.append(text)
+        if len(cleaned) >= limit:
+            break
+    return cleaned
+
+
+def _confidence_label(score):
+    if score >= 85:
+        return "High"
+    if score >= 70:
+        return "Good"
+    if score >= 55:
+        return "Moderate"
+    return "Low"
+
+
+def _attach_confidence(payload, supporting=None, limiting=None, base=48, result=None):
+    supporting = _clean_items(supporting, limit=6)
+    limiting = _clean_items(limiting, limit=4)
+
+    score = base + min(28, len(supporting) * 8) - min(24, len(limiting) * 5)
+    if not supporting:
+        score -= 10
+
+    if isinstance(result, dict):
+        input_quality = result.get("input_quality", {}) or {}
+        input_score = input_quality.get("score")
+        if isinstance(input_score, (int, float)):
+            if input_score >= 85:
+                score += 4
+            elif input_score >= 70:
+                score += 1
+            elif input_score < 55:
+                score -= 8
+            else:
+                score -= 3
+
+        rectification = result.get("birth_time_rectification", {}) or {}
+        if rectification.get("applied"):
+            supporting = _clean_items(
+                supporting + ["Birth time rectification has been applied"], limit=6
+            )
+            score += 3
+        elif rectification.get("confidence_score", 0) >= 75:
+            limiting = _clean_items(
+                limiting + ["Strong rectification signal is available but not applied"],
+                limit=4,
+            )
+            score -= 4
+
+    score = max(20, min(95, score))
+
+    payload["confidence_score"] = score
+    payload["confidence_label"] = _confidence_label(score)
+    payload["confidence_factors"] = supporting
+    if limiting:
+        payload["confidence_limiters"] = limiting
+    return payload
+
+
 # ===================================================================
 # 1. CAREER DECISIONS
 # ===================================================================
@@ -227,7 +295,7 @@ def get_career_decision(result):
         extras.append("Current dasha is not primarily career-focused -- consolidate rather than switch.")
     advice = advice + " " + " ".join(extras)
 
-    return {
+    payload = {
         "tenth_house_sign": tenth_sign,
         "tenth_lord": full10,
         "tenth_lord_sign": lord10_sign,
@@ -243,6 +311,25 @@ def get_career_decision(result):
         "tenth_house_ashtakavarga_bindus": tenth_bindus,
         "advice": advice,
     }
+    supporting = []
+    limiting = []
+    if lord10_sign:
+        supporting.append(f"10th lord is placed in {lord10_sign}")
+    if lord10_strength in ("strong", "moderate"):
+        supporting.append(f"10th lord strength is {lord10_strength}")
+    else:
+        limiting.append("10th lord is weak")
+    if d10_insights:
+        supporting.append("D10 confirms career themes")
+    else:
+        limiting.append("D10 confirmation is limited")
+    if dasha_career:
+        supporting.append("Current dasha supports career themes")
+    if isinstance(tenth_bindus, (int, float)) and tenth_bindus > 0:
+        supporting.append(f"Ashtakavarga bindus available for 10th house ({tenth_bindus})")
+    if not good_period:
+        limiting.append("Current dasha favors consolidation over major career shifts")
+    return _attach_confidence(payload, supporting, limiting, base=50, result=result)
 
 
 # ===================================================================
@@ -322,7 +409,7 @@ def get_marriage_decision(result):
     else:
         parts.append("Current dasha is not primarily marriage-oriented -- wait for a favorable window.")
 
-    return {
+    payload = {
         "seventh_house_sign": zodiac_signs[(zodiac_signs.index(lagna) + 6) % 12],
         "seventh_lord": short_to_full.get(lord7, lord7),
         "seventh_lord_sign": lord7_sign,
@@ -339,6 +426,31 @@ def get_marriage_decision(result):
         "upapadha_lagna": upapadha if isinstance(upapadha, str) else str(upapadha),
         "advice": " ".join(parts),
     }
+    supporting = []
+    limiting = []
+    if lord7_sign:
+        supporting.append(f"7th lord is placed in {lord7_sign}")
+    if lord7_strength in ("strong", "moderate"):
+        supporting.append(f"7th lord strength is {lord7_strength}")
+    else:
+        limiting.append("7th lord is weak")
+    if venus_strength in ("strong", "moderate"):
+        supporting.append(f"Venus strength is {venus_strength}")
+    else:
+        limiting.append("Venus is weak")
+    if marriage_periods:
+        supporting.append("Marriage timing windows are available")
+    else:
+        limiting.append("Marriage timing windows are thin")
+    if favorable_dasha:
+        supporting.append("Current dasha supports marriage")
+    if ve_d9_sign:
+        supporting.append("Navamsa Venus is available for confirmation")
+    if blockers:
+        limiting.append(f"Blocking factors present ({len(blockers)})")
+    if sade_sati_active:
+        limiting.append("Sade Sati may delay marriage decisions")
+    return _attach_confidence(payload, supporting, limiting, base=50, result=result)
 
 
 # ===================================================================
@@ -413,7 +525,7 @@ def get_business_decision(result):
         elif jup_house in (6, 8, 12):
             parts.append(f"Jupiter transiting {jup_house}th from Moon -- be cautious with finances.")
 
-    return {
+    payload = {
         "second_lord": short_to_full.get(lord2, lord2),
         "eleventh_lord": short_to_full.get(lord11, lord11),
         "ninth_lord": short_to_full.get(lord9, lord9),
@@ -428,6 +540,27 @@ def get_business_decision(result):
         "upcoming_transits_30_days": upcoming[:10] if isinstance(upcoming, list) else [],
         "advice": " ".join(parts),
     }
+    supporting = []
+    limiting = []
+    if wealth_yogas:
+        supporting.append(f"Wealth yogas detected ({len(wealth_yogas)})")
+    else:
+        limiting.append("No major wealth yogas were detected")
+    if good_for_business:
+        supporting.append("Current dasha supports business growth")
+    else:
+        limiting.append("Current dasha is not wealth-oriented")
+    if spec_strength in ("strong", "moderate"):
+        supporting.append(f"5th lord speculation strength is {spec_strength}")
+    else:
+        limiting.append("5th lord is weak for speculative moves")
+    if isinstance(jup_house, int) and jup_house in (2, 5, 9, 11):
+        supporting.append(f"Jupiter transit from Moon is supportive ({jup_house}th)")
+    elif isinstance(jup_house, int) and jup_house in (6, 8, 12):
+        limiting.append(f"Jupiter transit from Moon is cautionary ({jup_house}th)")
+    if isinstance(muhurtha_score, (int, float)) and muhurtha_score > 0:
+        supporting.append("Muhurtha score is available")
+    return _attach_confidence(payload, supporting, limiting, base=48, result=result)
 
 
 # ===================================================================
@@ -519,7 +652,7 @@ def get_health_decision(result):
     if sade_sati_active:
         parts.append("Sade Sati period -- mental and physical stress likely; practice meditation.")
 
-    return {
+    payload = {
         "lagna_lord": short_to_full.get(lord1, lord1),
         "lagna_lord_strength": vitality,
         "sixth_lord": short_to_full.get(lord6, lord6),
@@ -535,6 +668,23 @@ def get_health_decision(result):
         "overall_vitality": vitality,
         "advice": " ".join(parts),
     }
+    supporting = []
+    limiting = []
+    if vitality in ("strong", "moderate"):
+        supporting.append(f"Lagna lord vitality is {vitality}")
+    else:
+        limiting.append("Lagna lord is weak")
+    if not vulnerabilities:
+        supporting.append("No major debilitated or combust health triggers were found")
+    else:
+        limiting.append(f"Health vulnerabilities detected ({len(vulnerabilities)})")
+    if not risky_dasha:
+        supporting.append("Current dasha is not focused on disease houses")
+    else:
+        limiting.append("Current dasha activates disease houses")
+    if sade_sati_active:
+        limiting.append("Sade Sati can amplify stress load")
+    return _attach_confidence(payload, supporting, limiting, base=50, result=result)
 
 
 # ===================================================================
@@ -619,7 +769,7 @@ def get_travel_decision(result):
     else:
         parts.append("Current dasha is not travel-focused -- prefer stability for now.")
 
-    return {
+    payload = {
         "fourth_lord_home": short_to_full.get(lord4, lord4),
         "ninth_lord_travel": short_to_full.get(lord9, lord9),
         "twelfth_lord_foreign": short_to_full.get(lord12, lord12),
@@ -636,6 +786,21 @@ def get_travel_decision(result):
         "good_period_for_travel": good_for_travel,
         "advice": " ".join(parts),
     }
+    supporting = []
+    limiting = []
+    if foreign_indicators > 0:
+        supporting.append(f"Foreign-travel indicators present ({foreign_indicators})")
+    else:
+        limiting.append("Foreign-travel indicators are minimal")
+    if rahu_house in (4, 9, 12):
+        supporting.append(f"Rahu supports relocation themes from the {rahu_house}th house")
+    if good_for_travel:
+        supporting.append("Current dasha supports travel and relocation")
+    else:
+        limiting.append("Current dasha is not travel-focused")
+    if planets_in_12:
+        supporting.append("12th-house placements reinforce foreign links")
+    return _attach_confidence(payload, supporting, limiting, base=46, result=result)
 
 
 # ===================================================================
@@ -725,7 +890,7 @@ def get_daily_guidance(result):
     if not tips:
         tips.append("Follow your regular routine and remain mindful of opportunities.")
 
-    return {
+    payload = {
         "day_rating": day_rating,
         "day_score": score,
         "current_dasha": dasha,
@@ -738,6 +903,19 @@ def get_daily_guidance(result):
         "muhurtha_grade": muhurtha_grade,
         "daily_tips": tips,
     }
+    supporting = []
+    limiting = []
+    if favorable:
+        supporting.append(f"Supportive transits detected ({len(favorable)})")
+    if challenging:
+        limiting.append(f"Challenging transits detected ({len(challenging)})")
+    if panchanga_info:
+        supporting.append("Panchanga data is available")
+    if pakshi_info:
+        supporting.append("Pancha Pakshi data is available")
+    if muhurtha_score:
+        supporting.append(f"Muhurtha score available ({muhurtha_score})")
+    return _attach_confidence(payload, supporting, limiting, base=52, result=result)
 
 
 # ===================================================================
@@ -817,7 +995,7 @@ def get_compatibility_decision(result1, result2):
     else:
         parts.append("Mangal Dosha mismatch detected -- perform recommended remedies before marriage.")
 
-    return {
+    payload = {
         "person1": {
             "lagna": lagna1,
             "moon_sign": moon1,
@@ -841,6 +1019,25 @@ def get_compatibility_decision(result1, result2):
         "verdict": verdict,
         "advice": " ".join(parts),
     }
+    supporting = []
+    limiting = []
+    if moon1 and moon2:
+        supporting.append("Both Moon signs are available")
+    else:
+        limiting.append("Moon-sign comparison is incomplete")
+    if nak1 and nak2:
+        supporting.append("Both nakshatras are available")
+    if ve1_sign and ve2_sign:
+        supporting.append("Both Venus placements are available")
+    else:
+        limiting.append("Venus comparison is incomplete")
+    if mangal_match:
+        supporting.append("Mangal Dosha status is matched")
+    else:
+        limiting.append("Mangal Dosha mismatch is present")
+    if lagna_compatible:
+        supporting.append("Ascendant compatibility is supportive")
+    return _attach_confidence(payload, supporting, limiting, base=50, result=result1)
 
 
 # ===================================================================
@@ -962,7 +1159,7 @@ def get_education_decision(result):
     else:
         parts.append("Current dasha is not education-focused -- apply existing knowledge.")
 
-    return {
+    payload = {
         "fourth_house_sign": fourth_sign,
         "fifth_house_sign": fifth_sign,
         "fourth_lord": short_to_full.get(lord4, lord4),
@@ -979,6 +1176,25 @@ def get_education_decision(result):
         "academic_ability_score": ability_score,
         "advice": " ".join(parts),
     }
+    supporting = []
+    limiting = []
+    if mercury_strength in ("strong", "moderate"):
+        supporting.append(f"Mercury strength is {mercury_strength}")
+    else:
+        limiting.append("Mercury is weak")
+    if jupiter_strength in ("strong", "moderate"):
+        supporting.append(f"Jupiter strength is {jupiter_strength}")
+    else:
+        limiting.append("Jupiter is weak")
+    if d24_insights:
+        supporting.append("D24 provides educational confirmation")
+    else:
+        limiting.append("D24 educational confirmation is limited")
+    if good_for_education:
+        supporting.append("Current dasha supports study and certifications")
+    if ranked:
+        supporting.append("Multiple education fields are supported")
+    return _attach_confidence(payload, supporting, limiting, base=50, result=result)
 
 
 # ===================================================================
@@ -997,7 +1213,24 @@ def get_life_analysis(result):
         "travel": get_travel_decision(result),
         "education": get_education_decision(result),
     }
-    return build_life_analysis(result, decision_bundle)
+    analysis = build_life_analysis(result, decision_bundle)
+    supporting = []
+    limiting = []
+    domains = analysis.get("life_domains", {})
+    if domains:
+        supporting.append(f"Life-domain synthesis covers {len(domains)} domains")
+    else:
+        limiting.append("Life-domain synthesis is incomplete")
+    if analysis.get("timing_overview"):
+        supporting.append("Timing overview is available")
+    else:
+        limiting.append("Timing overview is limited")
+    longevity = analysis.get("longevity_profile", {})
+    if longevity.get("protective_factors"):
+        supporting.append("Protective longevity factors were identified")
+    if longevity.get("risk_factors"):
+        supporting.append("Risk concentration factors were identified")
+    return _attach_confidence(analysis, supporting, limiting, base=55, result=result)
 
 
 # ===================================================================
@@ -1006,7 +1239,7 @@ def get_life_analysis(result):
 
 def get_all_decisions(result):
     """Return all single-chart decision categories including life analysis."""
-    return {
+    decisions = {
         "career": get_career_decision(result),
         "marriage": get_marriage_decision(result),
         "business": get_business_decision(result),
@@ -1016,10 +1249,35 @@ def get_all_decisions(result):
         "education": get_education_decision(result),
         "life_analysis": get_life_analysis(result),
     }
+    confidence_scores = {
+        key: value.get("confidence_score")
+        for key, value in decisions.items()
+        if isinstance(value, dict) and isinstance(value.get("confidence_score"), (int, float))
+    }
+    if confidence_scores:
+        average_score = int(round(sum(confidence_scores.values()) / len(confidence_scores)))
+        decisions["confidence_summary"] = {
+            "average_score": average_score,
+            "label": _confidence_label(average_score),
+            "categories": confidence_scores,
+        }
+    return decisions
 
 
 def get_all_decisions_with_compatibility(result1, result2):
     """Return all categories including compatibility (needs two charts)."""
     decisions = get_all_decisions(result1)
     decisions["compatibility"] = get_compatibility_decision(result1, result2)
+    confidence_scores = {
+        key: value.get("confidence_score")
+        for key, value in decisions.items()
+        if isinstance(value, dict) and isinstance(value.get("confidence_score"), (int, float))
+    }
+    if confidence_scores:
+        average_score = int(round(sum(confidence_scores.values()) / len(confidence_scores)))
+        decisions["confidence_summary"] = {
+            "average_score": average_score,
+            "label": _confidence_label(average_score),
+            "categories": confidence_scores,
+        }
     return decisions

@@ -30,6 +30,66 @@ from .interpretations import (
 from . import decisions
 
 
+def _format_confidence(value):
+    if not isinstance(value, dict):
+        return ""
+    score = value.get("confidence_score")
+    label = value.get("confidence_label")
+    if score is None and not label:
+        return ""
+    if score is None:
+        return str(label)
+    if label:
+        return f"{score}/100 ({label})"
+    return f"{score}/100"
+
+
+def _write_prediction_quality_section(write, result, all_decisions):
+    input_quality = result.get("input_quality", {})
+    rectification = result.get("birth_time_rectification", {})
+    confidence_summary = all_decisions.get("confidence_summary", {})
+
+    if not any((input_quality, rectification, confidence_summary)):
+        return
+
+    write("\n┌─ PREDICTION CONFIDENCE & DATA QUALITY ───────────────────────────────────────────────┐")
+
+    if input_quality:
+        write("\n  Input Quality:")
+        write(
+            f"    Score        : {input_quality.get('score', '-')}/100 ({input_quality.get('label', '-')})"
+        )
+        write(f"    Place Detail : {input_quality.get('birth_place_specificity', '-')}")
+        write(f"    Location Src : {result.get('location_source', input_quality.get('location_source', '-'))}")
+        write(f"    Timezone     : {result.get('timezone', input_quality.get('timezone', '-'))}")
+        warnings = input_quality.get("warnings", [])
+        for warning in warnings[:3]:
+            write(f"    ! {warning}")
+
+    if rectification:
+        write("\n  Birth Time Rectification:")
+        write(f"    Applied      : {'Yes' if rectification.get('applied') else 'No'}")
+        if rectification.get("corrected_birth_time"):
+            write(f"    Corrected    : {rectification.get('corrected_birth_time')}")
+        if rectification.get("confidence_score") is not None:
+            write(
+                f"    Confidence   : {rectification.get('confidence_score')}/100 ({rectification.get('confidence_label', '-')})"
+            )
+        if rectification.get("applied_reason"):
+            write(f"    Note         : {rectification.get('applied_reason')}")
+
+    if confidence_summary:
+        write("\n  Overall Prediction Confidence:")
+        write(
+            f"    Average      : {confidence_summary.get('average_score', '-')}/100 ({confidence_summary.get('label', '-')})"
+        )
+        for name, score in list((confidence_summary.get("categories", {}) or {}).items())[:8]:
+            label = str(name).replace("_", " ").title()
+            write(f"    {label:16}: {score}/100")
+
+    write("└" + "─" * 89 + "┘")
+
+
 def _write_decisions_section(write, all_decisions):
     """Write the Life Guidance / Decision Engines section to the report."""
     
@@ -37,10 +97,15 @@ def _write_decisions_section(write, all_decisions):
     write(" LIFE GUIDANCE — Decision Engines")
     write("═" * 95)
 
+    _write_prediction_quality_section(write, all_decisions.get("_chart_result", {}), all_decisions)
+
     # ── Advanced Life Analysis ──────────────────────────────────────────────
     life = all_decisions.get("life_analysis", {})
     if life:
         write("\n┌─ ADVANCED LIFE ANALYSIS ──────────────────────────────────────────────────────────────┐")
+        confidence = _format_confidence(life)
+        if confidence:
+            write(f"\n  Prediction Confidence: {confidence}")
 
         phase = life.get("current_life_phase", {})
         if phase:
@@ -105,6 +170,9 @@ def _write_decisions_section(write, all_decisions):
     career = all_decisions.get("career", {})
     if career:
         write("\n┌─ CAREER GUIDANCE ─────────────────────────────────────────────────────────────────────┐")
+        confidence = _format_confidence(career)
+        if confidence:
+            write(f"\n  Prediction Confidence: {confidence}")
         
         fields = career.get("recommended_fields", [])
         if fields:
@@ -136,6 +204,9 @@ def _write_decisions_section(write, all_decisions):
     marriage = all_decisions.get("marriage", {})
     if marriage:
         write("\n┌─ MARRIAGE & RELATIONSHIPS ────────────────────────────────────────────────────────────┐")
+        confidence = _format_confidence(marriage)
+        if confidence:
+            write(f"\n  Prediction Confidence: {confidence}")
         
         readiness = marriage.get("readiness", "")
         if readiness:
@@ -168,6 +239,9 @@ def _write_decisions_section(write, all_decisions):
     business = all_decisions.get("business", {})
     if business:
         write("\n┌─ BUSINESS & FINANCE ──────────────────────────────────────────────────────────────────┐")
+        confidence = _format_confidence(business)
+        if confidence:
+            write(f"\n  Prediction Confidence: {confidence}")
         
         aptitude = business.get("aptitude", business.get("business_aptitude", ""))
         if aptitude:
@@ -196,6 +270,9 @@ def _write_decisions_section(write, all_decisions):
     health = all_decisions.get("health", {})
     if health:
         write("\n┌─ HEALTH GUIDANCE ─────────────────────────────────────────────────────────────────────┐")
+        confidence = _format_confidence(health)
+        if confidence:
+            write(f"\n  Prediction Confidence: {confidence}")
         
         constitution = health.get("constitution", health.get("body_type", ""))
         if constitution:
@@ -227,6 +304,9 @@ def _write_decisions_section(write, all_decisions):
     travel = all_decisions.get("travel", {})
     if travel:
         write("\n┌─ TRAVEL & RELOCATION ─────────────────────────────────────────────────────────────────┐")
+        confidence = _format_confidence(travel)
+        if confidence:
+            write(f"\n  Prediction Confidence: {confidence}")
         
         best_dir = travel.get("best_travel_direction", "")
         home_dir = travel.get("home_direction", "")
@@ -260,6 +340,9 @@ def _write_decisions_section(write, all_decisions):
     education = all_decisions.get("education", {})
     if education:
         write("\n┌─ EDUCATION GUIDANCE ──────────────────────────────────────────────────────────────────┐")
+        confidence = _format_confidence(education)
+        if confidence:
+            write(f"\n  Prediction Confidence: {confidence}")
         
         style = education.get("learning_style", "")
         if style:
@@ -290,6 +373,9 @@ def _write_decisions_section(write, all_decisions):
     daily = all_decisions.get("daily_guidance", {})
     if daily:
         write("\n┌─ DAILY GUIDANCE & MUHURTHA ───────────────────────────────────────────────────────────┐")
+        confidence = _format_confidence(daily)
+        if confidence:
+            write(f"\n  Prediction Confidence: {confidence}")
 
         day_rating = daily.get("day_rating", "")
         day_score = daily.get("day_score", "")
@@ -1240,6 +1326,7 @@ def print_kundali(result, file=None):
     try:
         all_decisions = decisions.get_all_decisions(result)
         if all_decisions:
+            all_decisions["_chart_result"] = result
             _write_decisions_section(write, all_decisions)
     except Exception:
         pass  # Skip if decisions module fails

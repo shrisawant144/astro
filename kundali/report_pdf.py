@@ -499,6 +499,20 @@ def _render_text_block(pdf, title, text):
     pdf.multi_cell(pdf.epw, 5, pdf.normalize_text(str(text)))
 
 
+def _render_confidence_panel(pdf, payload, title="Prediction Confidence"):
+    if not isinstance(payload, dict):
+        return
+    rows = [
+        ("Confidence Score", payload.get("confidence_score")),
+        ("Confidence Label", payload.get("confidence_label")),
+    ]
+    if not any(_has_content(value) for _, value in rows):
+        return
+    _render_named_rows(pdf, title, rows)
+    _render_list(pdf, "Confidence Factors", payload.get("confidence_factors"), limit=5)
+    _render_list(pdf, "Confidence Limiters", payload.get("confidence_limiters"), limit=4)
+
+
 def _format_vulnerable_planet(item):
     if not isinstance(item, dict):
         return _display_value(item)
@@ -2301,6 +2315,7 @@ def _page_decisions(pdf, result):
     if not all_decisions:
         return
 
+    _page_prediction_quality(pdf, result, all_decisions)
     _page_life_analysis(pdf, all_decisions.get("life_analysis", {}))
     _page_career_guidance(pdf, all_decisions.get("career", {}))
     _page_marriage_guidance(pdf, all_decisions.get("marriage", {}))
@@ -2309,6 +2324,56 @@ def _page_decisions(pdf, result):
     _page_travel_guidance(pdf, all_decisions.get("travel", {}))
     _page_education_guidance(pdf, all_decisions.get("education", {}))
     _page_daily_guidance(pdf, all_decisions.get("daily_guidance", {}))
+
+
+def _page_prediction_quality(pdf, result, all_decisions):
+    pdf.add_page()
+    pdf.section_title("Prediction Confidence & Data Quality")
+
+    input_quality = result.get("input_quality", {}) or {}
+    _render_named_rows(
+        pdf,
+        "Input Quality",
+        [
+            ("Quality Score", input_quality.get("score")),
+            ("Quality Label", input_quality.get("label")),
+            ("Birth Place Specificity", input_quality.get("birth_place_specificity")),
+            ("Location Source", result.get("location_source", input_quality.get("location_source"))),
+            ("Timezone", result.get("timezone", input_quality.get("timezone"))),
+            ("Timezone Source", result.get("timezone_source", input_quality.get("timezone_source"))),
+        ],
+    )
+    _render_list(pdf, "Input Warnings", input_quality.get("warnings"), limit=5)
+
+    rectification = result.get("birth_time_rectification", {}) or {}
+    _render_named_rows(
+        pdf,
+        "Birth Time Rectification",
+        [
+            ("Applied", rectification.get("applied")),
+            ("Corrected Birth Time", rectification.get("corrected_birth_time")),
+            ("Offset Minutes", rectification.get("offset_minutes")),
+            ("Confidence Score", rectification.get("confidence_score")),
+            ("Confidence Label", rectification.get("confidence_label")),
+            ("Events Used", rectification.get("events_used")),
+        ],
+    )
+    _render_text_block(pdf, "Rectification Note", rectification.get("applied_reason"))
+
+    confidence_summary = all_decisions.get("confidence_summary", {}) or {}
+    _render_named_rows(
+        pdf,
+        "Overall Prediction Confidence",
+        [
+            ("Average Score", confidence_summary.get("average_score")),
+            ("Confidence Label", confidence_summary.get("label")),
+        ],
+    )
+    category_lines = [
+        f"{str(name).replace('_', ' ').title()}: {score}/100"
+        for name, score in (confidence_summary.get("categories", {}) or {}).items()
+    ]
+    _render_list(pdf, "Category Confidence", category_lines, limit=10)
 
 
 def _format_domain_rank(item):
@@ -2355,6 +2420,7 @@ def _page_life_analysis(pdf, life):
             ("Note", longevity.get("note")),
         ],
     )
+    _render_confidence_panel(pdf, life)
     _render_list(
         pdf,
         "Strongest Domains",
@@ -2401,6 +2467,7 @@ def _page_career_guidance(pdf, career):
             ),
         ],
     )
+    _render_confidence_panel(pdf, career)
     _render_list(pdf, "Planets in 10th House", career.get("planets_in_10th"))
     _render_list(pdf, "Recommended Career Fields", career.get("recommended_fields"), numbered=True, limit=10)
     _render_list(pdf, "Atmakaraka Career Themes", career.get("atmakaraka_fields"), limit=5)
@@ -2437,6 +2504,7 @@ def _page_marriage_guidance(pdf, marriage):
             ("Sade Sati Active", marriage.get("sade_sati_active")),
         ],
     )
+    _render_confidence_panel(pdf, marriage)
     _render_list(pdf, "Planets in 7th House", marriage.get("planets_in_7th"))
     _render_named_rows(
         pdf,
@@ -2480,6 +2548,7 @@ def _page_business_guidance(pdf, business):
             ("Muhurtha Score", business.get("muhurtha_score")),
         ],
     )
+    _render_confidence_panel(pdf, business)
     _render_named_rows(
         pdf,
         "Current Financial Dasha",
@@ -2513,6 +2582,7 @@ def _page_health_guidance(pdf, health):
             ("Sade Sati Active", health.get("sade_sati_active")),
         ],
     )
+    _render_confidence_panel(pdf, health)
     _render_named_rows(pdf, "Current Health Dasha", _current_dasha_rows(health.get("current_dasha")))
     _render_list(pdf, "Planets in 6th House", health.get("planets_in_6th"))
     _render_list(pdf, "Planets in 8th House", health.get("planets_in_8th"))
@@ -2549,6 +2619,7 @@ def _page_travel_guidance(pdf, travel):
             ("Rahu House", travel.get("rahu_house")),
         ],
     )
+    _render_confidence_panel(pdf, travel)
     _render_named_rows(
         pdf,
         "Current Travel Dasha",
@@ -2584,6 +2655,7 @@ def _page_education_guidance(pdf, education):
             ("Education-Supportive Period", education.get("good_period_for_education")),
         ],
     )
+    _render_confidence_panel(pdf, education)
     _render_named_rows(
         pdf,
         "Current Education Dasha",
@@ -2615,6 +2687,7 @@ def _page_daily_guidance(pdf, daily):
             ("Muhurtha Grade", daily.get("muhurtha_grade")),
         ],
     )
+    _render_confidence_panel(pdf, daily)
     _render_named_rows(pdf, "Current Dasha", _current_dasha_rows(daily.get("current_dasha")))
     _render_named_rows(
         pdf,

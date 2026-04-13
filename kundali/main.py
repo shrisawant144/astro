@@ -233,9 +233,161 @@ def extract_dasha_periods_for_marriage(timings):
     return periods
 
 
+def _normalize_place_input(place):
+    """Normalize user-entered place text without changing its meaning."""
+    text = str(place or "").strip()
+    if not text:
+        return ""
+    parts = [chunk.strip() for chunk in text.split(",") if chunk.strip()]
+    if parts:
+        return ", ".join(parts)
+    return " ".join(text.split())
+
+
+def _input_quality_label(score):
+    if score >= 85:
+        return "Strong"
+    if score >= 70:
+        return "Good"
+    if score >= 55:
+        return "Moderate"
+    return "Needs Review"
+
+
+def _normalize_coordinate(name, value, minimum, maximum):
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a valid decimal number.")
+    if not minimum <= numeric <= maximum:
+        raise ValueError(f"{name} out of range {minimum} to {maximum}.")
+    return round(numeric, 6)
+
+
+def _resolve_birth_location(place, latitude=None, longitude=None, timezone_name=None):
+    normalized_place = _normalize_place_input(place)
+    using_coordinates = latitude is not None or longitude is not None
+
+    if using_coordinates and (latitude is None or longitude is None):
+        raise ValueError("Provide both latitude and longitude together.")
+    if not normalized_place and not using_coordinates:
+        raise ValueError("Birth place cannot be empty.")
+
+    tz_name = timezone_name
+    location_source = "geocoded"
+    timezone_source = "manual" if timezone_name else "lookup"
+
+    if using_coordinates:
+        lat = _normalize_coordinate("Latitude", latitude, -90, 90)
+        lon = _normalize_coordinate("Longitude", longitude, -180, 180)
+        location_source = "coordinates"
+        if not normalized_place:
+            normalized_place = f"{lat:.4f}, {lon:.4f}"
+    else:
+        lat, lon = get_lat_lon(normalized_place)
+
+    if tz_name:
+        try:
+            pytz.timezone(tz_name)
+        except Exception as exc:
+            raise ValueError(f"Unknown timezone '{tz_name}'.") from exc
+    else:
+        from .cache import get_timezone_finder
+
+        tf = get_timezone_finder()
+        tz_name = tf.timezone_at(lat=lat, lng=lon)
+        if not tz_name:
+            raise ValueError(
+                "Timezone could not be determined. Provide timezone_name for exact coordinates."
+            )
+
+    return {
+        "place": normalized_place,
+        "lat": lat,
+        "lon": lon,
+        "timezone": tz_name,
+        "location_source": location_source,
+        "timezone_source": timezone_source,
+    }
+
+
+def _build_input_quality(
+    birth_time_str,
+    place,
+    tz_name,
+    rectification=None,
+    location_source="geocoded",
+    timezone_source="lookup",
+):
+    warnings_list = []
+    score = 84
+    specificity = "precise" if str(place or "").count(",") >= 1 else "basic"
+    if location_source == "coordinates":
+        specificity = "coordinates"
+        score += 8
+    elif specificity == "basic":
+        score -= 12
+        warnings_list.append(
+            "Use 'City, State, Country' for more reliable geocoding and timezone resolution."
+        )
+
+    minute_text = ""
+    if ":" in str(birth_time_str or ""):
+        minute_text = str(birth_time_str).split(":", 1)[1]
+    if minute_text in {"00", "15", "30", "45"}:
+        score -= 8
+        warnings_list.append(
+            "If the recorded birth time is rounded, use life-event rectification for sharper house-level accuracy."
+        )
+
+    if not tz_name:
+        score -= 20
+        warnings_list.append("Timezone could not be resolved automatically.")
+    elif timezone_source == "manual":
+        score += 4
+
+    if isinstance(rectification, dict):
+        if rectification.get("applied"):
+            score += 8
+        elif rectification.get("events_used", 0) >= 3 and rectification.get("confidence_score", 0) >= 75:
+            warnings_list.append(
+                "High-confidence birth-time rectification is available and can improve timing precision."
+            )
+        elif rectification.get("applied_reason"):
+            warnings_list.append(str(rectification["applied_reason"]))
+
+    score = max(0, min(100, score))
+    deduped_warnings = []
+    seen = set()
+    for item in warnings_list:
+        text = str(item or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        deduped_warnings.append(text)
+
+    return {
+        "score": score,
+        "label": _input_quality_label(score),
+        "birth_place_specificity": specificity,
+        "birth_time_precision": "minute",
+        "location_source": location_source,
+        "timezone_source": timezone_source,
+        "timezone": tz_name,
+        "warnings": deduped_warnings,
+    }
+
+
 def calculate_kundali(
     birth_date_str, birth_time_str, place, gender="Male", ayanamsa_name=DEFAULT_AYANAMSA,
     name="native",
+    rectification_events=None,
+    apply_rectification=False,
+    rectification_min_confidence=75,
+    latitude=None,
+    longitude=None,
+    timezone_name=None,
+    _rectification_context=False,
 ):
     """
     Calculate the complete Vedic kundali for given birth details.
@@ -247,6 +399,12 @@ def calculate_kundali(
         gender (str): "Male" or "Female".
         ayanamsa_name (str): Ayanamsa choice like "Lahiri", "Raman" etc. (default DEFAULT_AYANAMSA).
         name (str): Name of the native (used in chart/PDF filenames).
+        rectification_events (list): Optional life events for birth-time rectification.
+        apply_rectification (bool): Recalculate automatically when rectification is strong enough.
+        rectification_min_confidence (int): Minimum confidence required for automatic rectification.
+        latitude (float): Optional exact birth latitude.
+        longitude (float): Optional exact birth longitude.
+        timezone_name (str): Optional IANA timezone name like Asia/Kolkata.
 
     Returns:
         dict: Complete kundali result with all calculated data.
@@ -259,7 +417,7 @@ def calculate_kundali(
         raise ValueError(f"Invalid date format '{birth_date_str}'. Use YYYY-MM-DD.")
     if not birth_time_str or not _re.fullmatch(r"\d{1,2}:\d{2}", birth_time_str):
         raise ValueError(f"Invalid time format '{birth_time_str}'. Use HH:MM (24h).")
-    if not place or not place.strip():
+    if not place and latitude is None and longitude is None:
         raise ValueError("Birth place cannot be empty.")
     if gender not in ("Male", "Female"):
         raise ValueError(f"Gender must be 'Male' or 'Female', got '{gender}'.")
@@ -268,6 +426,8 @@ def calculate_kundali(
             f"Unknown ayanamsa '{ayanamsa_name}'. "
             f"Choose from: {', '.join(AYANAMSA_OPTIONS)}"
         )
+
+    raw_place_input = str(place or "")
 
     y, m, d = map(int, birth_date_str.split("-"))
     hh, mm = map(int, birth_time_str.split(":"))
@@ -282,16 +442,22 @@ def calculate_kundali(
     if not (0 <= mm <= 59):
         raise ValueError(f"Minute {mm} out of range 0-59.")
 
-    lat, lon = get_lat_lon(place)
+    location = _resolve_birth_location(
+        place,
+        latitude=latitude,
+        longitude=longitude,
+        timezone_name=timezone_name,
+    )
+    place = location["place"]
+    birth_lat = location["lat"]
+    birth_lon = location["lon"]
     result = {}
-    result["lat"] = lat
-    result["lon"] = lon
+    result["lat"] = birth_lat
+    result["lon"] = birth_lon
+    result["location_source"] = location["location_source"]
+    result["timezone_source"] = location["timezone_source"]
 
-    from .cache import get_timezone_finder
-    tf = get_timezone_finder()
-    tz_name = tf.timezone_at(lat=lat, lng=lon)
-    if not tz_name:
-        raise ValueError("Timezone could not be determined")
+    tz_name = location["timezone"]
     tz = pytz.timezone(tz_name)
     local_dt = tz.localize(datetime.datetime(y, m, d, hh, mm))
     utc_dt = local_dt.astimezone(pytz.utc)
@@ -304,7 +470,7 @@ def calculate_kundali(
     swe.set_sid_mode(ayanamsa_code)
 
     # Houses & Lagna
-    house_data = swe.houses_ex(birth_jd, lat, lon, b"W", swe.FLG_SIDEREAL)
+    house_data = swe.houses_ex(birth_jd, birth_lat, birth_lon, b"W", swe.FLG_SIDEREAL)
     cusps, ascmc = house_data
     lagna_deg = ascmc[0]
     lagna_sign = get_sign(lagna_deg)
@@ -502,9 +668,9 @@ def calculate_kundali(
     sun_lon_birth = planet_data["Su"]["full_lon"]
     moon_lon_birth = swe.calc_ut(birth_jd, swe.MOON, swe.FLG_SIDEREAL)[0][0]
     panchanga = get_panchanga(
-        birth_jd, sun_lon_birth, moon_lon_birth, lat, lon, tz_name
+        birth_jd, sun_lon_birth, moon_lon_birth, birth_lat, birth_lon, tz_name
     )
-    birth_day_info = get_sunrise_based_day(birth_jd, lat, lon, tz_name)
+    birth_day_info = get_sunrise_based_day(birth_jd, birth_lat, birth_lon, tz_name)
 
     # Divisional Charts — all 11 vargas
     for code in planet_data:
@@ -624,8 +790,10 @@ def calculate_kundali(
         "planets": planet_data,
         "houses": house_planets,
         "moon_sign": moon_sign,
-        "lat": lat,
-        "lon": lon,
+        "lat": birth_lat,
+        "lon": birth_lon,
+        "location_source": location["location_source"],
+        "timezone_source": location["timezone_source"],
         "moon_nakshatra": moon_nakshatra,
         "vimshottari": {
             "starting_lord": start_lord,
@@ -709,6 +877,8 @@ def calculate_kundali(
         "birth_date": birth_date_str,
         "birth_time": birth_time_str,
         "birth_place": place,
+        "birth_place_input": raw_place_input,
+        "birth_place_normalized": place,
         "birth_datetime": local_dt,
         "birth_weekday_monday0": birth_day_info["weekday_monday0"],
         "birth_vara_idx": birth_day_info["vara_idx"],
@@ -918,6 +1088,75 @@ def calculate_kundali(
         full = short_to_full.get(code, code)
         result["planets_full_long"][full] = data["full_lon"]
     result["final_analysis"] = generate_final_analysis(result)
+
+    rectification_summary = None
+    if rectification_events and not _rectification_context:
+        rectification_summary = rectify_birth_time(result, rectification_events)
+        should_apply_rectification = (
+            apply_rectification
+            and rectification_summary.get("events_used", 0) > 0
+            and rectification_summary.get("confidence_score", 0) >= rectification_min_confidence
+            and rectification_summary.get("offset_minutes", 0) != 0
+        )
+        if should_apply_rectification:
+            rectification_summary["applied"] = True
+            rectification_summary["applied_reason"] = (
+                f"Applied automatically after {rectification_summary.get('confidence_label', 'good').lower()}-confidence rectification."
+            )
+            corrected_result = calculate_kundali(
+                birth_date_str,
+                rectification_summary["corrected_birth_time_input"],
+                place,
+                gender=gender,
+                ayanamsa_name=ayanamsa_name,
+                name=name,
+                rectification_events=None,
+                apply_rectification=False,
+                rectification_min_confidence=rectification_min_confidence,
+                latitude=birth_lat,
+                longitude=birth_lon,
+                timezone_name=tz_name,
+                _rectification_context=True,
+            )
+            corrected_result["birth_time_original_input"] = birth_time_str
+            corrected_result["birth_place_input"] = raw_place_input
+            corrected_result["birth_time_rectification"] = rectification_summary
+            corrected_result["input_quality"] = _build_input_quality(
+                corrected_result.get("birth_time"),
+                corrected_result.get("birth_place"),
+                corrected_result.get("timezone"),
+                rectification_summary,
+                location_source=corrected_result.get("location_source", "geocoded"),
+                timezone_source=corrected_result.get("timezone_source", "lookup"),
+            )
+            return corrected_result
+
+        rectification_summary["applied"] = False
+        if not apply_rectification:
+            rectification_summary["applied_reason"] = "Rectification was analyzed but not auto-applied."
+        elif rectification_summary.get("confidence_score", 0) < rectification_min_confidence:
+            rectification_summary["applied_reason"] = (
+                f"Rectification confidence {rectification_summary.get('confidence_score', 0)} was below the auto-apply threshold of {rectification_min_confidence}."
+            )
+        elif rectification_summary.get("offset_minutes", 0) == 0:
+            rectification_summary["applied_reason"] = "Rectification did not suggest a meaningful time shift."
+        result["birth_time_rectification"] = rectification_summary
+    elif _rectification_context:
+        result["birth_time_rectification"] = {
+            "applied": True,
+            "applied_reason": "This chart was generated from a rectified birth time.",
+        }
+    else:
+        result["birth_time_rectification"] = {}
+
+    result["input_quality"] = _build_input_quality(
+        birth_time_str,
+        place,
+        tz_name,
+        rectification_summary or result.get("birth_time_rectification"),
+        location_source=result.get("location_source", "geocoded"),
+        timezone_source=result.get("timezone_source", "lookup"),
+    )
 
     return result
 

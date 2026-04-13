@@ -86,6 +86,11 @@ class TestCareerDecision:
         result = get_career_decision(sample_chart)
         assert len(result) > 0
 
+    def test_career_decision_has_confidence(self, sample_chart):
+        result = get_career_decision(sample_chart)
+        assert "confidence_score" in result
+        assert "confidence_label" in result
+
 
 # ---------------------------------------------------------------------------
 # 2. Marriage Decision Tests
@@ -309,6 +314,11 @@ class TestAllDecisions:
         result = get_all_decisions_with_compatibility(sample_chart, sample_chart_female)
         assert isinstance(result, dict)
         assert len(result) >= 6  # All decisions + compatibility
+
+    def test_all_decisions_has_confidence_summary(self, sample_chart):
+        result = get_all_decisions(sample_chart)
+        assert "confidence_summary" in result
+        assert isinstance(result["confidence_summary"]["average_score"], int)
 
 
 # ---------------------------------------------------------------------------

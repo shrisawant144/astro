@@ -35,6 +35,7 @@ from .ai_astrologer import (
 )
 from . import api
 from . import decisions
+from .benchmarking import evaluate_benchmark_case, run_benchmark_suite, load_benchmark_cases
 from .decisions import (
     get_career_decision,
     get_marriage_decision,
@@ -59,6 +60,9 @@ __all__ = [
     "get_career_analysis",
     "api",
     "decisions",
+    "evaluate_benchmark_case",
+    "run_benchmark_suite",
+    "load_benchmark_cases",
     # Decision engine functions
     "get_career_decision",
     "get_marriage_decision",

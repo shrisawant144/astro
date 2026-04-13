@@ -96,6 +96,32 @@ class TestCalculateKundali:
         assert chart["birth_place"] == MUMBAI_BIRTH["place"]
         assert chart["gender"] == MUMBAI_BIRTH["gender"]
 
+    def test_has_input_quality_metadata(self, chart):
+        assert isinstance(chart.get("input_quality"), dict)
+        assert chart["input_quality"]["label"] in {"Strong", "Good", "Moderate", "Needs Review"}
+        assert isinstance(chart["input_quality"]["warnings"], list)
+
+    def test_has_rectification_metadata_placeholder(self, chart):
+        assert "birth_time_rectification" in chart
+        assert isinstance(chart["birth_time_rectification"], dict)
+
+    def test_supports_precise_coordinates_and_timezone(self):
+        from kundali.main import calculate_kundali
+
+        chart = calculate_kundali(
+            "1990-05-15",
+            "08:30",
+            "",
+            gender="Male",
+            latitude=19.0760,
+            longitude=72.8777,
+            timezone_name="Asia/Kolkata",
+        )
+        assert chart["location_source"] == "coordinates"
+        assert chart["timezone_source"] == "manual"
+        assert chart["timezone"] == "Asia/Kolkata"
+        assert chart["input_quality"]["birth_place_specificity"] == "coordinates"
+
 
 class TestInputValidation:
     """Test that calculate_kundali rejects bad inputs clearly."""
@@ -134,3 +160,62 @@ class TestInputValidation:
         from kundali.main import calculate_kundali
         with pytest.raises(ValueError, match="Hour"):
             calculate_kundali("1990-05-15", "25:30", "Mumbai, India")
+
+
+class TestRectificationIntegration:
+    """Test optional rectification wiring in the main calculator."""
+
+    @staticmethod
+    def _fake_rectification(result, events, **kwargs):
+        return {
+            "original_birth_time": "1990-05-15 08:30",
+            "corrected_birth_time": "1990-05-15 08:34",
+            "corrected_birth_time_input": "08:34",
+            "corrected_birth_datetime_local": "1990-05-15T08:34:00+05:30",
+            "corrected_birth_datetime_utc": "1990-05-15T03:04:00+00:00",
+            "offset_minutes": 4,
+            "raw_score": 28,
+            "confidence_score": 82,
+            "confidence_label": "High",
+            "score_margin": 10,
+            "events_used": len(events),
+            "search_window_minutes": 60,
+            "step_minutes": 2,
+            "applied": False,
+            "applied_reason": "",
+        }
+
+    def test_rectification_analysis_attached(self, monkeypatch):
+        import kundali.main as main_mod
+
+        monkeypatch.setattr(main_mod, "rectify_birth_time", TestRectificationIntegration._fake_rectification)
+        result = main_mod.calculate_kundali(
+            MUMBAI_BIRTH["date"],
+            MUMBAI_BIRTH["time"],
+            MUMBAI_BIRTH["place"],
+            gender=MUMBAI_BIRTH["gender"],
+            rectification_events=[{"house": 10, "planets": ["Saturn"]}],
+            apply_rectification=False,
+        )
+
+        assert result["birth_time"] == MUMBAI_BIRTH["time"]
+        assert result["birth_time_rectification"]["confidence_score"] == 82
+        assert result["birth_time_rectification"]["applied"] is False
+
+    def test_rectification_can_auto_apply(self, monkeypatch):
+        import kundali.main as main_mod
+
+        monkeypatch.setattr(main_mod, "rectify_birth_time", TestRectificationIntegration._fake_rectification)
+        result = main_mod.calculate_kundali(
+            MUMBAI_BIRTH["date"],
+            MUMBAI_BIRTH["time"],
+            MUMBAI_BIRTH["place"],
+            gender=MUMBAI_BIRTH["gender"],
+            rectification_events=[{"house": 10, "planets": ["Saturn"]}],
+            apply_rectification=True,
+            rectification_min_confidence=70,
+        )
+
+        assert result["birth_time"] == "08:34"
+        assert result["birth_time_original_input"] == MUMBAI_BIRTH["time"]
+        assert result["birth_time_rectification"]["applied"] is True

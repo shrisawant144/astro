@@ -71,7 +71,20 @@ PLANET_FULL = {
 # Core API functions
 # ---------------------------------------------------------------------------
 
-def calculate(birth_date, birth_time, place, gender="Male", ayanamsa="Lahiri", name=""):
+def calculate(
+    birth_date,
+    birth_time,
+    place,
+    gender="Male",
+    ayanamsa="Lahiri",
+    name="",
+    rectification_events=None,
+    apply_rectification=False,
+    rectification_min_confidence=75,
+    latitude=None,
+    longitude=None,
+    timezone_name=None,
+):
     """
     Calculate a complete Vedic kundali.
 
@@ -82,12 +95,31 @@ def calculate(birth_date, birth_time, place, gender="Male", ayanamsa="Lahiri", n
         gender: "Male" or "Female"
         ayanamsa: Ayanamsa name (default "Lahiri")
         name: Native's name (optional, stored in result)
+        rectification_events: optional life events for birth-time rectification
+        apply_rectification: auto-apply strong rectification before returning
+        rectification_min_confidence: minimum confidence score required for auto-apply
+        latitude: optional exact birth latitude
+        longitude: optional exact birth longitude
+        timezone_name: optional IANA timezone like Asia/Kolkata
 
     Returns:
         dict: Raw kundali result (pass to serialize_result() for JSON-safe output).
     """
     from .main import calculate_kundali
-    result = calculate_kundali(birth_date, birth_time, place, gender=gender, ayanamsa_name=ayanamsa, name=name or "native")
+    result = calculate_kundali(
+        birth_date,
+        birth_time,
+        place,
+        gender=gender,
+        ayanamsa_name=ayanamsa,
+        name=name or "native",
+        rectification_events=rectification_events,
+        apply_rectification=apply_rectification,
+        rectification_min_confidence=rectification_min_confidence,
+        latitude=latitude,
+        longitude=longitude,
+        timezone_name=timezone_name,
+    )
     return result
 
 
@@ -154,10 +186,11 @@ def serialize_result(result):
     out = {}
 
     # Basic birth details
-    for key in ("name", "birth_date", "birth_time", "birth_place", "gender",
+    for key in ("name", "birth_date", "birth_time", "birth_place", "birth_place_normalized",
+                "birth_place_input", "birth_time_original_input", "gender",
                 "ayanamsa", "lagna_sign", "lagna_deg", "moon_sign",
                 "moon_nakshatra", "sade_sati", "birth_year", "birth_month",
-                "birth_day", "lat", "lon"):
+                "birth_day", "lat", "lon", "timezone", "location_source", "timezone_source"):
         out[key] = to_json(result.get(key))
 
     # Panchanga
@@ -283,11 +316,26 @@ def serialize_result(result):
     # Problems / Doshas
     out["problems"] = to_json(result.get("problems", []))
 
+    # Accuracy metadata
+    out["birth_time_rectification"] = to_json(result.get("birth_time_rectification", {}))
+    out["input_quality"] = to_json(result.get("input_quality", {}))
+
     # Unified life analysis
     try:
-        out["life_analysis"] = get_life_analysis(result)
+        life_analysis = get_life_analysis(result)
+        out["life_analysis"] = life_analysis
     except Exception:
+        life_analysis = {}
         out["life_analysis"] = {}
+
+    try:
+        from .decisions import get_all_decisions
+
+        out["decision_confidence_summary"] = to_json(
+            get_all_decisions(result).get("confidence_summary", {})
+        )
+    except Exception:
+        out["decision_confidence_summary"] = {}
 
     # Final analysis text
     out["final_analysis"] = to_json(result.get("final_analysis", ""))
@@ -338,6 +386,15 @@ def get_daily_guidance(chart_data):
     """Daily/weekly guidance from transits, dasha, and panchanga."""
     from .decisions import get_daily_guidance as _daily
     return to_json(_daily(chart_data))
+
+
+def run_benchmark(cases=None, benchmark_path=None):
+    """Run benchmark cases from a list or a JSON file path."""
+    from .benchmarking import load_benchmark_cases, run_benchmark_suite
+
+    if benchmark_path:
+        cases = load_benchmark_cases(benchmark_path)
+    return to_json(run_benchmark_suite(cases or []))
 
 
 def get_compatibility_decision(chart1, chart2):
