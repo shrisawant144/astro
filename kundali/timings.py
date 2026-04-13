@@ -101,6 +101,7 @@ def generate_timings(result, birth_year, birth_jd):
             age_str = f"(Age {start_age}-{md_end_y - birth_year})"
 
             # Include if MD lord is favorable
+            md_header_emitted = False
             if md_lord in fav_lords:
                 # Mark periods before minimum age as "Karmic Seed"
                 if md_end_y < min_event_year:
@@ -111,6 +112,7 @@ def generate_timings(result, birth_year, birth_jd):
                     periods.append(
                         f"• {md_lord} Mahadasha ({md_start_y}-{md_end_y}) {age_str} {status}"
                     )
+                md_header_emitted = True
             # Check antardashas within our full timeline
             for ad in md.get("antardashas", []):
                 if ad["lord"] in fav_lords:
@@ -120,6 +122,12 @@ def generate_timings(result, birth_year, birth_jd):
                     ad_end_y = int(birth_year + ad_end_age)
                     # Include if AD starts or overlaps within our full timeline
                     if ad_start_y <= end_year and ad_end_y >= start_year:
+                        # Emit parent Mahadasha header if not already printed
+                        if not md_header_emitted:
+                            periods.append(
+                                f"• {md_lord} Mahadasha ({md_start_y}-{md_end_y}) {age_str} {status}"
+                            )
+                            md_header_emitted = True
                         # Determine AD status
                         ad_status = (
                             "[PAST]"

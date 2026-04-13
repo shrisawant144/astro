@@ -80,6 +80,10 @@ class TestSerializeResult:
     def test_has_panchanga(self, serialized):
         assert isinstance(serialized["panchanga"], dict)
 
+    def test_has_life_analysis(self, serialized):
+        assert "life_analysis" in serialized
+        assert isinstance(serialized["life_analysis"], dict)
+
 
 class TestToJson:
     """Test the to_json serializer handles edge cases."""

@@ -18,7 +18,10 @@ Activity Strength Guide:
 """
 
 import datetime
+from zoneinfo import ZoneInfo
+
 import swisseph as swe
+from .utils import get_sunrise_based_day
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -503,26 +506,26 @@ WEEKDAY_NAMES = [
 def _get_sun_rise_set(jd: float, lat: float, lon: float):
     """Return (sunrise_jd, sunset_jd) for the given Julian Day and location."""
     try:
-        sr = swe.rise_trans(
+        sr_res, sr_tret = swe.rise_trans(
             jd - 1.0,
             swe.SUN,
-            "",
             swe.CALC_RISE,
-            geopos=(lon, lat, 0),
-            atpress=0,
-            attemp=0,
+            (lon, lat, 0),
+            0,
+            0,
+            swe.FLG_SWIEPH,
         )
-        ss = swe.rise_trans(
+        ss_res, ss_tret = swe.rise_trans(
             jd - 1.0,
             swe.SUN,
-            "",
             swe.CALC_SET,
-            geopos=(lon, lat, 0),
-            atpress=0,
-            attemp=0,
+            (lon, lat, 0),
+            0,
+            0,
+            swe.FLG_SWIEPH,
         )
-        sunrise_jd = sr[1][0] if sr[1] else jd - 0.25
-        sunset_jd = ss[1][0] if ss[1] else jd + 0.25
+        sunrise_jd = sr_tret[0] if sr_res == 0 and sr_tret else jd - 0.25
+        sunset_jd = ss_tret[0] if ss_res == 0 and ss_tret else jd + 0.25
     except Exception:
         # Fallback: assume 6am sunrise, 6pm sunset
         sunrise_jd = jd - 0.25
@@ -703,17 +706,35 @@ def calculate_pancha_pakshi(
 
     # Query time — default to now
     if query_dt is None:
-        query_dt = datetime.datetime.now(datetime.timezone.utc)
+        tz_name = result.get("timezone")
+        if tz_name:
+            try:
+                query_dt = datetime.datetime.now(ZoneInfo(tz_name))
+            except Exception:
+                query_dt = datetime.datetime.now(datetime.timezone.utc)
+        else:
+            query_dt = datetime.datetime.now(datetime.timezone.utc)
     if query_dt.tzinfo is None:
-        query_dt = query_dt.replace(tzinfo=datetime.timezone.utc)
+        tz_name = result.get("timezone")
+        if tz_name:
+            try:
+                query_dt = query_dt.replace(tzinfo=ZoneInfo(tz_name))
+            except Exception:
+                query_dt = query_dt.replace(tzinfo=datetime.timezone.utc)
+        else:
+            query_dt = query_dt.replace(tzinfo=datetime.timezone.utc)
+
+    query_dt_utc = query_dt.astimezone(datetime.timezone.utc)
 
     query_jd = swe.julday(
-        query_dt.year,
-        query_dt.month,
-        query_dt.day,
-        query_dt.hour + query_dt.minute / 60.0 + query_dt.second / 3600.0,
+        query_dt_utc.year,
+        query_dt_utc.month,
+        query_dt_utc.day,
+        query_dt_utc.hour + query_dt_utc.minute / 60.0 + query_dt_utc.second / 3600.0,
     )
-    weekday = query_dt.weekday()  # 0=Monday, 6=Sunday
+    tz_name = result.get("timezone")
+    day_info = get_sunrise_based_day(query_jd, lat, lon, tz_name)
+    weekday = day_info["weekday_monday0"]  # 0=Monday, 6=Sunday
 
     sunrise_jd, sunset_jd = _get_sun_rise_set(query_jd, lat, lon)
 
@@ -722,11 +743,11 @@ def calculate_pancha_pakshi(
     current_strength = ACTIVITY_STRENGTH[current_activity]
 
     # Birth-time bird activity
-    birth_weekday = (
-        result.get("birth_datetime", datetime.datetime.utcnow()).weekday()
-        if hasattr(result.get("birth_datetime", None), "weekday")
-        else 0
-    )
+    birth_weekday = result.get("birth_weekday_monday0")
+    if birth_weekday is None:
+        birth_weekday = get_sunrise_based_day(
+            birth_jd, lat, lon, tz_name
+        )["weekday_monday0"]
     birth_sunrise, birth_sunset = _get_sun_rise_set(birth_jd, lat, lon)
     birth_yama = get_yama_info(birth_jd, birth_sunrise, birth_sunset, birth_weekday)
     birth_activity = birth_yama["yama_activities"].get(birth_bird, "Sleeping")

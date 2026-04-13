@@ -1,7 +1,7 @@
 """
 Tests for the Decision Engine module.
 
-Tests all 8 decision categories:
+Tests all 9 decision categories:
 1. Career
 2. Marriage
 3. Business
@@ -10,6 +10,7 @@ Tests all 8 decision categories:
 6. Daily
 7. Compatibility
 8. Education
+9. Life Analysis
 """
 
 import pytest
@@ -23,6 +24,7 @@ from kundali.decisions import (
     get_daily_guidance,
     get_compatibility_decision,
     get_education_decision,
+    get_life_analysis,
     get_all_decisions,
     get_all_decisions_with_compatibility,
 )
@@ -255,6 +257,29 @@ class TestEducationDecision:
 
 
 # ---------------------------------------------------------------------------
+# 9. Life Analysis Tests
+# ---------------------------------------------------------------------------
+
+class TestLifeAnalysis:
+    """Tests for unified life-analysis engine."""
+
+    def test_life_analysis_returns_dict(self, sample_chart):
+        result = get_life_analysis(sample_chart)
+        assert isinstance(result, dict)
+
+    def test_life_analysis_has_domains(self, sample_chart):
+        result = get_life_analysis(sample_chart)
+        assert "life_domains" in result
+        assert isinstance(result["life_domains"], dict)
+        assert len(result["life_domains"]) >= 5
+
+    def test_life_analysis_has_longevity_profile(self, sample_chart):
+        result = get_life_analysis(sample_chart)
+        assert "longevity_profile" in result
+        assert isinstance(result["longevity_profile"], dict)
+
+
+# ---------------------------------------------------------------------------
 # All Decisions Tests
 # ---------------------------------------------------------------------------
 
@@ -318,6 +343,7 @@ class TestEdgeCases:
             get_travel_decision,
             get_daily_guidance,
             get_education_decision,
+            get_life_analysis,
             get_all_decisions,
         ]
         for func in functions:

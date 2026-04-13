@@ -11,7 +11,10 @@ Covers:
   - Varsha Tithi Pravesha: Moon returns to natal tithi position
 """
 
+import datetime
+
 import swisseph as swe
+
 from .constants import sign_lords, zodiac_signs
 
 # ─── Solar Return (Varsha Pravesh) ────────────────────────────────────────────
@@ -30,15 +33,39 @@ def find_solar_return_jd(natal_sun_lon, year, birth_jd):
         float: Julian Day of solar return.
     """
     swe.set_sid_mode(swe.SIDM_LAHIRI)
-    # Estimate start: approximately Jan 1 of the target year
-    approx_jd = swe.julday(year, 1, 1, 12.0, swe.GREG_CAL)
 
-    # Search within ±15 days window, step 1 hour
-    step = 1.0 / 24.0
+    # Start the search around the actual birth anniversary, not January 1.
+    birth_year, birth_month, birth_day, birth_hour = swe.revjul(birth_jd, swe.GREG_CAL)
+    hour = int(birth_hour)
+    minute = int((birth_hour - hour) * 60)
+    second = int(round((((birth_hour - hour) * 60) - minute) * 60))
+    if second == 60:
+        second = 59
+
+    try:
+        approx_dt = datetime.datetime(
+            year, int(birth_month), int(birth_day), hour, minute, second
+        )
+    except ValueError:
+        # Handle leap-day births and any invalid month/day combination gracefully.
+        safe_day = min(int(birth_day), 28)
+        approx_dt = datetime.datetime(year, int(birth_month), safe_day, hour, minute, second)
+
+    approx_jd = swe.julday(
+        approx_dt.year,
+        approx_dt.month,
+        approx_dt.day,
+        approx_dt.hour + approx_dt.minute / 60.0 + approx_dt.second / 3600.0,
+        swe.GREG_CAL,
+    )
+
+    # The Sun moves ~1 degree/day, so a +/- 7 day window around the anniversary
+    # is plenty while staying anchored near the real solar return.
+    step = 1.0 / 48.0  # 30 minutes
     best_jd = approx_jd
     best_diff = 360.0
 
-    for i in range(-30 * 24, 30 * 24):
+    for i in range(-7 * 48, 7 * 48 + 1):
         jd_test = approx_jd + i * step
         sun_lon = swe.calc_ut(jd_test, swe.SUN, swe.FLG_SIDEREAL)[0][0]
         diff = abs((sun_lon - natal_sun_lon + 180) % 360 - 180)
@@ -251,8 +278,6 @@ def calculate_tajika(result, target_year=None, lat=None, lon=None):
             natal_sun_lon, interpretation
         }
     """
-    import datetime
-
     if target_year is None:
         target_year = datetime.date.today().year
 
@@ -264,7 +289,9 @@ def calculate_tajika(result, target_year=None, lat=None, lon=None):
 
     birth_jd = result.get("birth_jd", 0)
     natal_sun_lon = result.get("planets", {}).get("Su", {}).get("full_lon", 0)
-    birth_lagna_idx = result.get("lagna_sign_idx", 0)
+    birth_lagna_idx = result.get("lagna_sign_idx")
+    if birth_lagna_idx is None:
+        birth_lagna_idx = zodiac_signs.index(result.get("lagna_sign", "Aries"))
     birth_year = result.get("birth_year", 1990)
     age_years = target_year - birth_year
 

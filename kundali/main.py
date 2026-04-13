@@ -42,6 +42,7 @@ from .utils import (
     datetime_to_jd,
     check_combustion,
     get_panchanga,
+    get_sunrise_based_day,
     get_sade_sati_status,
     get_navamsa_sign_and_deg,
     get_d7_sign_and_deg,
@@ -89,7 +90,7 @@ from .shadbala import calculate_shadbala
 from .upagrahas import calculate_upagrahas
 from .avastha import calculate_avasthas, calculate_arudha_lagna
 from .numerology import calculate_numerology
-from .muhurtha import evaluate_muhurtha
+from .muhurtha import evaluate_muhurtha, get_panchanga as get_live_panchanga
 from .tajika import calculate_tajika
 from .dasha import (
     calculate_yogini_dasha,
@@ -233,7 +234,8 @@ def extract_dasha_periods_for_marriage(timings):
 
 
 def calculate_kundali(
-    birth_date_str, birth_time_str, place, gender="Male", ayanamsa_name=DEFAULT_AYANAMSA
+    birth_date_str, birth_time_str, place, gender="Male", ayanamsa_name=DEFAULT_AYANAMSA,
+    name="native",
 ):
     """
     Calculate the complete Vedic kundali for given birth details.
@@ -244,6 +246,7 @@ def calculate_kundali(
         place (str): Birth place (city, country).
         gender (str): "Male" or "Female".
         ayanamsa_name (str): Ayanamsa choice like "Lahiri", "Raman" etc. (default DEFAULT_AYANAMSA).
+        name (str): Name of the native (used in chart/PDF filenames).
 
     Returns:
         dict: Complete kundali result with all calculated data.
@@ -498,7 +501,10 @@ def calculate_kundali(
     # Birth Panchanga
     sun_lon_birth = planet_data["Su"]["full_lon"]
     moon_lon_birth = swe.calc_ut(birth_jd, swe.MOON, swe.FLG_SIDEREAL)[0][0]
-    panchanga = get_panchanga(birth_jd, sun_lon_birth, moon_lon_birth)
+    panchanga = get_panchanga(
+        birth_jd, sun_lon_birth, moon_lon_birth, lat, lon, tz_name
+    )
+    birth_day_info = get_sunrise_based_day(birth_jd, lat, lon, tz_name)
 
     # Divisional Charts — all 11 vargas
     for code in planet_data:
@@ -608,9 +614,12 @@ def calculate_kundali(
 
     # Build result dictionary
     result = {
+        "name": name,
         "gender": gender,
         "lagna_deg": round(lagna_deg, 2),
+        "lagna_full_lon": round(lagna_deg, 4),
         "lagna_sign": lagna_sign,
+        "lagna_sign_idx": lagna_idx,
         "seventh_lord": seventh_lord,
         "planets": planet_data,
         "houses": house_planets,
@@ -700,10 +709,14 @@ def calculate_kundali(
         "birth_date": birth_date_str,
         "birth_time": birth_time_str,
         "birth_place": place,
+        "birth_datetime": local_dt,
+        "birth_weekday_monday0": birth_day_info["weekday_monday0"],
+        "birth_vara_idx": birth_day_info["vara_idx"],
         "birth_jd": birth_jd,
         "panchanga": panchanga,
         "house_lords": house_lord_map,
         "ayanamsa": ayanamsa_name,
+        "timezone": tz_name,
         "sade_sati": sade_sati_status,
         "vimshottari_pd": {
             "current_pd": current_pd,
@@ -774,6 +787,20 @@ def calculate_kundali(
         )
     except Exception:
         result["muhurtha"] = {}
+
+    try:
+        result["current_panchanga"] = get_live_panchanga(
+            current_jd, result["lat"], result["lon"], result.get("timezone")
+        )
+    except Exception:
+        result["current_panchanga"] = {}
+
+    try:
+        result["current_muhurtha"] = evaluate_muhurtha(
+            current_jd, result, result["lat"], result["lon"]
+        )
+    except Exception:
+        result["current_muhurtha"] = {}
 
     try:
         result["tajika"] = calculate_tajika(result)
@@ -890,9 +917,6 @@ def calculate_kundali(
     for code, data in planet_data.items():
         full = short_to_full.get(code, code)
         result["planets_full_long"][full] = data["full_lon"]
-    # Birth date as datetime object
-    result["birth_datetime"] = local_dt
-
     result["final_analysis"] = generate_final_analysis(result)
 
     return result
@@ -932,14 +956,24 @@ def generate_final_analysis(result):
     # --- Dynamic: primary doshas ---
     active_doshas = [p["summary"].split(":")[0] for p in problems if p.get("detail")]
 
-    # --- Dynamic: first timing period ---
+    # --- Dynamic: first actionable timing period ---
+    # Prefer [FUTURE] or [NOW] antardasha-level periods (lines starting with └─)
+    # over broad Mahadasha lines or past/seed/formative entries.
     first_event = list(timings.keys())[0]
     first_range = "upcoming years"
+    _found_timing = False
     for _event, _periods in timings.items():
-        if _periods:
+        for _p in _periods:
+            if "KARMIC SEED" in _p or "FORMATIVE" in _p:
+                continue
+            if "[PAST]" in _p:
+                continue
             first_event = _event
-            _m = _re.search(r"\((\d{4}-\d{4})\)", _periods[0])
+            _m = _re.search(r"\((\d{4}-\d{4})\)", _p)
             first_range = _m.group(1) if _m else "upcoming years"
+            _found_timing = True
+            break
+        if _found_timing:
             break
 
     # --- Dynamic: current dasha description ---
@@ -1033,9 +1067,9 @@ def main():
                 ayanamsa_choice = "Lahiri"
             try:
                 result = calculate_kundali(
-                    date_str, time_str, place, gender=gender, ayanamsa_name=ayanamsa_choice
+                    date_str, time_str, place, gender=gender, ayanamsa_name=ayanamsa_choice,
+                    name=name,
                 )
-                result["name"] = name
 
                 outputs_dir = os.path.join(os.path.dirname(__file__), "outputs")
                 os.makedirs(outputs_dir, exist_ok=True)
@@ -1122,8 +1156,8 @@ def main():
                                 place,
                                 gender=gender,
                                 ayanamsa_name=ayanamsa_choice,
+                                name=name,
                             )
-                            result["name"] = name
                             rect_filename = os.path.join(outputs_dir, f"{name}_kundali_rectified.txt")
                             with open(rect_filename, "w", encoding="utf-8") as f:
                                 print_kundali(result, file=f)

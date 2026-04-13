@@ -2,7 +2,7 @@
 """
 Decision Engine — actionable life guidance from kundali data.
 
-Eight decision categories synthesized from the full chart:
+Nine decision categories synthesized from the full chart:
   1. Career     — best career path (10th house, D10, Atmakaraka)
   2. Marriage   — when to marry (dasha windows, transit triggers)
   3. Business   — good/bad periods for investments & ventures
@@ -11,6 +11,7 @@ Eight decision categories synthesized from the full chart:
   6. Daily      — what to do today (transit + pancha pakshi)
   7. Compatibility — partner matching (Ashtakoot + dosha)
   8. Education  — best fields of study (4th/5th house, D24)
+  9. Life Analysis — unified synthesis across all major domains
 
 All functions accept the raw dict from calculate_kundali() and return
 JSON-serializable dicts.
@@ -96,6 +97,15 @@ def _sign_element(sign):
     if sign in air:
         return "Air"
     return "Water"
+
+
+def _ordinal(n):
+    """Return a compact ordinal like 1st, 2nd, 3rd."""
+    if 10 <= (n % 100) <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
 
 
 # ===================================================================
@@ -261,7 +271,7 @@ def get_marriage_decision(result):
 
     blockers = []
     for p in result.get("problems", []):
-        name = p.get("name", "") if isinstance(p, dict) else str(p)
+        name = (p.get("summary", "") or p.get("name", "")) if isinstance(p, dict) else str(p)
         lower = name.lower()
         if any(w in lower for w in ("mangal", "manglik", "kaal sarp", "kemdrum")):
             blockers.append(name)
@@ -271,7 +281,16 @@ def get_marriage_decision(result):
     ve_d9_dignity = get_dignity("Ve", ve_d9_sign) if ve_d9_sign else ""
 
     timings = result.get("timings", {})
-    marriage_periods = timings.get("Marriage", [])
+    marriage_periods_raw = timings.get("Marriage", [])
+    marriage_periods = []
+    for line in marriage_periods_raw:
+        lower = line.lower()
+        if "too young" in lower or "karmic seed" in lower or "formative" in lower:
+            continue
+        if "[past]" in lower:
+            continue
+        if "/" in line or "[future]" in lower or "[now]" in lower:
+            marriage_periods.append(line)
 
     sade_sati = result.get("sade_sati", {})
     sade_sati_active = False
@@ -626,9 +645,9 @@ def get_travel_decision(result):
 def get_daily_guidance(result):
     """Generate daily/weekly guidance from current transits, dasha, panchanga."""
     transits = result.get("transits", {})
-    panchanga = result.get("panchanga", {})
+    panchanga = result.get("current_panchanga") or result.get("panchanga", {})
     pakshi = result.get("pancha_pakshi", {})
-    muhurtha = result.get("muhurtha", {})
+    muhurtha = result.get("current_muhurtha") or result.get("muhurtha", {})
     dasha = _current_dasha_info(result)
 
     transit_effects = {}
@@ -644,17 +663,17 @@ def get_daily_guidance(result):
         h = data.get("house_from_moon", 0)
         if isinstance(h, int):
             if h in (1, 2, 5, 9, 11):
-                favorable.append(f"{planet} in {h}th: {data.get('effect', '')}")
+                favorable.append(f"{planet} in {_ordinal(h)}: {data.get('effect', '')}")
             elif h in (6, 8, 12):
-                challenging.append(f"{planet} in {h}th: {data.get('effect', '')}")
+                challenging.append(f"{planet} in {_ordinal(h)}: {data.get('effect', '')}")
 
     panchanga_info = {}
     if isinstance(panchanga, dict):
         panchanga_info = {
-            "tithi": panchanga.get("tithi", panchanga.get("tithi_name", "")),
-            "vara": panchanga.get("vara", panchanga.get("vara_name", "")),
-            "yoga": panchanga.get("yoga", panchanga.get("yoga_name", "")),
-            "karana": panchanga.get("karana", panchanga.get("karana_name", "")),
+            "tithi": panchanga.get("tithi_name", panchanga.get("tithi", "")),
+            "vara": panchanga.get("vara_name", panchanga.get("vara", "")),
+            "yoga": panchanga.get("yoga_name", panchanga.get("yoga", "")),
+            "karana": panchanga.get("karana_name", panchanga.get("karana", "")),
             "nakshatra": panchanga.get("nakshatra", ""),
         }
 
@@ -663,7 +682,7 @@ def get_daily_guidance(result):
         pakshi_info = {
             "bird": pakshi.get("birth_bird", pakshi.get("bird", "")),
             "current_activity": pakshi.get("current_activity", ""),
-            "ruling_bird": pakshi.get("ruling_bird", ""),
+            "ruling_bird": pakshi.get("ruling_bird_now", pakshi.get("ruling_bird", "")),
         }
 
     muhurtha_score = 0
@@ -963,11 +982,30 @@ def get_education_decision(result):
 
 
 # ===================================================================
+# 9. ADVANCED LIFE ANALYSIS
+# ===================================================================
+
+def get_life_analysis(result):
+    """Return a unified life-domain synthesis from chart data."""
+    from .life_analysis import build_life_analysis
+
+    decision_bundle = {
+        "career": get_career_decision(result),
+        "marriage": get_marriage_decision(result),
+        "business": get_business_decision(result),
+        "health": get_health_decision(result),
+        "travel": get_travel_decision(result),
+        "education": get_education_decision(result),
+    }
+    return build_life_analysis(result, decision_bundle)
+
+
+# ===================================================================
 # Master functions
 # ===================================================================
 
 def get_all_decisions(result):
-    """Return all 7 single-chart decision categories."""
+    """Return all single-chart decision categories including life analysis."""
     return {
         "career": get_career_decision(result),
         "marriage": get_marriage_decision(result),
@@ -976,11 +1014,12 @@ def get_all_decisions(result):
         "travel": get_travel_decision(result),
         "daily_guidance": get_daily_guidance(result),
         "education": get_education_decision(result),
+        "life_analysis": get_life_analysis(result),
     }
 
 
 def get_all_decisions_with_compatibility(result1, result2):
-    """Return all 8 categories including compatibility (needs two charts)."""
+    """Return all categories including compatibility (needs two charts)."""
     decisions = get_all_decisions(result1)
     decisions["compatibility"] = get_compatibility_decision(result1, result2)
     return decisions

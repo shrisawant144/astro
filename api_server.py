@@ -29,6 +29,7 @@ from kundali.api import (
     get_daily_guidance,
     get_compatibility_decision,
     get_education_decision,
+    get_life_analysis,
     get_all_decisions,
 )
 
@@ -2254,6 +2255,48 @@ async def education_decision_simple(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.post("/decisions/life-analysis")
+async def life_analysis_decision(data: BirthData):
+    """
+    🔭 **Advanced Life Analysis Engine**
+
+    Unified synthesis across major life domains:
+    - Identity, career, wealth, relationships, family
+    - Health/longevity risk profile
+    - Learning, travel, spirituality, and timing windows
+
+    Returns a broad life map with strongest domains, pressure points, and
+    a non-fatalistic longevity profile.
+    """
+    try:
+        birth_date = f"{data.year:04d}-{data.month:02d}-{data.day:02d}"
+        birth_time = f"{data.hour:02d}:{data.minute:02d}"
+        result = api_calculate(
+            birth_date, birth_time, data.place,
+            gender=data.gender, ayanamsa=data.ayanamsa, name=data.name,
+        )
+        return to_json(get_life_analysis(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/decisions/life-analysis/simple")
+async def life_analysis_decision_simple(
+    name: str = Query(..., description="Name of the person"),
+    date: str = Query(..., description="Birth date (YYYY-MM-DD)"),
+    time: str = Query(..., description="Birth time (HH:MM)"),
+    place: str = Query(..., description="Birth place"),
+    gender: str = Query("Male"),
+    ayanamsa: str = Query("Lahiri"),
+):
+    """🔭 Advanced life analysis via URL parameters."""
+    try:
+        result = api_calculate(date, time, place, gender=gender, ayanamsa=ayanamsa, name=name)
+        return to_json(get_life_analysis(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.post("/decisions/compatibility")
 async def compatibility_decision(req: MatchRequest):
     """
@@ -2288,9 +2331,9 @@ async def all_decisions(data: BirthData):
     """
     🌟 **All Decisions Engine**
     
-    Get comprehensive life guidance across all 8 decision areas:
+    Get comprehensive life guidance across all 9 decision areas:
     - Career, Marriage, Business, Health
-    - Travel, Daily, Education
+    - Travel, Daily, Education, Life Analysis
     
     Returns a complete decision report for holistic life planning.
     """

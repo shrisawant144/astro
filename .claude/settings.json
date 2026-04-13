@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /home/shrikrishna/astro/*.txt /home/shrikrishna/astro/kundali/)",
+      "Bash(grep -n \"^=\\\\|^---\\\\|^PART\\\\|^Part\\\\|^[A-Z][A-Z ]*$\" /home/shrikrishna/astro/kundali/outputs/shrikrishna_kundali_report.txt)",
+      "Read(//dev/**)",
+      "Bash(awk '/^-{20,}$/{print prev_n\": \"prev} {prev=$0; prev_n=NR}' /home/shrikrishna/astro/kundali/outputs/shrikrishna_kundali_report.txt)",
+      "Bash(grep -n \"^[A-Za-z].*:$\\\\|^[A-Z][A-Za-z ].*[a-z]$\" /home/shrikrishna/astro/kundali/outputs/shrikrishna_kundali_report.txt)",
+      "Bash(grep -n \"^[A-Z][A-Za-z ].*:$\" /home/shrikrishna/astro/kundali/outputs/shrikrishna_kundali_report.txt)",
+      "Bash(python -c ':*)",
+      "Bash(pdftotext -layout /home/shrikrishna/astro/kundali/outputs/shrikrishna_report.pdf -)",
+      "Bash(pdfinfo /home/shrikrishna/astro/kundali/outputs/shrikrishna_report.pdf)"
+    ]
+  }
+}

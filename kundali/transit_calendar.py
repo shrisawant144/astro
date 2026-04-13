@@ -163,9 +163,8 @@ def get_upcoming_ingresses(current_jd, months=24):
             if sign_next != sign_prev:
                 # Refine with bisection
                 exact_jd = _bisect_ingress(planet_id, jd, jd_next)
-                lon_exact, _ = _get_lon(planet_id, exact_jd)
                 from_sign = ZODIAC_SIGNS[sign_prev]
-                to_sign = ZODIAC_SIGNS[_sign_index(lon_exact)]
+                to_sign = ZODIAC_SIGNS[sign_next]
                 ingresses.append(
                     {
                         "planet": planet_name,
@@ -173,9 +172,10 @@ def get_upcoming_ingresses(current_jd, months=24):
                         "to_sign": to_sign,
                         "date": _jd_to_date(exact_jd),
                         "jd": round(exact_jd, 4),
+                        "description": f"{planet_name} -> {to_sign}",
                     }
                 )
-                sign_prev = _sign_index(lon_exact)
+                sign_prev = sign_next
             else:
                 sign_prev = sign_next
 
@@ -561,8 +561,11 @@ def generate_transit_calendar(result, months=24):
     if result and "planets" in result and result["planets"]:
         natal_positions = {}
         for planet_code, pdata in result["planets"].items():
-            if isinstance(pdata, dict) and "longitude" in pdata:
-                natal_positions[planet_code] = pdata["longitude"]
+            if isinstance(pdata, dict):
+                if "longitude" in pdata:
+                    natal_positions[planet_code] = pdata["longitude"]
+                elif "full_lon" in pdata:
+                    natal_positions[planet_code] = pdata["full_lon"]
             elif isinstance(pdata, (int, float)):
                 natal_positions[planet_code] = pdata
         if natal_positions:
@@ -577,19 +580,61 @@ def generate_transit_calendar(result, months=24):
     all_events = []
     for e in ingresses:
         if _within_30(e):
-            all_events.append({**e, "event_type": "ingress"})
+            all_events.append(
+                {
+                    **e,
+                    "event_type": "ingress",
+                    "description": e.get("description", f"{e.get('planet', '?')} -> {e.get('to_sign', '?')}"),
+                }
+            )
     for e in retrogrades:
         if _within_30(e):
-            all_events.append({**e, "event_type": "retrograde_station"})
+            all_events.append(
+                {
+                    **e,
+                    "event_type": "retrograde_station",
+                    "description": (
+                        f"{e.get('planet', '?')} "
+                        f"{str(e.get('type', '')).replace('_', ' ')} in {e.get('sign', '?')}"
+                    ).strip(),
+                }
+            )
     for e in eclipses:
         if _within_30(e):
-            all_events.append({**e, "event_type": "eclipse"})
+            all_events.append(
+                {
+                    **e,
+                    "event_type": "eclipse",
+                    "description": (
+                        f"{str(e.get('type', 'eclipse')).title()} eclipse "
+                        f"({e.get('subtype', '?')})"
+                    ),
+                }
+            )
     for e in conjunctions:
         if _within_30(e):
-            all_events.append({**e, "event_type": "conjunction"})
+            all_events.append(
+                {
+                    **e,
+                    "event_type": "conjunction",
+                    "description": (
+                        f"{e.get('p1', '?')}-{e.get('p2', '?')} "
+                        f"in {e.get('sign', '?')} (orb {e.get('orb', '?')}°)"
+                    ),
+                }
+            )
     for e in natal_triggers:
         if _within_30(e):
-            all_events.append({**e, "event_type": "natal_trigger"})
+            all_events.append(
+                {
+                    **e,
+                    "event_type": "natal_trigger",
+                    "description": (
+                        f"{e.get('transit_planet', '?')} over natal {e.get('natal_planet', '?')} "
+                        f"in {e.get('sign', '?')} (orb {e.get('orb', '?')}°)"
+                    ),
+                }
+            )
 
     all_events.sort(key=lambda e: e.get("jd", 0))
 

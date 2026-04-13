@@ -479,26 +479,30 @@ def calculate_shadbala(result):
     lat = result.get("lat", 0.0)
     lon_geo = result.get("lon", 0.0)
     try:
-        sunrise_data = swe.rise_trans(
+        sunrise_res, sunrise_tret = swe.rise_trans(
             birth_jd - 1,
             swe.SUN,
-            "",
             swe.CALC_RISE,
-            geopos=(lon_geo, lat, 0),
-            atpress=0,
-            attemp=0,
+            (lon_geo, lat, 0),
+            0,
+            0,
+            swe.FLG_SWIEPH,
         )
-        sunrise_jd = sunrise_data[1][0] if sunrise_data[1] else birth_jd - 0.25
-        sunset_data = swe.rise_trans(
+        sunrise_jd = (
+            sunrise_tret[0] if sunrise_res == 0 and sunrise_tret else birth_jd - 0.25
+        )
+        sunset_res, sunset_tret = swe.rise_trans(
             birth_jd - 1,
             swe.SUN,
-            "",
             swe.CALC_SET,
-            geopos=(lon_geo, lat, 0),
-            atpress=0,
-            attemp=0,
+            (lon_geo, lat, 0),
+            0,
+            0,
+            swe.FLG_SWIEPH,
         )
-        sunset_jd = sunset_data[1][0] if sunset_data[1] else birth_jd + 0.25
+        sunset_jd = (
+            sunset_tret[0] if sunset_res == 0 and sunset_tret else birth_jd + 0.25
+        )
     except Exception:
         sunrise_jd = birth_jd - 0.25
         sunset_jd = birth_jd + 0.25

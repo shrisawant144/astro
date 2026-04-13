@@ -147,14 +147,96 @@ def houses_are_consecutive(house_set):
     return False
 
 
-def get_panchanga(birth_jd, sun_lon, moon_lon):
+def _jd_to_utc_datetime(jd):
+    """Convert a Julian Day to a timezone-aware UTC datetime."""
+    year, month, day, hour, minute, second = swe.jdut1_to_utc(jd, swe.GREG_CAL)
+    base = datetime.datetime(year, month, day, hour, minute, tzinfo=pytz.utc)
+    return base + datetime.timedelta(seconds=second)
+
+
+def _weekday_monday0_from_jd(jd, tz_name=None):
+    """Return weekday for a Julian Day using local date when timezone is known."""
+    dt_utc = _jd_to_utc_datetime(jd)
+    if tz_name:
+        try:
+            dt_local = dt_utc.astimezone(pytz.timezone(tz_name))
+            return dt_local.weekday()
+        except Exception:
+            pass
+    return dt_utc.weekday()
+
+
+def _sunrise_after(start_jd, lat, lon):
+    """Return the first sunrise after *start_jd* for the given location."""
+    try:
+        res, tret = swe.rise_trans(
+            start_jd,
+            swe.SUN,
+            swe.CALC_RISE,
+            (lon, lat, 0),
+            0,
+            0,
+            swe.FLG_SWIEPH,
+        )
+        if res == 0 and tret:
+            sunrise_jd = tret[0]
+            if sunrise_jd > 0:
+                return sunrise_jd
+    except Exception:
+        pass
+    return None
+
+
+def get_sunrise_based_day(jd, lat=None, lon=None, tz_name=None):
+    """
+    Return the sunrise-based day info for a moment.
+
+    In orthodox Panchanga usage, Vara runs from sunrise to the next sunrise.
+    So a time after midnight but before sunrise belongs to the previous Vara.
+    """
+    # Fallback to civil Julian-day weekday when location is unavailable.
+    civil_monday0 = _weekday_monday0_from_jd(jd, tz_name)
+    civil_sunday0 = (civil_monday0 + 1) % 7
+    fallback = {
+        "day_start_jd": None,
+        "weekday_monday0": civil_monday0,
+        "vara_idx": civil_sunday0,
+        "vara_name": VARA_NAMES[civil_sunday0],
+        "sunrise_based": False,
+    }
+    if lat is None or lon is None:
+        return fallback
+
+    # Find the latest sunrise before the given moment.
+    last_sunrise = _sunrise_after(jd - 1.5, lat, lon)
+    if last_sunrise is None:
+        return fallback
+
+    for _ in range(3):
+        next_sunrise = _sunrise_after(last_sunrise + 0.01, lat, lon)
+        if next_sunrise is None or next_sunrise > jd:
+            break
+        last_sunrise = next_sunrise
+
+    weekday_monday0 = _weekday_monday0_from_jd(last_sunrise, tz_name)
+    vara_idx = (weekday_monday0 + 1) % 7  # 0=Sun ... 6=Sat
+    return {
+        "day_start_jd": last_sunrise,
+        "weekday_monday0": weekday_monday0,
+        "vara_idx": vara_idx,
+        "vara_name": VARA_NAMES[vara_idx],
+        "sunrise_based": True,
+    }
+
+
+def get_panchanga(birth_jd, sun_lon, moon_lon, lat=None, lon=None, tz_name=None):
     """Return birth Panchanga: Tithi, Vara, Yoga, Karana."""
     # Tithi
     tithi_num = int((moon_lon - sun_lon) % 360 / 12)  # 0-29
     tithi = TITHI_NAMES[tithi_num]
-    # Vara (day of week)
-    vara_idx = int(birth_jd + 1.5) % 7  # 0=Sun,1=Mon,...,6=Sat
-    vara = VARA_NAMES[vara_idx]
+    # Vara (sunrise to sunrise)
+    day_info = get_sunrise_based_day(birth_jd, lat, lon, tz_name)
+    vara = day_info["vara_name"]
     # Yoga (27 Nithya Yogas)
     yoga_idx = int((sun_lon + moon_lon) % 360 / (360 / 27)) % 27
     yoga = YOGA_NAMES[yoga_idx]
@@ -170,7 +252,14 @@ def get_panchanga(birth_jd, sun_lon, moon_lon):
         karana = "Chatushpada"
     else:
         karana = "Naga"
-    return {"tithi": tithi, "vara": vara, "yoga": yoga, "karana": karana}
+    return {
+        "tithi": tithi,
+        "vara": vara,
+        "yoga": yoga,
+        "karana": karana,
+        "sunrise_day_start_jd": day_info["day_start_jd"],
+        "sunrise_based_vara": day_info["sunrise_based"],
+    }
 
 
 def get_sade_sati_status(natal_moon_sign, current_sa_sign):

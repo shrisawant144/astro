@@ -12,6 +12,7 @@ Covers:
 
 import swisseph as swe
 from .nakshatra import NAKSHATRAS, TARA_NAMES
+from .utils import get_sunrise_based_day
 
 # ─── Panchanga constants ──────────────────────────────────────────────────────
 
@@ -79,7 +80,7 @@ KARANA_NAMES = [
     "Balava",
     "Kaulava",
     "Taitila",
-    "Garaja",
+    "Gara",
     "Vanija",
     "Vishti",
     "Shakuni",
@@ -167,7 +168,7 @@ INAUSPICIOUS_NAKSHATRAS = {
 # ─── Panchanga calculation ────────────────────────────────────────────────────
 
 
-def get_panchanga(jd, lat=0.0, lon=0.0):
+def get_panchanga(jd, lat=0.0, lon=0.0, tz_name=None):
     """
     Calculate Panchanga (five elements) for a given Julian Day.
 
@@ -186,13 +187,10 @@ def get_panchanga(jd, lat=0.0, lon=0.0):
     diff = (moon_lon - sun_lon) % 360
     tithi = int(diff / 12) + 1  # 1-30
 
-    # Vara (day of week): 0=Sun, 1=Mon ... 6=Sat
-    jd_int = int(jd + 0.5)
-    vara = int(jd_int % 7)  # Rough; corrected via weekday offset
-    # Swiss ephemeris gives Julian Day; day of week formula:
-    vara_day = int((jd + 1.5) % 7)  # 0=Mon ... 6=Sun
-    # Convert to Sun=0 standard
-    vara_day_sun = (vara_day + 1) % 7
+    # Vara (sunrise to sunrise)
+    day_info = get_sunrise_based_day(jd, lat, lon, tz_name)
+    vara_day = day_info["weekday_monday0"]  # 0=Mon ... 6=Sun
+    vara_day_sun = day_info["vara_idx"]  # 0=Sun ... 6=Sat
 
     # Nakshatra: 27 nakshatras, each 13°20'
     nak_span = 360 / 27
@@ -222,6 +220,8 @@ def get_panchanga(jd, lat=0.0, lon=0.0):
         "karana_name": karana_name,
         "moon_lon": moon_lon,
         "sun_lon": sun_lon,
+        "sunrise_day_start_jd": day_info["day_start_jd"],
+        "sunrise_based_vara": day_info["sunrise_based"],
     }
 
 
@@ -374,7 +374,8 @@ def evaluate_muhurtha(jd, birth_result, lat=0.0, lon=0.0, purpose="general"):
             total_score, max_score, grade, summary, warnings
         }
     """
-    panchanga = get_panchanga(jd, lat, lon)
+    tz_name = birth_result.get("timezone") if isinstance(birth_result, dict) else None
+    panchanga = get_panchanga(jd, lat, lon, tz_name)
     warnings = []
     score = 0
     max_score = 100

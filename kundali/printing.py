@@ -36,6 +36,70 @@ def _write_decisions_section(write, all_decisions):
     write("\n" + "═" * 95)
     write(" LIFE GUIDANCE — Decision Engines")
     write("═" * 95)
+
+    # ── Advanced Life Analysis ──────────────────────────────────────────────
+    life = all_decisions.get("life_analysis", {})
+    if life:
+        write("\n┌─ ADVANCED LIFE ANALYSIS ──────────────────────────────────────────────────────────────┐")
+
+        phase = life.get("current_life_phase", {})
+        if phase:
+            write("\n  Current Life Phase:")
+            write(f"    Mahadasha   : {phase.get('mahadasha', '-')}")
+            write(f"    Antardasha  : {phase.get('antardasha', '-')}")
+            theme = phase.get("theme", "")
+            if theme:
+                write(f"    Theme       : {theme}")
+
+        strongest = life.get("strongest_domains", [])
+        if strongest:
+            write("\n  Strongest Domains:")
+            for item in strongest[:3]:
+                write(
+                    f"    • {item.get('domain', '')}: {item.get('score', '-')}/100 "
+                    f"({item.get('status', '')})"
+                )
+
+        attention = life.get("attention_domains", [])
+        if attention:
+            write("\n  Domains Needing Attention:")
+            for item in attention[:3]:
+                write(
+                    f"    • {item.get('domain', '')}: {item.get('score', '-')}/100 "
+                    f"({item.get('status', '')})"
+                )
+
+        longevity = life.get("longevity_profile", {})
+        if longevity:
+            write("\n  Longevity & Risk Profile:")
+            write(
+                f"    Resilience  : {longevity.get('overall_resilience', '-')}"
+                f" ({longevity.get('overall_resilience_score', '-')}/100)"
+            )
+            for item in longevity.get("protective_factors", [])[:3]:
+                write(f"    + {item}")
+            for item in longevity.get("risk_factors", [])[:3]:
+                write(f"    ! {item}")
+            for item in longevity.get("sensitive_periods", [])[:3]:
+                write(f"    • Sensitive: {item}")
+            note = longevity.get("note", "")
+            if note:
+                write(f"    Note        : {note}")
+
+        timing = life.get("timing_overview", [])
+        if timing:
+            write("\n  Timing Overview:")
+            for item in timing[:6]:
+                write(
+                    f"    • {item.get('domain', item.get('event', ''))}: "
+                    f"{item.get('period', '')}"
+                )
+
+        advice = life.get("master_advice", "")
+        if advice:
+            write(f"\n  Life Strategy: {advice}")
+
+        write("└" + "─" * 89 + "┘")
     
     # ── Career Guidance ──────────────────────────────────────────────────────
     career = all_decisions.get("career", {})
@@ -48,12 +112,12 @@ def _write_decisions_section(write, all_decisions):
             for i, field in enumerate(fields[:10], 1):
                 write(f"    {i:2d}. {field}")
         
-        period = career.get("current_period", {})
+        period = career.get("current_dasha", career.get("current_period", {}))
         if period:
             write("\n  Current Career Period:")
             write(f"    Mahadasha   : {period.get('mahadasha', '-')}")
             write(f"    Antardasha  : {period.get('antardasha', '-')}")
-            good = "Yes ✓" if period.get("good_for_career") else "No"
+            good = "Yes ✓" if career.get("good_period_for_career_change", period.get("good_for_career")) else "No"
             write(f"    Good Period : {good}")
         
         advice = career.get("advice", "")
@@ -77,7 +141,7 @@ def _write_decisions_section(write, all_decisions):
         if readiness:
             write(f"\n  Marriage Readiness: {readiness}")
         
-        windows = marriage.get("favorable_windows", [])
+        windows = marriage.get("favorable_periods", marriage.get("favorable_windows", []))
         if windows:
             write("\n  Favorable Marriage Windows:")
             for i, window in enumerate(windows[:6], 1):
@@ -164,27 +228,21 @@ def _write_decisions_section(write, all_decisions):
     if travel:
         write("\n┌─ TRAVEL & RELOCATION ─────────────────────────────────────────────────────────────────┐")
         
-        directions = travel.get("favorable_directions", travel.get("directions", []))
-        if directions:
-            write("\n  Favorable Directions:")
-            for direction in directions[:8]:
-                if isinstance(direction, dict):
-                    dir_name = direction.get("direction", str(direction))
-                    reason = direction.get("reason", "")
-                    text = f"    • {dir_name}" + (f" — {reason}" if reason else "")
-                else:
-                    text = f"    • {direction}"
-                write(text)
-        
-        foreign = travel.get("foreign_settlement", travel.get("foreign", {}))
-        if foreign:
-            write("\n  Foreign Settlement Potential:")
-            if isinstance(foreign, dict):
-                for k, v in list(foreign.items())[:6]:
-                    label = str(k).replace("_", " ").title()
-                    write(f"    {label:20}: {v}")
-            else:
-                write(f"    {foreign}")
+        best_dir = travel.get("best_travel_direction", "")
+        home_dir = travel.get("home_direction", "")
+        if best_dir or home_dir:
+            write("\n  Directions:")
+            if best_dir:
+                write(f"    Best for Travel  : {best_dir}")
+            if home_dir:
+                write(f"    Home Direction   : {home_dir}")
+
+        foreign_likelihood = travel.get("foreign_settlement_likelihood", "")
+        foreign_score = travel.get("foreign_indicators_score", "")
+        if foreign_likelihood:
+            write(f"\n  Foreign Settlement Likelihood: {foreign_likelihood}")
+            if foreign_score:
+                write(f"    Indicators Score : {foreign_score}")
         
         timing = travel.get("favorable_periods", travel.get("timing", []))
         if timing:
@@ -232,39 +290,56 @@ def _write_decisions_section(write, all_decisions):
     daily = all_decisions.get("daily_guidance", {})
     if daily:
         write("\n┌─ DAILY GUIDANCE & MUHURTHA ───────────────────────────────────────────────────────────┐")
-        
-        overview = daily.get("overview", daily.get("today", ""))
-        if overview:
-            write(f"\n  Today's Overview: {overview}")
-        
-        auspicious = daily.get("auspicious_activities", daily.get("favorable", []))
-        if auspicious:
-            write("\n  Auspicious Activities for Today:")
-            for activity in auspicious[:8]:
-                write(f"    ✓ {activity}")
-        
-        avoid = daily.get("activities_to_avoid", daily.get("unfavorable", []))
-        if avoid:
-            write("\n  Activities to Avoid:")
-            for activity in avoid[:8]:
-                write(f"    ✗ {activity}")
-        
-        lucky = daily.get("lucky_elements", {})
-        if lucky:
-            write("\n  Lucky Elements:")
-            if lucky.get("color"):
-                write(f"    Color     : {lucky['color']}")
-            if lucky.get("number"):
-                write(f"    Number    : {lucky['number']}")
-            if lucky.get("direction"):
-                write(f"    Direction : {lucky['direction']}")
-            if lucky.get("gemstone"):
-                write(f"    Gemstone  : {lucky['gemstone']}")
-        
-        advice = daily.get("advice", daily.get("general_advice", ""))
-        if advice:
-            write(f"\n  Daily Advice: {advice}")
-        
+
+        day_rating = daily.get("day_rating", "")
+        day_score = daily.get("day_score", "")
+        if day_rating:
+            score_str = f" ({day_score}/100)" if day_score else ""
+            write(f"\n  Day Rating: {day_rating}{score_str}")
+
+        dasha = daily.get("current_dasha", {})
+        if dasha:
+            write(f"  Current Dasha: {dasha.get('mahadasha', '-')} / {dasha.get('antardasha', '-')}")
+
+        favorable = daily.get("favorable_transits", [])
+        if favorable:
+            write("\n  Favorable Transits:")
+            for t in favorable[:5]:
+                write(f"    ✓ {t}")
+
+        challenging = daily.get("challenging_transits", [])
+        if challenging:
+            write("\n  Challenging Transits:")
+            for t in challenging[:5]:
+                write(f"    ✗ {t}")
+
+        panch = daily.get("panchanga", {})
+        if panch and any(panch.values()):
+            write("\n  Panchanga:")
+            for k in ("tithi", "vara", "yoga", "karana", "nakshatra"):
+                v = panch.get(k)
+                if v:
+                    write(f"    {k.title():12}: {v}")
+
+        pakshi = daily.get("pancha_pakshi", {})
+        if pakshi and any(pakshi.values()):
+            write("\n  Pancha Pakshi:")
+            for k, v in pakshi.items():
+                if v:
+                    label = str(k).replace("_", " ").title()
+                    write(f"    {label:20}: {v}")
+
+        muhurtha_grade = daily.get("muhurtha_grade", "")
+        muhurtha_score = daily.get("muhurtha_score", "")
+        if muhurtha_grade or muhurtha_score:
+            write(f"\n  Muhurtha: {muhurtha_grade} (score {muhurtha_score})")
+
+        tips = daily.get("daily_tips", [])
+        if tips:
+            write("\n  Daily Tips:")
+            for tip in tips[:5]:
+                write(f"    • {tip}")
+
         write("└" + "─" * 89 + "┘")
 
     write("")
@@ -288,8 +363,8 @@ def print_kundali(result, file=None):
     write(f"Birth Place  : {result.get('birth_place', 'N/A')}")
     write(f"Lagna        : {result['lagna_sign']} {result['lagna_deg']}°")
     write(f"Moon (Rasi)  : {result['moon_sign']} – {result['moon_nakshatra']}")
-    write(f"7th Lord     : {result['seventh_lord']}")
-    write(f"Ayanamsa    : {result.get('ayanamsa', 'Lahiri')}")
+    write(f"7th Lord     : {short_to_full.get(result['seventh_lord'], result['seventh_lord'])}")
+    write(f"Ayanamsa     : {result.get('ayanamsa', 'Lahiri')}")
     # Panchanga
     pan = result.get("panchanga", {})
     if pan:
@@ -466,30 +541,6 @@ def print_kundali(result, file=None):
             "  Note: A 'Malefic' planet in own sign/exalted becomes Conditional Benefic."
         )
 
-    # Cross-Chart Planetary Integrity Index
-    write("\nCross-Chart Planetary Integrity Index (D1-D9-D10-D7):")
-    write("-" * 85)
-    write(
-        "(Measures each planet's consistency across divisional charts – D9 weighted ×2 for marriage context)"
-    )
-    write("")
-
-    # ...existing code...
-
-    # D9 (Navamsa) gets double weight since it is the primary marriage/dharma divisional chart.
-    # CHART_WEIGHTS is now imported from constants
-
-    for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
-        if pl not in result["planets"]:
-            continue
-
-        integrity_score = 50
-        positions = {"D1": result["planets"][pl]["sign"]}
-        strong_count = 0
-        weak_count = 0
-
-    write("")
-
     # House Lord Placements
     write("\nHouse Lord Placements:")
     write("-" * 85)
@@ -534,9 +585,13 @@ def print_kundali(result, file=None):
     else:
         write("  Could not determine karakas.")
 
-    write("\nVimshottari Dasha:")
+    # Cross-Chart Planetary Integrity Index
+    write("\nCross-Chart Planetary Integrity Index (D1-D9-D10-D7):")
     write("-" * 85)
-    vim = result["vimshottari"]
+    write(
+        "(Measures each planet's consistency across divisional charts – D9 weighted ×2 for marriage context)"
+    )
+    write("")
 
     for pl in ["Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa"]:
         if pl not in result["planets"]:
@@ -604,31 +659,6 @@ def print_kundali(result, file=None):
         write(f"  {pl_full:9} [{bar}] {integrity_score:3}/100 | {reliability}")
         write(f"             Positions: {pos_str}")
     write("")
-
-    # House Lord Placements
-    write("\nHouse Lord Placements:")
-    write("-" * 85)
-    hl_map = result.get("house_lords", {})
-    lagna_idx_p = zodiac_signs.index(result["lagna_sign"])
-    for h_num in range(1, 13):
-        h_sign = zodiac_signs[(lagna_idx_p + h_num - 1) % 12]
-        info = hl_map.get(h_num, {})
-        lord = info.get("lord", "?")
-        placed = info.get("placed_in")
-        lord_full = short_to_full.get(lord, lord)
-        placed_sign = zodiac_signs[(lagna_idx_p + placed - 1) % 12] if placed else "?"
-        key = (h_num, placed)
-        if key in HOUSE_LORD_IN_HOUSE:
-            meaning = HOUSE_LORD_IN_HOUSE[key]
-        else:
-            meaning = (
-                f"Lord of House {h_num} ({h_sign}) placed in House {placed} ({placed_sign}): "
-                f"House {h_num} themes expressed through the environment of House {placed}."
-            )
-        write(
-            f"  H{h_num:02d} ({h_sign:11}) lord {lord_full:9} → H{placed:02d} ({placed_sign:11}): "
-            f"{meaning.split(':')[-1].strip()}"
-        )
 
     write("\nVimshottari Dasha:")
     write("-" * 85)
@@ -1165,7 +1195,7 @@ def print_kundali(result, file=None):
         summary = tc.get("summary_next_30_days", [])
         if summary:
             for evt in summary[:15]:
-                evt_type = evt.get("type", evt.get("event_type", "event")).upper()
+                evt_type = str(evt.get("type", evt.get("event_type", "event"))).replace("_", " ").upper()
                 desc = evt.get("description", evt.get("planet", ""))
                 write(f"  {evt.get('date','?')}  {evt_type:<18} {desc}")
         ingresses = tc.get("ingresses", [])

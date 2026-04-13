@@ -40,26 +40,26 @@ _KAALA_DAY_PART = {0: 2, 1: 7, 2: 5, 3: 3, 4: 1, 5: 6, 6: 4}
 def _get_sunrise_sunset(birth_jd, lat, lon_geo):
     """Return (sunrise_jd, sunset_jd) for the birth date."""
     try:
-        sr = swe.rise_trans(
+        sr_res, sr_tret = swe.rise_trans(
             birth_jd - 1,
             swe.SUN,
-            "",
             swe.CALC_RISE,
-            geopos=(lon_geo, lat, 0),
-            atpress=0,
-            attemp=0,
+            (lon_geo, lat, 0),
+            0,
+            0,
+            swe.FLG_SWIEPH,
         )
-        ss = swe.rise_trans(
+        ss_res, ss_tret = swe.rise_trans(
             birth_jd - 1,
             swe.SUN,
-            "",
             swe.CALC_SET,
-            geopos=(lon_geo, lat, 0),
-            atpress=0,
-            attemp=0,
+            (lon_geo, lat, 0),
+            0,
+            0,
+            swe.FLG_SWIEPH,
         )
-        sunrise_jd = sr[1][0] if sr[1] else birth_jd - 0.25
-        sunset_jd = ss[1][0] if ss[1] else birth_jd + 0.25
+        sunrise_jd = sr_tret[0] if sr_res == 0 and sr_tret else birth_jd - 0.25
+        sunset_jd = ss_tret[0] if ss_res == 0 and ss_tret else birth_jd + 0.25
     except Exception:
         sunrise_jd = birth_jd - 0.25
         sunset_jd = birth_jd + 0.25
@@ -82,15 +82,13 @@ def _day_portion_jd(sunrise_jd, sunset_jd, part_num):
     return sunrise_jd + (part_num - 1) * portion_len
 
 
-def _upagraha_from_day_part(part_map, birth_jd, lat, lon_geo):
+def _upagraha_from_day_part(part_map, birth_jd, lat, lon_geo, vara_idx=None):
     """
     Generic: find which day part this upagraha occupies, compute its Lagna.
     Returns (sign_str, deg_in_sign_float).
     """
     sunrise_jd, sunset_jd = _get_sunrise_sunset(birth_jd, lat, lon_geo)
-    vara_jd = int(birth_jd + 0.5)  # approximate weekday JD
-    # Use birth_jd weekday
-    weekday = int(birth_jd + 1.5) % 7  # 0=Sun,1=Mon,…,6=Sat
+    weekday = vara_idx if vara_idx is not None else int((birth_jd + 0.5) % 7)
     part = part_map.get(weekday, 1)
     portion_jd = _day_portion_jd(sunrise_jd, sunset_jd, part)
     asc_lon = _lagna_at_jd(portion_jd, lat, lon_geo)
@@ -165,6 +163,7 @@ def calculate_upagrahas(result):
     birth_jd = result["birth_jd"]
     lat = result.get("lat", 0.0)
     lon_geo = result.get("lon", 0.0)
+    vara_idx = result.get("birth_vara_idx")
     sun_lon = result["planets"]["Su"]["full_lon"]
     moon_lon = result["planets"]["Mo"]["full_lon"]
 
@@ -177,7 +176,9 @@ def calculate_upagrahas(result):
         ("Ardhaprahara", _ARDHAPRAHARA_DAY_PART),
         ("Kaala", _KAALA_DAY_PART),
     ]:
-        sign, deg, full_lon = _upagraha_from_day_part(part_map, birth_jd, lat, lon_geo)
+        sign, deg, full_lon = _upagraha_from_day_part(
+            part_map, birth_jd, lat, lon_geo, vara_idx
+        )
         out[name] = {"sign": sign, "deg": deg, "full_lon": full_lon}
 
     # Sun/Moon arithmetic upagrahas

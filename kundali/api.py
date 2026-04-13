@@ -87,9 +87,7 @@ def calculate(birth_date, birth_time, place, gender="Male", ayanamsa="Lahiri", n
         dict: Raw kundali result (pass to serialize_result() for JSON-safe output).
     """
     from .main import calculate_kundali
-    result = calculate_kundali(birth_date, birth_time, place, gender=gender, ayanamsa_name=ayanamsa)
-    if name:
-        result["name"] = name
+    result = calculate_kundali(birth_date, birth_time, place, gender=gender, ayanamsa_name=ayanamsa, name=name or "native")
     return result
 
 
@@ -285,6 +283,12 @@ def serialize_result(result):
     # Problems / Doshas
     out["problems"] = to_json(result.get("problems", []))
 
+    # Unified life analysis
+    try:
+        out["life_analysis"] = get_life_analysis(result)
+    except Exception:
+        out["life_analysis"] = {}
+
     # Final analysis text
     out["final_analysis"] = to_json(result.get("final_analysis", ""))
 
@@ -348,13 +352,19 @@ def get_education_decision(chart_data):
     return to_json(_edu(chart_data))
 
 
+def get_life_analysis(chart_data):
+    """Unified life-domain synthesis with timing and longevity-risk overview."""
+    from .decisions import get_life_analysis as _life
+    return to_json(_life(chart_data))
+
+
 def get_all_decisions(chart_data):
-    """All 7 single-chart decision categories at once."""
+    """All single-chart decision categories at once."""
     from .decisions import get_all_decisions as _all
     return to_json(_all(chart_data))
 
 
 def get_all_decisions_with_compatibility(chart1, chart2):
-    """All 8 decision categories including compatibility."""
+    """All decision categories including compatibility."""
     from .decisions import get_all_decisions_with_compatibility as _all_compat
     return to_json(_all_compat(chart1, chart2))

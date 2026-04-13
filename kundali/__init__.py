@@ -20,6 +20,7 @@ Decision Engines:
     decisions.get_daily_guidance(result)
     decisions.get_compatibility_decision(result1, result2)
     decisions.get_education_decision(result)
+    decisions.get_life_analysis(result)
     decisions.get_all_decisions(result)
 """
 
@@ -43,6 +44,7 @@ from .decisions import (
     get_daily_guidance,
     get_compatibility_decision,
     get_education_decision,
+    get_life_analysis,
     get_all_decisions,
     get_all_decisions_with_compatibility,
 )
@@ -66,6 +68,7 @@ __all__ = [
     "get_daily_guidance",
     "get_compatibility_decision",
     "get_education_decision",
+    "get_life_analysis",
     "get_all_decisions",
     "get_all_decisions_with_compatibility",
 ]
