@@ -683,7 +683,7 @@ def generate_pdf_report(result, output_path=None):
 # Text-driven rendering (mirrors print_kundali output verbatim)
 # ---------------------------------------------------------------------------
 
-_RULE_RE = re.compile(r"^[-=─═]{5,}\s*$")
+_RULE_RE = re.compile(r"^\s*[-=─═]{5,}\s*$")
 _BANNER_RE = re.compile(r"^[═=]{20,}\s*$")
 
 
@@ -926,9 +926,21 @@ _LONG_PLANET_LINE_RE = re.compile(
     r"^\s*(Sun|Moon|Mars|Mercury|Jupiter|Venus|Saturn|Rahu|Ketu)\s+in\s+.+$"
 )
 _KV_LINE_RE = re.compile(r"^\s*([A-Za-z0-9()/'&.+ \-]{2,42})\s*:\s*(.+)\s*$")
-_BULLET_LINE_RE = re.compile(r"^\s*(\d+\.)\s+(.+)$|^\s*([*•\-~✓⚠!]|->|=>|→)\s*(.+)$")
+_BULLET_LINE_RE = re.compile(
+    r"^\s*(\d+\.)\s+(.+)$|^\s*(\?\?|└─|├─|[*•\-~✓⚠!]|->|=>|→)\s*(.+)$"
+)
 _BOX_TITLE_RE = re.compile(r"^\s*[┌├]\s*[-─]*\s*(.+?)\s*[-─]*[┐┤]\s*$")
 _BOX_BORDER_RE = re.compile(r"^\s*[└┘┌┐├┤][─-]{8,}[└┘┌┐├┤]?\s*$")
+_TRANSIT_SUMMARY_RE = re.compile(
+    r"^\s*(Su|Mo|Ma|Me|Ju|Ve|Sa|Ra|Ke):\s+.+\(house\s+\d+\)\s+[–-]\s+.+$"
+)
+_ASPECT_DETAIL_RE = re.compile(r"^\s*[A-Za-z]{2}\s*(?:->|→)\s*[A-Za-z]{2}\s*:\s+.+$")
+_DATED_EVENT_RE = re.compile(r"^\s*\d{4}-\d{2}-\d{2}\s{2,}\S.+$")
+_TABULAR_HEADER_RE = re.compile(r"^\s*(Yogini|Sign|Period)\s{2,}.+$")
+_TABULAR_ROW_RE = re.compile(
+    r"^\s*(?:Day|Night)\s+Yama\s+\d+\s{2,}.+$|"
+    r"^\s*[A-Za-z][A-Za-z0-9/()\- ]{0,18}\s{2,}[A-Za-z]{1,10}\s{2,}\d+(?:\.\d+)?\s{2,}\d{4}[–-]\d{4}\s*$"
+)
 
 
 def _collapse_inline_spaces(text):
@@ -982,6 +994,14 @@ def _looks_preformatted_line(line):
         stripped,
     ):
         return True
+    if (
+        _TRANSIT_SUMMARY_RE.match(stripped)
+        or _ASPECT_DETAIL_RE.match(stripped)
+        or _DATED_EVENT_RE.match(stripped)
+        or _TABULAR_HEADER_RE.match(stripped)
+        or _TABULAR_ROW_RE.match(stripped)
+    ):
+        return True
     return False
 
 
@@ -1010,6 +1030,9 @@ def _bullet_marker(prefix):
     if prefix.endswith("."):
         return prefix
     return {
+        "??": "-",
+        "└─": "-",
+        "├─": "-",
         "✓": "+",
         "✔": "+",
         "⚠": "!",
@@ -1022,6 +1045,10 @@ def _bullet_marker(prefix):
         "!": "!",
         "*": "*",
     }.get(prefix, "*")
+
+
+def _bullet_indent(prefix):
+    return 5 if (prefix or "").strip() in {"??", "└─", "├─"} else 0
 
 
 def _parse_box_title(line):
@@ -1041,6 +1068,18 @@ def _is_inline_subheading(line):
         return False
     kv = _parse_kv_line(stripped)
     return kv is None
+
+
+def _expand_compound_bullet_lines(lines):
+    expanded = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("?? ") and stripped.count("?? ") > 1:
+            parts = re.split(r"\s+(?=\?\?\s+)", stripped)
+            expanded.extend(part.strip() for part in parts if part.strip())
+            continue
+        expanded.append(line)
+    return expanded
 
 
 def _render_paragraph_block(pdf, lines, section_title=None):
@@ -1080,16 +1119,17 @@ def _render_bullet_block(pdf, items, section_title=None):
         if not text:
             continue
         pdf.set_font("Times", "", 10.4)
+        indent = _bullet_indent(prefix)
         marker = _bullet_marker(prefix)
-        text_width = pdf.epw - 7
+        text_width = pdf.epw - 7 - indent
         est_height = _estimate_wrapped_lines(pdf, text, text_width) * 4.8 + 1
         _ensure_content_space(pdf, est_height + 1, section_title=section_title)
         y = pdf.get_y()
-        pdf.set_xy(pdf.l_margin, y + 0.2)
+        pdf.set_xy(pdf.l_margin + indent, y + 0.2)
         pdf.set_font("Helvetica", "B", 9.5)
         pdf.set_text_color(*ACCENT_GOLD)
         pdf.cell(6, 4.5, pdf.normalize_text(marker))
-        pdf.set_xy(pdf.l_margin + 6.5, y)
+        pdf.set_xy(pdf.l_margin + indent + 6.5, y)
         pdf.set_font("Times", "", 10.4)
         pdf.set_text_color(*TEXT_COLOR)
         pdf.multi_cell(text_width, 4.8, pdf.normalize_text(text))
@@ -1103,9 +1143,11 @@ def _render_preformatted_block(pdf, lines, section_title=None):
 
     pdf.set_font("Courier", "", 8.3)
     line_height = 4.0
+    inner_width = pdf.epw - 6
+    wrapped_counts = [_estimate_wrapped_lines(pdf, raw, inner_width) for raw in rendered]
 
     if len(rendered) <= 10:
-        box_height = len(rendered) * line_height + 4
+        box_height = sum(wrapped_counts) * line_height + 4
         _ensure_content_space(pdf, box_height + 1.5, section_title=section_title)
         x = pdf.l_margin
         y = pdf.get_y()
@@ -1116,22 +1158,22 @@ def _render_preformatted_block(pdf, lines, section_title=None):
         pdf.set_text_color(*DARK_GRAY)
         for raw in rendered:
             pdf.set_x(x + 3)
-            pdf.cell(pdf.epw - 6, line_height, raw, ln=True)
+            pdf.multi_cell(inner_width, line_height, raw)
         pdf.set_text_color(*TEXT_COLOR)
         pdf.set_y(y + box_height + 1.5)
         return
 
     _ensure_content_space(pdf, 10, section_title=section_title)
     pdf.set_text_color(*DARK_GRAY)
-    for raw in rendered:
-        if pdf.get_y() + line_height > pdf.page_break_trigger:
+    for raw, wrapped_count in zip(rendered, wrapped_counts):
+        if pdf.get_y() + wrapped_count * line_height > pdf.page_break_trigger:
             pdf.start_new_standard_page()
             if section_title:
                 pdf.continuation_heading(section_title)
             pdf.set_font("Courier", "", 8.4)
             pdf.set_text_color(*DARK_GRAY)
         pdf.set_x(pdf.l_margin + 2)
-        pdf.cell(pdf.epw - 4, line_height, raw, ln=True)
+        pdf.multi_cell(pdf.epw - 4, line_height, raw)
     pdf.set_text_color(*TEXT_COLOR)
     pdf.ln(1.2)
 
@@ -1339,6 +1381,7 @@ def _render_section(pdf, sec):
         for line in body
         if not _RULE_RE.match(line or "") and not _BOX_BORDER_RE.match((line or "").strip())
     ]
+    body = _expand_compound_bullet_lines(body)
 
     if pdf.get_y() + 25 > pdf.page_break_trigger:
         pdf.start_new_standard_page()

@@ -344,6 +344,7 @@ def serialize_result(result):
     out["north_chart_path"] = to_json(result.get("north_chart_path", ""))
     out["sky_chart_path"] = to_json(result.get("sky_chart_path", ""))
     out["pdf_report_path"] = to_json(result.get("pdf_report_path", ""))
+    out["pdf_report_error"] = to_json(result.get("pdf_report_error", ""))
 
     return out
 

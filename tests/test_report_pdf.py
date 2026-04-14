@@ -113,3 +113,43 @@ def test_generate_pdf_report_emits_no_ln_deprecation(chart, tmp_path):
         and '"ln"' in str(warning.message)
     ]
     assert not ln_warnings
+
+
+def test_txt_renderer_recognizes_nested_timing_bullets():
+    from kundali.report_pdf import _bullet_marker, _parse_bullet_line
+
+    parsed = _parse_bullet_line("?? Mercury/Venus (2027-2030) (Age 28-31) [FUTURE]")
+    tree_parsed = _parse_bullet_line("└─ Mercury/Moon (2031-2032) (Age 32-33) [FUTURE]")
+
+    assert parsed == ("??", "Mercury/Venus (2027-2030) (Age 28-31) [FUTURE]")
+    assert tree_parsed == ("└─", "Mercury/Moon (2031-2032) (Age 32-33) [FUTURE]")
+    assert _bullet_marker("??") == "-"
+    assert _bullet_marker("└─") == "-"
+
+
+def test_txt_renderer_detects_problematic_rows_as_preformatted():
+    from kundali.report_pdf import _looks_preformatted_line
+
+    assert _looks_preformatted_line("Ju: Gemini      (house  5) - Wisdom")
+    assert _looks_preformatted_line("Su -> Ju : square (orb 7.03deg)")
+    assert _looks_preformatted_line("2026-04-14  INGRESS            Su -> Aries")
+    assert _looks_preformatted_line("Yogini         Lord       Years   Period")
+    assert _looks_preformatted_line("Mangala        Mo         0.4     1999-1999")
+    assert _looks_preformatted_line(
+        "Day Yama 1         Sleeping     ****o  Good for constructive work"
+    )
+
+
+def test_txt_renderer_splits_compound_timing_lines():
+    from kundali.report_pdf import _expand_compound_bullet_lines
+
+    lines = [
+        "?? Mercury/Venus (2027-2030) [FUTURE] ?? Mercury/Moon (2031-2032) [FUTURE]",
+        "* Mercury Mahadasha (2024-2041) [NOW]",
+    ]
+
+    assert _expand_compound_bullet_lines(lines) == [
+        "?? Mercury/Venus (2027-2030) [FUTURE]",
+        "?? Mercury/Moon (2031-2032) [FUTURE]",
+        "* Mercury Mahadasha (2024-2041) [NOW]",
+    ]

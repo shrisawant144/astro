@@ -8,6 +8,15 @@ Install: pip install fastapi uvicorn
 Thin HTTP layer — all heavy logic lives in kundali.api.
 """
 
+import os
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+except ImportError:
+    pass
+
 from fastapi import FastAPI, HTTPException, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse

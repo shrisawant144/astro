@@ -1064,16 +1064,11 @@ def calculate_kundali(
     except Exception:
         result["transit_calendar"] = {}
 
-    # ── Tier 4: Charts & Report ───────────────────────────────────────────────
+    # ── Tier 4: Charts ────────────────────────────────────────────────────────
     try:
         result["north_chart_path"] = generate_north_indian_chart(result)
     except Exception:
         result["north_chart_path"] = ""
-
-    try:
-        result["pdf_report_path"] = generate_pdf_report(result)
-    except Exception:
-        result["pdf_report_path"] = ""
 
     # Additional fields for spouse predictor
     result["functional_nature"] = calculate_functional_nature(result)
@@ -1088,6 +1083,8 @@ def calculate_kundali(
         full = short_to_full.get(code, code)
         result["planets_full_long"][full] = data["full_lon"]
     result["final_analysis"] = generate_final_analysis(result)
+    result["pdf_report_path"] = ""
+    result["pdf_report_error"] = ""
 
     rectification_summary = None
     if rectification_events and not _rectification_context:
@@ -1157,6 +1154,14 @@ def calculate_kundali(
         location_source=result.get("location_source", "geocoded"),
         timezone_source=result.get("timezone_source", "lookup"),
     )
+
+    try:
+        result["pdf_report_path"] = generate_pdf_report(result)
+        result["pdf_report_error"] = ""
+    except Exception as exc:
+        result["pdf_report_path"] = ""
+        result["pdf_report_error"] = str(exc)
+        warnings.warn(f"PDF report generation failed: {exc}")
 
     return result
 

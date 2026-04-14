@@ -28,11 +28,6 @@ from .main import calculate_kundali
 from .spouse.predictor import AdvancedSpousePredictor
 from .pancha_pakshi import calculate_pancha_pakshi
 from .sky_chart import generate_sky_chart
-from .ai_astrologer import (
-    get_ai_interpretation,
-    get_marriage_analysis,
-    get_career_analysis,
-)
 from . import api
 from . import decisions
 from .benchmarking import evaluate_benchmark_case, run_benchmark_suite, load_benchmark_cases
@@ -55,9 +50,6 @@ __all__ = [
     "AdvancedSpousePredictor",
     "calculate_pancha_pakshi",
     "generate_sky_chart",
-    "get_ai_interpretation",
-    "get_marriage_analysis",
-    "get_career_analysis",
     "api",
     "decisions",
     "evaluate_benchmark_case",

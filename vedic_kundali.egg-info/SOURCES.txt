@@ -1,6 +1,5 @@
 pyproject.toml
 kundali/__init__.py
-kundali/ai_astrologer.py
 kundali/ashtakavarga.py
 kundali/avastha.py
 kundali/constants.py
